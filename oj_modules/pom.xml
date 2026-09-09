@@ -11,6 +11,12 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <artifactId>oj-modules</artifactId>
     <packaging>pom</packaging>
+    <modules>
+        <module>oj_system</module>
+        <module>oj_friend</module>
+        <module>oj_job</module>
+        <module>oj_judge</module>
+    </modules>
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -19,6 +25,17 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!--    添加自定义依赖    -->
+        <dependency>
+            <groupId>cn.nuonuoya</groupId>
+            <artifactId>oj_common_core</artifactId>
+            <version>${oj-common-core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.nuonuoya</groupId>
+            <artifactId>oj_common_security</artifactId>
+            <version>${oj-common-security.core}</version>
         </dependency>
     </dependencies>
 </project>
