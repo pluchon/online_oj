@@ -51,6 +51,12 @@
 		<springdoc-openapi.version>2.2.0</springdoc-openapi.version>
 		<oj-common-security.core>1.0-SNAPSHOT</oj-common-security.core>
 		<oj-common-security.version>1.0-SNAPSHOT</oj-common-security.version>
+		<oj-common-redis.version>1.0-SNAPSHOT</oj-common-redis.version>
+		<fastjson.version>2.0.43</fastjson.version>
+		<jwt.version>0.9.1</jwt.version>
+		<javax.version>2.4.0-b180830.0359</javax.version>
+		<hutool-all.version>5.8.22</hutool-all.version>
+		<oj_common_mybatis.version>1.0-SNAPSHOT</oj_common_mybatis.version>
 	</properties>
 
 	<dependencies>

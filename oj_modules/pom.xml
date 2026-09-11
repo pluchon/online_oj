@@ -37,5 +37,24 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
             <artifactId>oj_common_security</artifactId>
             <version>${oj-common-security.core}</version>
         </dependency>
+        <dependency>
+            <groupId>cn.nuonuoya</groupId>
+            <artifactId>oj_common_redis</artifactId>
+            <version>${oj-common-redis.version}</version>
+        </dependency>
+        <!--    微服务    -->
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.nuonuoya</groupId>
+            <artifactId>oj_common_mybatis</artifactId>
+            <version>${oj-common-mybatis.version}</version>
+        </dependency>
     </dependencies>
 </project>

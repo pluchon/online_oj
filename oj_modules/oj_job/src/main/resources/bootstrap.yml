@@ -4,4 +4,4 @@ server:
 spring:
   application:
     # 应⽤名称
-    name: oj_job
+    name: oj-job

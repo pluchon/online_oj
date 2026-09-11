@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.controller;
 
+import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.system.dto.SysUserSaveDTO;
 import cn.nuonuoya.system.dto.UserLoginDTO;
@@ -25,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/sysUser")
 @Tag(name = "管理员⽤⼾API")
-public class SysUserController {
+public class SysUserController extends BaseController {
 
     @Autowired
     private SysUserService sysUserService;
@@ -35,17 +36,17 @@ public class SysUserController {
     @ApiResponse(responseCode = "1000", description = "操作成功")
     @ApiResponse(responseCode = "3102", description = "⽤⼾不存在")
     @ApiResponse(responseCode = "3103", description = "⽤⼾名或密码错误")
-    public OJResult<Void> login(@RequestBody UserLoginDTO userLoginDTO) {
+    public OJResult<String> login(@RequestBody UserLoginDTO userLoginDTO) {
         return sysUserService.login(userLoginDTO.getUserAccount(), userLoginDTO.getPassword());
     }
 
+    /** 新增管理员用户 */
     @Operation(summary = "新增管理员", description = "根据提供的信息新增管理员⽤⼾")
     @PostMapping("/add")
     @ApiResponse(responseCode = "1000", description = "操作成功")
     @ApiResponse(responseCode = "2000", description = "服务繁忙请稍后重试")
-    @ApiResponse(responseCode = "3101", description = "⽤⼾已存在")
     public OJResult<Void> add(@RequestBody SysUserSaveDTO saveDTO) {
-        return sysUserService.add(saveDTO);
+        return toResult(sysUserService.add(saveDTO));
     }
 
     @DeleteMapping("/{userId}")

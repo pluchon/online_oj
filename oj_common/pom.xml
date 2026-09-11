@@ -15,6 +15,9 @@
         <module>oj_common_core</module>
         <module>oj_common_swagger</module>
         <module>oj_common_security</module>
+        <module>oj_gateway</module>
+        <module>oj_common_redis</module>
+        <module>oj_common_mybatis</module>
     </modules>
 
     <properties>

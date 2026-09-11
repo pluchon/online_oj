@@ -1,0 +1,259 @@
+{
+  "info": {
+    "_postman_id": "8a32b260-192a-4db5-b827-online-oj-api",
+    "name": "Online OJ - 鉴权与登录测试",
+    "description": "用于在 Apifox / Postman 中一键导入并验证网关鉴权过滤器与业务端 Token 拦截器",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. 管理员登录（获取Token）",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.code === 1000 && jsonData.data) {",
+              "    pm.collectionVariables.set('token', jsonData.data);",
+              "    console.log('Token 获取成功并已写入集合变量');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"userAccount\": \"admin\",\n    \"password\": \"123456\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/sysUser/login",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "sysUser",
+            "login"
+          ]
+        },
+        "description": "通过网关登录管理员账号，密码为 123456，响应成功后自动将 Token 存入集合变量"
+      },
+      "response": []
+    },
+    {
+      "name": "2. 正常鉴权请求（带有效Token）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/test/list",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "test",
+            "list"
+          ]
+        },
+        "description": "带正常 Bearer Token 请求受保护接口，网关放行，拦截器处理续期，期望 code: 1000"
+      },
+      "response": []
+    },
+    {
+      "name": "3. 正常鉴权请求（兼容token请求头）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/test/list",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "test",
+            "list"
+          ]
+        },
+        "description": "使用 'token' 字段传参（不带 Bearer 前缀），验证请求头兼容性，期望 code: 1000"
+      },
+      "response": []
+    },
+    {
+      "name": "4. 拦截验证：未携带Token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/test/list",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "test",
+            "list"
+          ]
+        },
+        "description": "不携带任何 Token 访问受保护接口，期望网关拦截并返回 code: 3001, msg: '令牌不能为空'"
+      },
+      "response": []
+    },
+    {
+      "name": "5. 拦截验证：携带伪造/篡改Token",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer forged_invalid_token_xyz",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/test/list",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "test",
+            "list"
+          ]
+        },
+        "description": "携带非法签名的 Token，期望网关拦截并返回 code: 3001, msg: '令牌已过期或验证不正确！'"
+      },
+      "response": []
+    },
+    {
+      "name": "6. 用户详情接口（业务接口验证）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/sysUser/detail?userId=1",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "sysUser",
+            "detail"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "1"
+            }
+          ]
+        },
+        "description": "验证业务详情接口，期望 code: 1000，返回管理员详细资料"
+      },
+      "response": []
+    },
+    {
+      "name": "7. 新增管理员用户",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"userAccount\": \"new_admin_test\",\n    \"password\": \"123456\",\n    \"nickName\": \"新管理员\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/sysUser/add",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "sysUser",
+            "add"
+          ]
+        },
+        "description": "新增管理员用户接口，验证 toResult 统一响应"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "token",
+      "value": ""
+    }
+  ]
+}

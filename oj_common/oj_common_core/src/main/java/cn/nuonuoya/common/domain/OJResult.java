@@ -31,32 +31,67 @@ public class OJResult<T> implements Serializable {
         this.data = data;
     }
 
-    // 成功响应无数据
+    // ======================== ok 方法组 ========================
+
+    // 成功，无数据
     public static <T> OJResult<T> ok() {
         return assembleResult(null, ResultCode.SUCCESS);
     }
 
-    // 成功响应带数据
+    // 成功，带数据
     public static <T> OJResult<T> ok(T data) {
         return assembleResult(data, ResultCode.SUCCESS);
     }
 
-    // 默认失败响应
+    // 成功，自定义提示信息，无数据
+    public static <T> OJResult<T> okMsg(String msg) {
+        return assembleResult(ResultCode.SUCCESS.getCode(), msg, null);
+    }
+
+    // 成功，自定义提示信息并带数据
+    public static <T> OJResult<T> ok(String msg, T data) {
+        return assembleResult(ResultCode.SUCCESS.getCode(), msg, data);
+    }
+
+    // ======================== fail 方法组 ========================
+
+    // 默认失败
     public static <T> OJResult<T> fail() {
         return assembleResult(null, ResultCode.FAILED);
     }
 
-    // 指定错误码失败响应
+    // 指定错误码失败
     public static <T> OJResult<T> fail(ResultCode resultCode) {
         return assembleResult(null, resultCode);
     }
 
-    // 统一装配结果对象
+    // 自定义错误码和提示信息
+    public static <T> OJResult<T> fail(int code, String msg) {
+        return assembleResult(code, msg, null);
+    }
+
+    // 默认失败码，自定义提示信息
+    public static <T> OJResult<T> fail(String msg) {
+        return assembleResult(ResultCode.FAILED.getCode(), msg, null);
+    }
+
+    // ======================== 私有装配方法 ========================
+
+    // 通过枚举装配
     private static <T> OJResult<T> assembleResult(T data, ResultCode resultCode) {
         OJResult<T> r = new OJResult<>();
         r.setCode(resultCode.getCode());
-        r.setData(data);
         r.setMsg(resultCode.getMsg());
+        r.setData(data);
+        return r;
+    }
+
+    // 通过自定义 code 和 msg 装配
+    private static <T> OJResult<T> assembleResult(int code, String msg, T data) {
+        OJResult<T> r = new OJResult<>();
+        r.setCode(code);
+        r.setMsg(msg);
+        r.setData(data);
         return r;
     }
 }
