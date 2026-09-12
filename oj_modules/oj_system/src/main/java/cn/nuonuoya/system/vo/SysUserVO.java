@@ -9,14 +9,6 @@ import lombok.Setter;
 @Setter
 public class SysUserVO {
 
-    // 用户ID
-    @Schema(description = "用户ID")
-    private Long userId;
-
-    // 用户账号
-    @Schema(description = "用户账号")
-    private String userAccount;
-
     // 用户昵称
     @Schema(description = "用户昵称")
     private String nickName;

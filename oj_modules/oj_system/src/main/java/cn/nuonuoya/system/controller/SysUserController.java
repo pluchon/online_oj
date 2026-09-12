@@ -1,5 +1,7 @@
 package cn.nuonuoya.system.controller;
 
+import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.system.dto.SysUserSaveDTO;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -61,16 +64,27 @@ public class SysUserController extends BaseController {
         return sysUserService.delete(userId);
     }
 
-    @Operation(summary = "⽤⼾详情", description = "根据查询条件查询⽤⼾详情")
+    /** 获取管理员详情 */
+    @Operation(summary = "用户详情", description = "获取当前登录管理员详情")
     @GetMapping("/detail")
-    @Parameters(value = {
-            @Parameter(name = "userId", in = ParameterIn.QUERY, description = "⽤⼾ID"),
-            @Parameter(name = "sex", in = ParameterIn.QUERY, description = "⽤⼾性别")
-    })
-    @ApiResponse(responseCode = "1000", description = "成功获取⽤⼾信息")
+    @ApiResponse(responseCode = "1000", description = "成功获取用户信息")
     @ApiResponse(responseCode = "2000", description = "服务繁忙请稍后重试")
-    @ApiResponse(responseCode = "3102", description = "⽤⼾不存在")
-    public OJResult<SysUserVO> detail(Long userId, @RequestParam(required = false) String sex) {
-        return sysUserService.detail(userId, sex);
+    @ApiResponse(responseCode = "3001", description = "未授权或登录已过期")
+    @ApiResponse(responseCode = "3102", description = "用户不存在")
+    public OJResult<SysUserVO> detail(@RequestHeader(name = HttpConstants.AUTHENTICATION, required = false) String token,
+                                      @RequestHeader(name = "token", required = false) String tokenBackup) {
+        String finalToken = StrUtil.isNotEmpty(token) ? token : tokenBackup;
+        return sysUserService.detail(finalToken);
+    }
+
+    /** 管理员退出登录 */
+    @Operation(summary = "管理员退出登录", description = "销毁当前管理员会话并清除Redis令牌")
+    @DeleteMapping("/logout")
+    @ApiResponse(responseCode = "1000", description = "成功退出登录")
+    @ApiResponse(responseCode = "2000", description = "服务繁忙请稍后重试")
+    public OJResult<Void> logout(@RequestHeader(name = HttpConstants.AUTHENTICATION, required = false) String token,
+                                 @RequestHeader(name = "token", required = false) String tokenBackup) {
+        String finalToken = StrUtil.isNotEmpty(token) ? token : tokenBackup;
+        return toResult(sysUserService.logout(finalToken));
     }
 }

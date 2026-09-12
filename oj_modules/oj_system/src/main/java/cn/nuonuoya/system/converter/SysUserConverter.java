@@ -16,8 +16,6 @@ public class SysUserConverter {
             return null;
         }
         SysUserVO vo = new SysUserVO();
-        vo.setUserId(entity.getUserId());
-        vo.setUserAccount(entity.getUserAccount());
         vo.setNickName(entity.getNickName());
         return vo;
     }

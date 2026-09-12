@@ -12,8 +12,8 @@ public class MyMetaObjectHandler implements MetaObjectHandler {
     @Override
     public void insertFill(MetaObject metaObject) {
         this.strictInsertFill(metaObject,"createTime", LocalDateTime.class,LocalDateTime.now());
-        // 拿取当前操作的用户ID
-        this.strictInsertFill(metaObject,"createBy", Long.class,);
+        // TODO 拿取当前操作的用户ID
+        this.strictInsertFill(metaObject,"createBy", Long.class,100L);
     }
 
     @Override

@@ -248,6 +248,37 @@
         "description": "新增管理员用户接口，验证 toResult 统一响应"
       },
       "response": []
+    },
+    {
+      "name": "8. 管理员退出登录",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/sysUser/logout",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "sysUser",
+            "logout"
+          ]
+        },
+        "description": "管理员退出登录接口，销毁当前Redis会话，期望 code: 1000"
+      },
+      "response": []
     }
   ],
   "variable": [

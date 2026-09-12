@@ -36,9 +36,11 @@
             <artifactId>hutool-all</artifactId>
             <version>${hutool-all.version}</version>
         </dependency>
+        <!--   不能引入启动类，否则会依赖污染     -->
+        <!--    BaseEntity 中的 @TableField 注解正常工作，同时排除了整个 HikariCP 和数据源自动配置对公共模块的污染    -->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <artifactId>mybatis-plus-annotation</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
     </dependencies>

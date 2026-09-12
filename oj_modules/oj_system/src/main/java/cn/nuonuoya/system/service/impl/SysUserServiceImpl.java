@@ -37,9 +37,9 @@ public class SysUserServiceImpl implements SysUserService {
     // 账号搜索查询
     @Override
     public OJResult<String> login(String userAccount, String password) {
-        // 同时查出 userId 和 password，userId 用于写入 JWT 和 Redis
+        // 查出 userId 密码 以及昵称
         SysUser loginResult = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
-                .select(SysUser::getUserId, SysUser::getPassword)
+                .select(SysUser::getUserId, SysUser::getPassword, SysUser::getNickName)
                 .eq(SysUser::getUserAccount, userAccount));
         // 校验用户存在性
         if (loginResult == null) {
@@ -49,9 +49,10 @@ public class SysUserServiceImpl implements SysUserService {
         if (!BCryptUtils.matchesPassword(password, loginResult.getPassword())) {
             return OJResult.fail(ResultCode.FAILED_LOGIN);
         }
-        // 构建 LoginUser，写入身份标识后生成 Token
+        // 构建 LoginUser 写入身份标识和昵称后生成 Token
         LoginUser loginUser = new LoginUser();
         loginUser.setIdentity(UserIdentity.ADMIN.getValue());
+        loginUser.setNickName(loginResult.getNickName());
         String token = tokenService.createToken(loginResult.getUserId(), loginUser);
         return OJResult.ok(token);
     }
@@ -95,18 +96,26 @@ public class SysUserServiceImpl implements SysUserService {
         return OJResult.ok();
     }
 
-    // 用户详情
+    // 获取用户详情 直接从Redis读取登录用户信息
     @Override
-    public OJResult<SysUserVO> detail(Long userId, String sex) {
-        if (userId == null) {
-            return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE);
+    public OJResult<SysUserVO> detail(String token) {
+        LoginUser loginUser = tokenService.getLoginUser(token);
+        if (loginUser == null) {
+            return OJResult.fail(ResultCode.FAILED_UNAUTHORIZED);
         }
-        // 查询用户并转换为VO
-        SysUser sysUser = sysUserMapper.selectById(userId);
-        if (sysUser == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+        SysUserVO vo = new SysUserVO();
+        vo.setNickName(loginUser.getNickName());
+        return OJResult.ok(vo);
+    }
+
+    // 管理员退出登录
+    @Override
+    public boolean logout(String token) {
+        if (StrUtil.isEmpty(token)) {
+            return false;
         }
-        return OJResult.ok(SysUserConverter.toVO(sysUser));
+        tokenService.deleteLoginUser(token);
+        return true;
     }
 
     // 查询所有用户列表

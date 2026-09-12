@@ -19,7 +19,10 @@ public interface SysUserService {
     OJResult<Void> delete(Long userId);
 
     // 用户详情
-    OJResult<SysUserVO> detail(Long userId, String sex);
+    OJResult<SysUserVO> detail(String token);
+
+    // 管理员退出登录
+    boolean logout(String token);
 
     // 查询所有用户列表
     OJResult<List<SysUserVO>> list();

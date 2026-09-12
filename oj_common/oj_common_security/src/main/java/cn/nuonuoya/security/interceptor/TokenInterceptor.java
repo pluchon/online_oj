@@ -25,24 +25,12 @@ public class TokenInterceptor implements HandlerInterceptor {
         return true;
     }
 
-    // 从请求中获取token，容错处理引号、多余Bearer前缀及空白字符
+    // 从请求中获取token并清洗
     private String getToken(HttpServletRequest request) {
         String token = request.getHeader(HttpConstants.AUTHENTICATION);
         if (StrUtil.isEmpty(token)) {
             token = request.getHeader("token");
         }
-        if (StrUtil.isEmpty(token)) {
-            return null;
-        }
-        token = token.trim();
-        // 去除可能的双引号包裹（从JSON复制时易带入引号）
-        if (token.startsWith("\"") && token.endsWith("\"") && token.length() > 1) {
-            token = token.substring(1, token.length() - 1).trim();
-        }
-        // 循环去除可能重复的 Bearer 前缀
-        while (token.toLowerCase().startsWith("bearer ")) {
-            token = token.substring(7).trim();
-        }
-        return token;
+        return tokenService.cleanToken(token);
     }
 }

@@ -25,6 +25,5 @@ public class BaseEntity implements Serializable {
     private Long updateBy;
 
     @TableField(fill = FieldFill.UPDATE)
-    @TableField
     private LocalDateTime updateTime;
 }

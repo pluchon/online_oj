@@ -44,41 +44,90 @@ public class TokenService {
         return token;
     }
 
-    // 延长token的有效期，也就是延长Redis的有效期，必须是身份认证通过后，到达controller之前
-    // 最后决定放在拦截器里面，因为拦截器是在所有的过滤器后执行的
-    public void extendTokenTTL(String token, String secret) {
-        Claims claims;
+    // 清洗Token 去除Bearer前缀 双引号及空白字符
+    public String cleanToken(String token) {
+        if (StrUtil.isEmpty(token)) {
+            return null;
+        }
+        token = token.trim();
+        if (token.startsWith("\"") && token.endsWith("\"") && token.length() > 1) {
+            token = token.substring(1, token.length() - 1).trim();
+        }
+        while (token.toLowerCase().startsWith("bearer ")) {
+            token = token.substring(7).trim();
+        }
+        return token;
+    }
+
+    // 解析并获取Token中的Claims载荷
+    public Claims getClaims(String token) {
+        token = cleanToken(token);
+        if (StrUtil.isEmpty(token)) {
+            return null;
+        }
         try {
-            claims = JwtUtils.parseToken(token, secret);
-            // 获取令牌中信息 解析payload中信息
-            if (claims == null) {
-                log.warn("[Token续期] 解析出的Claims为空，跳过续期");
-                return;
-            }
+            return JwtUtils.parseToken(token, secret);
         } catch (Exception e) {
-            log.error("[Token续期] 解析令牌发生异常，跳过续期: {}", e.getMessage());
+            log.error("[Token解析] 解析令牌发生异常: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    // 从Token中解析出用户ID
+    public Long getUserId(String token) {
+        Claims claims = getClaims(token);
+        if (claims == null) {
+            return null;
+        }
+        String userId = JwtUtils.getUserId(claims);
+        return StrUtil.isNotEmpty(userId) ? Long.valueOf(userId) : null;
+    }
+
+    // 从Token中解析出userKey
+    public String getUserKey(String token) {
+        Claims claims = getClaims(token);
+        return claims != null ? JwtUtils.getUserKey(claims) : null;
+    }
+
+    // 从Token中获取Redis中存储的登录用户信息
+    public LoginUser getLoginUser(String token) {
+        String userKey = getUserKey(token);
+        if (StrUtil.isEmpty(userKey)) {
+            return null;
+        }
+        return redisService.getCacheObject(getTokenKey(userKey), LoginUser.class);
+    }
+
+    // 删除登录用户缓存（使令牌失效）
+    public void deleteLoginUser(String token) {
+        String userKey = getUserKey(token);
+        if (StrUtil.isNotEmpty(userKey)) {
+            redisService.deleteObject(getTokenKey(userKey));
+        }
+    }
+
+    // 延长Token有效期
+    public void extendTokenTTL(String token) {
+        Claims claims = getClaims(token);
+        if (claims == null) {
             return;
         }
-        // 校验通过
         String userKey = JwtUtils.getUserKey(claims);
         if (StrUtil.isEmpty(userKey)) {
             log.warn("[Token续期] 令牌中未包含有效的 userKey，跳过续期");
             return;
         }
-        // 延长有效期
         String key = getTokenKey(userKey);
-        // 校验剩余时间，决定是不是要进行延长
         Long expire = redisService.getExpire(key, TimeUnit.MINUTES);
         if (expire != null && expire < CacheConstants.TOKEN_REFRESH_TIME) {
-            // 刷新恢复为满血有效期（720分钟）
             redisService.expire(key, CacheConstants.EXPIRATION, TimeUnit.MINUTES);
             log.info("[Token续期] 用户会话即将过期，成功刷新有效期: userKey={}, 原剩余时间={}分钟", userKey, expire);
         }
     }
 
-    // 延长token有效期（单参数重载，直接使用自身注入的 secret）
-    public void extendTokenTTL(String token) {
-        extendTokenTTL(token, this.secret);
+    // 延长Token有效期 兼容双参调用
+    public void extendTokenTTL(String token, String secret) {
+        extendTokenTTL(token);
     }
 
     private String getTokenKey(String userKey){
