@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.nuonuoya.system.mapper.QuestionMapper">
+
+    <select id="selectQuestionList" resultType="cn.nuonuoya.system.vo.QuestionVO">
+        SELECT
+            q.question_id AS questionId,
+            q.title,
+            q.difficulty,
+            u.nick_name AS creatorName,
+            q.create_time AS createTime
+        FROM tb_question q
+        LEFT JOIN tb_sys_user u ON q.create_by = u.user_id
+        <where>
+            <if test="query.difficulty != null">
+                AND q.difficulty = #{query.difficulty}
+            </if>
+            <if test="query.title != null and query.title != ''">
+                AND q.title LIKE CONCAT('%', #{query.title}, '%')
+            </if>
+        </where>
+        ORDER BY q.create_time DESC
+    </select>
+
+</mapper>
