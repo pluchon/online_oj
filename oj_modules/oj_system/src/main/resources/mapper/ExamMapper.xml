@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.nuonuoya.system.mapper.ExamMapper">
+
+    <select id="selectExamList" resultType="cn.nuonuoya.system.vo.ExamVO">
+        SELECT
+            e.exam_id AS examId,
+            e.title,
+            e.start_time AS startTime,
+            e.end_time AS endTime,
+            e.status,
+            u.nick_name AS creatorName,
+            e.create_time AS createTime
+        FROM tb_exam e
+        LEFT JOIN tb_sys_user u ON e.create_by = u.user_id
+        <where>
+            <if test="query.title != null and query.title != ''">
+                AND e.title LIKE CONCAT('%', #{query.title}, '%')
+            </if>
+            <if test="query.startTime != null and query.startTime != ''">
+                AND e.start_time &gt;= #{query.startTime}
+            </if>
+            <if test="query.endTime != null and query.endTime != ''">
+                AND e.end_time &lt;= #{query.endTime}
+            </if>
+        </where>
+        ORDER BY e.create_time DESC
+    </select>
+
+</mapper>

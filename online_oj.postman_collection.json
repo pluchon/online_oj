@@ -279,6 +279,368 @@
         "description": "管理员退出登录接口，销毁当前Redis会话，期望 code: 1000"
       },
       "response": []
+    },
+    {
+      "name": "9. 竞赛列表查询",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/list?pageNum=1&pageSize=10",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "list"
+          ],
+          "query": [
+            {
+              "key": "pageNum",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "分页查询竞赛列表，支持标题模糊及起止时间筛选"
+      },
+      "response": []
+    },
+    {
+      "name": "10. 新增竞赛基本信息",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"title\": \"Postman测试竞赛\",\n    \"startTime\": \"2026-10-01 09:00:00\",\n    \"endTime\": \"2026-10-01 12:00:00\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/add",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "add"
+          ]
+        },
+        "description": "新增未发布的竞赛基本信息，返回生成的竞赛ID"
+      },
+      "response": []
+    },
+    {
+      "name": "11. 查询竞赛详情",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/detail?examId=1800000000000000001",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "detail"
+          ],
+          "query": [
+            {
+              "key": "examId",
+              "value": "1800000000000000001"
+            }
+          ]
+        },
+        "description": "根据竞赛ID查询详情与已绑定题目"
+      },
+      "response": []
+    },
+    {
+      "name": "12. 编辑竞赛基本信息",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"examId\": 1800000000000000002,\n    \"title\": \"修改后的竞赛标题\",\n    \"startTime\": \"2034-05-30 17:41:32\",\n    \"endTime\": \"2034-06-30 23:00:00\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/edit",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "edit"
+          ]
+        },
+        "description": "编辑竞赛基本信息，已开赛的竞赛禁止修改"
+      },
+      "response": []
+    },
+    {
+      "name": "13. 绑定题目到竞赛",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"examId\": 1800000000000000002,\n    \"questionIds\": [1796119683661783042]\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/question/add",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "question",
+            "add"
+          ]
+        },
+        "description": "将选中的题目批量绑定到竞赛"
+      },
+      "response": []
+    },
+    {
+      "name": "14. 查询竞赛关联题目列表",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/question/list?examId=1800000000000000002",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "question",
+            "list"
+          ],
+          "query": [
+            {
+              "key": "examId",
+              "value": "1800000000000000002"
+            }
+          ]
+        },
+        "description": "查询指定竞赛已绑定的题目列表"
+      },
+      "response": []
+    },
+    {
+      "name": "15. 发布竞赛",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/publish/1800000000000000002",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "publish",
+            "1800000000000000002"
+          ]
+        },
+        "description": "发布竞赛（要求题目数>=1，且未开赛）"
+      },
+      "response": []
+    },
+    {
+      "name": "16. 撤销发布竞赛",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/cancel-publish/1800000000000000002",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "cancel-publish",
+            "1800000000000000002"
+          ]
+        },
+        "description": "撤销发布竞赛，恢复为未发布状态"
+      },
+      "response": []
+    },
+    {
+      "name": "17. 移除竞赛关联题目",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/question/1800000000000000002/1796119683661783042",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "question",
+            "1800000000000000002",
+            "1796119683661783042"
+          ]
+        },
+        "description": "从竞赛中移除指定题目（已发布状态下不允许清空全部题目）"
+      },
+      "response": []
+    },
+    {
+      "name": "18. 删除竞赛",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/exam/1800000000000000002",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "exam",
+            "1800000000000000002"
+          ]
+        },
+        "description": "删除竞赛（方案A：已发布状态禁止删除；已开赛禁止删除；级联清理关联题目）"
+      },
+      "response": []
     }
   ],
   "variable": [

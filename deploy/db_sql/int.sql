@@ -48,4 +48,45 @@ INSERT INTO `tb_question` (`question_id`, `title`, `difficulty`, `time_limit`, `
 (1796119683661783042, '回文数', 1, 1000, 128, '给你一个整数 x ，如果 x 是一个回文整数，返回 true ；否则，返回 false 。回文数是指正序（从左向右）和倒序（从右向左）读都是一样的整数。例如，121 是回文，而 123 不是。负数如 -121 不是回文数。', '[\n  {\"input\": \"x = 121\", \"output\": \"true\"},\n  {\"input\": \"x = -121\", \"output\": \"false\"},\n  {\"input\": \"x = 10\", \"output\": \"false\"},\n  {\"input\": \"x = 0\", \"output\": \"true\"}\n]', 'public boolean isPalindrome(int x) {\n    // 请在此处编写你的代码\n    return false;\n}', 'public static void main(String[] args) {\n    Main m = new Main();\n    if (!m.isPalindrome(121)) throw new RuntimeException(\"Case 1 Failed\");\n    if (m.isPalindrome(-121) || m.isPalindrome(10)) throw new RuntimeException(\"Case 2 Failed\");\n    if (!m.isPalindrome(0)) throw new RuntimeException(\"Case 3 Failed\");\n    System.out.println(\"OK\");\n}', 1, '2024-05-30 18:01:18')
 ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `difficulty` = VALUES(`difficulty`), `create_by` = VALUES(`create_by`), `question_case` = VALUES(`question_case`), `default_code` = VALUES(`default_code`), `main_func` = VALUES(`main_func`);
 
+# 竞赛表
+DROP TABLE IF EXISTS `tb_exam`;
+CREATE TABLE `tb_exam` (
+    `exam_id` bigint unsigned NOT NULL COMMENT '竞赛id (主键)',
+    `title` varchar(50) NOT NULL COMMENT '竞赛标题',
+    `start_time` datetime NOT NULL COMMENT '竞赛开始时间',
+    `end_time` datetime NOT NULL COMMENT '竞赛结束时间',
+    `status` tinyint NOT NULL DEFAULT '0' COMMENT '是否发布 0: 未发布 1: 已发布',
+    `create_by` bigint unsigned NOT NULL COMMENT '创建人',
+    `create_time` datetime NOT NULL COMMENT '创建时间',
+    `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+    `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`exam_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='竞赛表';
 
+# 竞赛题目关系表
+DROP TABLE IF EXISTS `tb_exam_question`;
+CREATE TABLE `tb_exam_question` (
+    `exam_question_id` bigint unsigned NOT NULL COMMENT '竞赛题目关系id (主键)',
+    `question_id` bigint unsigned NOT NULL COMMENT '题目id',
+    `exam_id` bigint unsigned NOT NULL COMMENT '竞赛id',
+    `question_order` int NOT NULL COMMENT '题目顺序',
+    `create_by` bigint unsigned NOT NULL COMMENT '创建人',
+    `create_time` datetime NOT NULL COMMENT '创建时间',
+    `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+    `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`exam_question_id`),
+    KEY `idx_exam_id` (`exam_id`),
+    KEY `idx_question_id` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='竞赛题目关系表';
+
+# 初始竞赛测试数据（关联管理员 create_by = 1）
+INSERT INTO `tb_exam` (`exam_id`, `title`, `start_time`, `end_time`, `status`, `create_by`, `create_time`) VALUES
+(1800000000000000001, 'AAA', '2024-06-27 00:00:00', '2024-07-06 00:00:00', 1, 1, '2024-06-06 20:57:28'),
+(1800000000000000002, '未开始竞赛002', '2034-05-30 17:41:32', '2034-06-30 23:00:00', 1, 1, '2024-05-30 17:41:57'),
+(1800000000000000003, '未开始的竞赛', '2044-07-08 15:00:00', '2044-07-08 23:00:00', 1, 1, '2024-05-30 17:40:18'),
+(1800000000000000004, '竞赛001', '2034-06-08 17:36:11', '2034-07-08 17:36:11', 1, 1, '2024-05-30 17:36:52'),
+(1800000000000000005, '竞赛报名测试', '2024-05-30 17:36:00', '2025-07-31 00:00:00', 1, 1, '2024-05-30 17:35:08'),
+(1800000000000000006, '竞赛答题测试', '2024-05-30 16:57:48', '2024-05-30 17:00:00', 1, 1, '2024-05-30 16:55:41'),
+(1800000000000000007, '竞赛测试', '2024-05-29 00:00:00', '2024-06-30 00:00:00', 1, 1, '2024-05-27 11:29:45'),
+(1800000000000000008, '草稿竞赛', '2034-08-01 09:00:00', '2034-08-01 12:00:00', 0, 1, '2024-05-30 18:00:00')
+ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `start_time` = VALUES(`start_time`), `end_time` = VALUES(`end_time`), `status` = VALUES(`status`);

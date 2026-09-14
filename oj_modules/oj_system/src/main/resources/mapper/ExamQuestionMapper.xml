@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.nuonuoya.system.mapper.ExamQuestionMapper">
+
+    <select id="selectQuestionListByExamId" resultType="cn.nuonuoya.system.vo.QuestionVO">
+        SELECT
+            q.question_id AS questionId,
+            q.title,
+            q.difficulty,
+            u.nick_name AS creatorName,
+            q.create_time AS createTime
+        FROM tb_exam_question eq
+        INNER JOIN tb_question q ON eq.question_id = q.question_id
+        LEFT JOIN tb_sys_user u ON q.create_by = u.user_id
+        WHERE eq.exam_id = #{examId}
+        ORDER BY eq.question_order ASC, eq.create_time ASC
+    </select>
+
+</mapper>
