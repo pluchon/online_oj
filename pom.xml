@@ -47,6 +47,7 @@
 		<javax-activation.version>1.1.1</javax-activation.version>
 		<org-glassfish-jaxb.version>2.3.3</org-glassfish-jaxb.version>
 		<aliyun-oss.version>3.17.4</aliyun-oss.version>
+		<aliyun.dypnsapi.version>1.2.2</aliyun.dypnsapi.version>
 		<mybatis-plus.version>3.5.5</mybatis-plus.version>
 		<springdoc-openapi.version>2.2.0</springdoc-openapi.version>
 		<oj-common-security.core>1.0-SNAPSHOT</oj-common-security.core>

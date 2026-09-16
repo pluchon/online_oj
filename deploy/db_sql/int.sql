@@ -90,3 +90,32 @@ INSERT INTO `tb_exam` (`exam_id`, `title`, `start_time`, `end_time`, `status`, `
 (1800000000000000007, '竞赛测试', '2024-05-29 00:00:00', '2024-06-30 00:00:00', 1, 1, '2024-05-27 11:29:45'),
 (1800000000000000008, '草稿竞赛', '2034-08-01 09:00:00', '2034-08-01 12:00:00', 0, 1, '2024-05-30 18:00:00')
 ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `start_time` = VALUES(`start_time`), `end_time` = VALUES(`end_time`), `status` = VALUES(`status`);
+
+# 普通用户表（C端用户）
+DROP TABLE IF EXISTS `tb_user`;
+CREATE TABLE `tb_user` (
+    `user_id` bigint unsigned NOT NULL COMMENT '用户id (主键)',
+    `nick_name` varchar(32) DEFAULT NULL COMMENT '用户昵称',
+    `head_image` varchar(255) DEFAULT NULL COMMENT '用户头像',
+    `sex` tinyint DEFAULT 0 COMMENT '用户性别 0: 保密 1: 男 2: 女',
+    `phone` char(11) NOT NULL COMMENT '手机号',
+    `email` varchar(50) DEFAULT NULL COMMENT '邮箱',
+    `wechat` varchar(32) DEFAULT NULL COMMENT '微信号',
+    `school_name` varchar(50) DEFAULT NULL COMMENT '学校',
+    `major_name` varchar(50) DEFAULT NULL COMMENT '专业',
+    `introduce` varchar(255) DEFAULT NULL COMMENT '个人介绍',
+    `status` tinyint NOT NULL DEFAULT 1 COMMENT '用户状态 0: 拉黑 1: 正常',
+    `create_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
+    `create_time` datetime NOT NULL COMMENT '创建时间',
+    `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+    `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`user_id`),
+    UNIQUE KEY `uq_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='普通用户表';
+
+# 初始普通用户测试数据
+INSERT INTO `tb_user` (`user_id`, `nick_name`, `head_image`, `sex`, `phone`, `email`, `school_name`, `major_name`, `introduce`, `status`, `create_time`) VALUES
+(1700000000000000001, '编程小白', 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png', 1, '13800000001', 'coder1@oj.com', '清华大学', '计算机科学与技术', 'Talk is cheap. Show me the code.', 1, NOW()),
+(1700000000000000002, '算法达人', 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', 2, '13800000002', 'coder2@oj.com', '北京大学', '软件工程', '保持热爱，奔赴山海。', 1, NOW())
+ON DUPLICATE KEY UPDATE `nick_name` = VALUES(`nick_name`), `head_image` = VALUES(`head_image`), `status` = VALUES(`status`);
+

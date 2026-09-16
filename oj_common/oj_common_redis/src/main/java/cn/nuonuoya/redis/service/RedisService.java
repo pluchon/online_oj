@@ -113,6 +113,27 @@ public class RedisService {
         return JSON.parseObject(String.valueOf(t), clazz);
     }
 
+    /**
+     * 按指定增量递增
+     *
+     * @param key   键
+     * @param delta 增量
+     * @return 递增后的值
+     */
+    public Long increment(final String key, final long delta) {
+        return redisTemplate.opsForValue().increment(key, delta);
+    }
+
+    /**
+     * 递增1
+     *
+     * @param key 键
+     * @return 递增后的值
+     */
+    public Long increment(final String key) {
+        return redisTemplate.opsForValue().increment(key);
+    }
+
     //*************** 操作list结构 ****************
 
     /**

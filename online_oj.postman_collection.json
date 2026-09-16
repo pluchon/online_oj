@@ -641,6 +641,86 @@
         "description": "删除竞赛（方案A：已发布状态禁止删除；已开赛禁止删除；级联清理关联题目）"
       },
       "response": []
+    },
+    {
+      "name": "19. 普通用户列表分页查询",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/user/list?pageNum=1&pageSize=10",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "user",
+            "list"
+          ],
+          "query": [
+            {
+              "key": "pageNum",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "分页查询普通用户列表，支持按用户ID与昵称模糊筛选"
+      },
+      "response": []
+    },
+    {
+      "name": "20. 修改普通用户状态（拉黑 / 解禁）",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"userId\": 1700000000000000001,\n    \"status\": 0\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/system/user/updateStatus",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "system",
+            "user",
+            "updateStatus"
+          ]
+        },
+        "description": "修改普通用户状态（0: 拉黑，1: 正常）"
+      },
+      "response": []
     }
   ],
   "variable": [

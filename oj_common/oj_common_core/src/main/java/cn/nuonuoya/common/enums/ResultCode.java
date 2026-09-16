@@ -23,6 +23,10 @@ public enum ResultCode {
     FAILED_USER_NOT_EXISTS (3102, "⽤⼾不存在"),
     FAILED_LOGIN (3103, "⽤⼾名或密码错误"),
     FAILED_USER_BANNED (3104, "您已被列⼊⿊名单, 请联系管理员."),
+    FAILED_FREQUENT (3105, "操作过于频繁，请稍后再试"),
+    FAILED_SEND_SMS_EXCEED (3106, "今日验证码发送次数已超限，请明日再试"),
+    FAILED_SEND_SMS (3107, "短信发送失败，请稍后重试"),
+    FAILED_CODE_ERROR (3108, "验证码错误或已失效"),
 
     // 竞赛业务错误码（32xx）
     FAILED_EXAM_EXISTS (3201, "竞赛已存在"),
