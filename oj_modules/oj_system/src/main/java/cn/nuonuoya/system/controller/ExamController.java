@@ -109,4 +109,12 @@ public class ExamController extends BaseController {
                                          @NotNull(message = "题目ID不能为空") @PathVariable("questionId") Long questionId) {
         return toResult(examService.deleteQuestion(examId, questionId));
     }
+
+    /** 预热同步竞赛缓存 */
+    @PostMapping("/cache/sync")
+    @Operation(summary = "预热同步竞赛缓存", description = "将数据库中已发布的竞赛全量同步到Redis缓存中")
+    public OJResult<Void> syncCache() {
+        examService.syncCache();
+        return OJResult.ok();
+    }
 }

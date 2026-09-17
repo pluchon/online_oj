@@ -22,4 +22,10 @@ public class HttpConstants {
      * 令牌前缀
      */
     public static final String PREFIX = "Bearer ";
+
+    // 用户ID请求头与线程上下文键
+    public static final String USER_ID = "userId";
+
+    // 用户会话Key请求头与线程上下文键
+    public static final String USER_KEY = "userKey";
 }

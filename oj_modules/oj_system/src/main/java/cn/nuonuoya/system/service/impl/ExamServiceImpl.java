@@ -3,6 +3,7 @@ package cn.nuonuoya.system.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
+import cn.nuonuoya.system.cache.ExamCacheManager;
 import cn.nuonuoya.system.converter.ExamConverter;
 import cn.nuonuoya.system.domain.SysUser;
 import cn.nuonuoya.system.domain.TbExam;
@@ -45,6 +46,9 @@ public class ExamServiceImpl implements ExamService {
 
     @Autowired
     private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private ExamCacheManager examCacheManager;
 
     // 分页查询竞赛列表实现
     @Override
@@ -104,7 +108,7 @@ public class ExamServiceImpl implements ExamService {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
         // 校验竞赛存在性及未开赛状态
-        checkExamUnstarted(editDTO.getExamId());
+        TbExam exam = checkExamUnstarted(editDTO.getExamId());
         // 校验竞赛起止时间合法性
         checkExamTime(editDTO.getStartTime(), editDTO.getEndTime());
         // 校验竞赛名称唯一性（排除自身）
@@ -115,7 +119,14 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setTitle(editDTO.getTitle().trim());
         updateExam.setStartTime(editDTO.getStartTime());
         updateExam.setEndTime(editDTO.getEndTime());
-        return examMapper.updateById(updateExam);
+        int rows = examMapper.updateById(updateExam);
+        // 若竞赛处于发布状态，同步更新缓存
+        if (exam.getStatus() != null && exam.getStatus().equals(ExamStatus.PUBLISHED.getValue())) {
+            TbExam updatedExam = examMapper.selectById(editDTO.getExamId());
+            examCacheManager.saveExamDetail(updatedExam);
+            examCacheManager.refreshUnfinishList();
+        }
+        return rows;
     }
 
     // 删除竞赛实现
@@ -132,7 +143,9 @@ public class ExamServiceImpl implements ExamService {
         examQuestionMapper.delete(new LambdaQueryWrapper<TbExamQuestion>()
                 .eq(TbExamQuestion::getExamId, examId));
         // 删除竞赛主体记录
-        return examMapper.deleteById(examId);
+        int rows = examMapper.deleteById(examId);
+        examCacheManager.removeExam(examId);
+        return rows;
     }
 
     // 发布竞赛实现
@@ -140,7 +153,7 @@ public class ExamServiceImpl implements ExamService {
     @Transactional(rollbackFor = Exception.class)
     public int publish(Long examId) {
         // 校验竞赛存在性及未开赛状态
-        checkExamUnstarted(examId);
+        TbExam exam = checkExamUnstarted(examId);
         // 业务规则校验：未添加题目的竞赛不允许发布
         Long questionCount = examQuestionMapper.selectCount(new LambdaQueryWrapper<TbExamQuestion>()
                 .eq(TbExamQuestion::getExamId, examId));
@@ -150,7 +163,11 @@ public class ExamServiceImpl implements ExamService {
         TbExam updateExam = new TbExam();
         updateExam.setExamId(examId);
         updateExam.setStatus(ExamStatus.PUBLISHED.getValue());
-        return examMapper.updateById(updateExam);
+        int rows = examMapper.updateById(updateExam);
+        exam.setStatus(ExamStatus.PUBLISHED.getValue());
+        examCacheManager.saveExamDetail(exam);
+        examCacheManager.refreshUnfinishList();
+        return rows;
     }
 
     // 撤销发布竞赛实现
@@ -162,7 +179,9 @@ public class ExamServiceImpl implements ExamService {
         TbExam updateExam = new TbExam();
         updateExam.setExamId(examId);
         updateExam.setStatus(ExamStatus.UNPUBLISHED.getValue());
-        return examMapper.updateById(updateExam);
+        int rows = examMapper.updateById(updateExam);
+        examCacheManager.removeExam(examId);
+        return rows;
     }
 
     // 绑定题目到竞赛实现
@@ -253,10 +272,14 @@ public class ExamServiceImpl implements ExamService {
         return exam;
     }
 
-    // 校验竞赛未开赛并返回竞赛实体
+    // 校验竞赛未开赛且未结束并返回竞赛实体
     private TbExam checkExamUnstarted(Long examId) {
         TbExam exam = getExamById(examId);
-        if (exam.getStartTime() != null && exam.getStartTime().isBefore(LocalDateTime.now())) {
+        LocalDateTime now = LocalDateTime.now();
+        if (exam.getEndTime() != null && !now.isBefore(exam.getEndTime())) {
+            throw new ServiceException(ResultCode.FAILED_EXAM_IS_FINISHED);
+        }
+        if (exam.getStartTime() != null && !now.isBefore(exam.getStartTime())) {
             throw new ServiceException(ResultCode.FAILED_EXAM_IS_STARTED);
         }
         return exam;
@@ -286,5 +309,11 @@ public class ExamServiceImpl implements ExamService {
         if (count != null && count > 0) {
             throw new ServiceException(ResultCode.FAILED_EXAM_EXISTS);
         }
+    }
+
+    // 同步预热所有已发布竞赛缓存
+    @Override
+    public void syncCache() {
+        examCacheManager.syncAllExamCache();
     }
 }

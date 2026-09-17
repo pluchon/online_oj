@@ -32,4 +32,22 @@ public class CacheConstants {
      * 手机号单日发送次数计数缓存前缀（sms_code_count:{phone}）
      */
     public final static String SMS_CODE_COUNT_KEY = "sms_code_count:";
+
+    /**
+     * 未完赛竞赛ID列表缓存键（exam:unfinish:list）
+     */
+    public final static String EXAM_UNFINISH_LIST_KEY = "exam:unfinish:list";
+
+    /**
+     * 历史竞赛ID列表缓存键（exam:history:list）
+     */
+    public final static String EXAM_HISTORY_LIST_KEY = "exam:history:list";
+
+    /**
+     * 竞赛详情缓存键前缀（exam:detail:{examId}）
+     */
+    public final static String EXAM_DETAIL_KEY = "exam:detail:";
+
+    // 用户已报名竞赛ID列表缓存键前缀（user:exam:list:{userId}）
+    public final static String USER_EXAM_LIST_KEY = "user:exam:list:";
 }

@@ -19,6 +19,7 @@
         <module>oj_common_redis</module>
         <module>oj_common_mybatis</module>
         <module>oj_common_message</module>
+        <module>oj_common_elastic</module>
     </modules>
 
     <properties>

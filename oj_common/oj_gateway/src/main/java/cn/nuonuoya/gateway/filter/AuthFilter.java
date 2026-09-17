@@ -10,6 +10,7 @@ import cn.nuonuoya.gateway.properties.IgnoreWhiteProperties;
 import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.utils.JwtUtils;
+import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import com.alibaba.fastjson2.JSON;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
@@ -53,39 +54,55 @@ public class AuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String url = request.getURI().getPath();
-        // 跳过不需要验证的路径
-        if (matches(url, ignoreWhite.getWhites())) {
-            return chain.filter(exchange);
-        }
-        //从http请求头中获取token
+        boolean isWhite = matches(url, ignoreWhite.getWhites());
+
+        // 从http请求头中获取token
         String token = getToken(request);
         if (StrUtil.isEmpty(token)) {
-            return unauthorizedResponse (exchange, "令牌不能为空");
+            if (isWhite) {
+                return chain.filter(exchange);
+            }
+            return unauthorizedResponse(exchange, "令牌不能为空");
         }
         Claims claims;
         try {
             claims = JwtUtils.parseToken(token, secret);
-            //获取令牌中信息 解析payload中信息
+            // 获取令牌中信息 解析payload中信息
             if (claims == null) {
+                if (isWhite) {
+                    return chain.filter(exchange);
+                }
                 return unauthorizedResponse(exchange, "令牌已过期或验证不正确！");
             }
         } catch (Exception e) {
             log.error("[鉴权异常处理] 解析令牌异常: {}, 请求路径: {}", e.getMessage(), exchange.getRequest().getPath());
+            if (isWhite) {
+                return chain.filter(exchange);
+            }
             return unauthorizedResponse(exchange, "令牌已过期或验证不正确！");
         }
         String userKey = JwtUtils.getUserKey(claims);
-        //获取jwt中的key，判断是否过期
+        // 获取jwt中的key，判断是否过期
         boolean isLogin = redisService.hasKey(getTokenKey(userKey));
         if (!isLogin) {
+            if (isWhite) {
+                return chain.filter(exchange);
+            }
             return unauthorizedResponse(exchange, "登录状态已过期");
         }
         String userid = JwtUtils.getUserId(claims);
-        //判断jwt中的信息是否完整
+        // 判断jwt中的信息是否完整
         if (StrUtil.isEmpty(userid)) {
+            if (isWhite) {
+                return chain.filter(exchange);
+            }
             return unauthorizedResponse(exchange, "令牌验证失败");
         }
         LoginUser user = redisService.getCacheObject(getTokenKey(userKey), LoginUser.class);
         if (user == null) {
+            if (isWhite) {
+                return chain.filter(exchange);
+            }
             return unauthorizedResponse(exchange, "登录状态已过期");
         }
         if (url.contains(HttpConstants.SYSTEM_URL_PREFIX) && !Objects.equals(user.getIdentity(), UserIdentity.ADMIN.getValue())) {
@@ -94,9 +111,15 @@ public class AuthFilter implements GlobalFilter, Ordered {
         if (url.contains(HttpConstants.FRIEND_URL_PREFIX) && !Objects.equals(user.getIdentity(), UserIdentity.ORDINARY.getValue())) {
             return unauthorizedResponse(exchange, "令牌验证失败");
         }
-        // 如果直接写在这里进行延长，就算是用其他过滤器修改执行顺序也不行
-        // 因为后面叠加了很多其他过滤器，以及职责不单一
-        return chain.filter(exchange);
+        // 绑定到网关当前线程上下文
+        ThreadLocalUtil.set(HttpConstants.USER_ID, userid);
+        ThreadLocalUtil.set(HttpConstants.USER_KEY, userKey);
+        // 向下游微服务透传用户身份请求头
+        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                .header(HttpConstants.USER_ID, userid)
+                .header(HttpConstants.USER_KEY, userKey)
+                .build();
+        return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
     /**

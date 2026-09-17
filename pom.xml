@@ -38,7 +38,7 @@
 		<oj-common-mybatis.version>1.0-SNAPSHOT</oj-common-mybatis.version>
 		<oj-common-message.version>1.0-SNAPSHOT</oj-common-message.version>
 		<oj-common-file.version>1.0-SNAPSHOT</oj-common-file.version>
-		<oj-common-elsticsearch.version>1.0-SNAPSHOT</oj-common-elsticsearch.version>
+		<oj-common-elastic.version>1.0-SNAPSHOT</oj-common-elastic.version>
 		<springdoc-openapi.version>2.2.0</springdoc-openapi.version>
 		<pagehelper.boot.version>2.0.0</pagehelper.boot.version>
 		<xxl-job.version>2.4.0</xxl-job.version>
@@ -58,6 +58,7 @@
 		<javax.version>2.4.0-b180830.0359</javax.version>
 		<hutool-all.version>5.8.22</hutool-all.version>
 		<oj_common_mybatis.version>1.0-SNAPSHOT</oj_common_mybatis.version>
+		<transmittable-thread-local.version>2.14.4</transmittable-thread-local.version>
 	</properties>
 
 	<dependencies>
@@ -107,6 +108,41 @@
 				<groupId>com.github.pagehelper</groupId>
 				<artifactId>pagehelper-spring-boot-starter</artifactId>
 				<version>${pagehelper.boot.version}</version>
+			</dependency>
+
+			<!-- XXL-JOB 分布式任务调度核心客户端 -->
+			<dependency>
+				<groupId>com.xuxueli</groupId>
+				<artifactId>xxl-job-core</artifactId>
+				<version>${xxl-job.version}</version>
+			</dependency>
+
+			<!-- 通用核心依赖 -->
+			<dependency>
+				<groupId>cn.nuonuoya</groupId>
+				<artifactId>oj_common_core</artifactId>
+				<version>${oj-common-core.version}</version>
+			</dependency>
+
+			<!-- Redis 缓存依赖 -->
+			<dependency>
+				<groupId>cn.nuonuoya</groupId>
+				<artifactId>oj_common_redis</artifactId>
+				<version>${oj-common-redis.version}</version>
+			</dependency>
+
+			<!-- MyBatis-Plus 依赖 -->
+			<dependency>
+				<groupId>cn.nuonuoya</groupId>
+				<artifactId>oj_common_mybatis</artifactId>
+				<version>${oj-common-mybatis.version}</version>
+			</dependency>
+
+			<!-- Elasticsearch 依赖 -->
+			<dependency>
+				<groupId>cn.nuonuoya</groupId>
+				<artifactId>oj_common_elastic</artifactId>
+				<version>${oj-common-elastic.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

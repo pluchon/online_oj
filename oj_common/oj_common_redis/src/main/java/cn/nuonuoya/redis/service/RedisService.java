@@ -98,6 +98,27 @@ public class RedisService {
         redisTemplate.opsForValue().set(key, value, timeout, timeUnit);
     }
 
+    // 批量设置基本对象（单次RTT写入）
+    public <T> void multiSet(final Map<String, T> map) {
+        if (CollectionUtils.isEmpty(map)) {
+            return;
+        }
+        redisTemplate.opsForValue().multiSet(map);
+    }
+
+    /**
+     * 批量删除对象
+     *
+     * @param keys 待删除键集合
+     * @return 成功删除的数量
+     */
+    public Long deleteObject(final Collection<String> keys) {
+        if (CollectionUtils.isEmpty(keys)) {
+            return 0L;
+        }
+        return redisTemplate.delete(keys);
+    }
+
     /**
      * 获得缓存的基本对象。
      *
@@ -111,6 +132,34 @@ public class RedisService {
             return t;
         }
         return JSON.parseObject(String.valueOf(t), clazz);
+    }
+
+    /**
+     * 批量获取缓存的基本对象（单次RTT拉取）
+     *
+     * @param keys  缓存键值集合
+     * @param clazz 待转换的目标Class
+     * @return 缓存数据集合
+     */
+    public <T> List<T> multiGetCacheObject(final Collection<String> keys, final Class<T> clazz) {
+        if (CollectionUtils.isEmpty(keys)) {
+            return new ArrayList<>();
+        }
+        List list = redisTemplate.opsForValue().multiGet(keys);
+        if (CollectionUtils.isEmpty(list)) {
+            return new ArrayList<>();
+        }
+        List<T> result = new ArrayList<>(list.size());
+        for (Object item : list) {
+            if (item == null) {
+                result.add(null);
+            } else if (clazz.isInstance(item)) {
+                result.add(clazz.cast(item));
+            } else {
+                result.add(JSON.parseObject(JSON.toJSONString(item), clazz));
+            }
+        }
+        return result;
     }
 
     /**
