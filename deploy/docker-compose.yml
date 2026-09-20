@@ -117,6 +117,24 @@ services:
     networks:
       - oj-net
 
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: oj-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: "123456"
+    volumes:
+      - oj_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      oj-net:
+        aliases:
+          - rabbitmq
+          - oj-rabbitmq
+
 networks:
   oj-net:
     driver: bridge
@@ -127,3 +145,4 @@ volumes:
   oj_nacos_logs:
   oj_redis_data:
   oj_es_data:
+  oj_rabbitmq_data:

@@ -1,16 +1,24 @@
 package cn.nuonuoya.friend.controller;
 
 import cn.nuonuoya.common.controller.BaseController;
+import cn.nuonuoya.common.domain.OJResult;
+import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
+import cn.nuonuoya.friend.aspect.CheckUserStatus;
+import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.service.ExamService;
+import cn.nuonuoya.friend.vo.ExamRankVO;
 import cn.nuonuoya.friend.vo.ExamVO;
+import cn.nuonuoya.friend.vo.UserExamVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -49,19 +57,51 @@ public class ExamController extends BaseController {
         return getTableData(list);
     }
 
+    /** 查询指定竞赛详情 */
+    @GetMapping("/detail")
+    @Operation(summary = "竞赛详情", description = "根据竞赛ID查询详情与开赛状态")
+    public OJResult<ExamVO> detail(@RequestParam("examId") Long examId) {
+        ExamVO vo = examService.getExamDetail(examId);
+        return OJResult.ok(vo);
+    }
+
     /** 竞赛报名 */
-    @org.springframework.web.bind.annotation.PostMapping("/enroll")
+    @CheckUserStatus
+    @PostMapping("/enroll")
     @Operation(summary = "竞赛报名", description = "当前登录用户报名参加指定竞赛")
-    public cn.nuonuoya.common.domain.OJResult<Void> enroll(@Validated @org.springframework.web.bind.annotation.RequestBody cn.nuonuoya.friend.dto.ExamEnrollDTO enrollDTO) {
+    public OJResult<Void> enroll(@Validated ExamEnrollDTO enrollDTO) {
         examService.enroll(enrollDTO);
-        return cn.nuonuoya.common.domain.OJResult.ok();
+        return OJResult.ok();
     }
 
     /** 分页查询我的竞赛列表 */
     @GetMapping("/my/list")
     @Operation(summary = "我的竞赛列表", description = "分页查询当前登录用户报名的竞赛列表")
-    public TableDataResult<cn.nuonuoya.friend.vo.UserExamVO> myExamList(cn.nuonuoya.common.domain.PageQuery pageQuery) {
-        List<cn.nuonuoya.friend.vo.UserExamVO> list = examService.getMyExamList(pageQuery);
+    public TableDataResult<UserExamVO> myExamList(PageQuery pageQuery) {
+        List<UserExamVO> list = examService.getMyExamList(pageQuery);
         return getTableData(list);
+    }
+
+    /** 分页查询指定竞赛的选手排名榜单 */
+    @GetMapping("/rank/list")
+    @Operation(summary = "竞赛排名列表", description = "分页查询指定竞赛的选手得分与排名榜单")
+    public TableDataResult<ExamRankVO> rankList(@RequestParam("examId") Long examId, PageQuery pageQuery) {
+        return examService.getExamRankList(examId, pageQuery);
+    }
+
+    /** 获取当前登录用户在指定竞赛中的成绩与排名 */
+    @GetMapping("/rank/my")
+    @Operation(summary = "我的竞赛成绩", description = "获取当前登录用户在指定竞赛中的得分、排名与提交统计")
+    public OJResult<ExamRankVO> myRank(@RequestParam("examId") Long examId) {
+        ExamRankVO myRank = examService.getMyExamRank(examId);
+        return OJResult.ok(myRank);
+    }
+
+    /** 结算指定竞赛排名并发送战报通知 */
+    @PostMapping("/rank/settle")
+    @Operation(summary = "结算竞赛排名", description = "手动或定时触发结算指定竞赛排名并向选手发送战报通知")
+    public OJResult<Void> settleRank(@RequestParam("examId") Long examId) {
+        examService.settleExamRank(examId);
+        return OJResult.ok();
     }
 }

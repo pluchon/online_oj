@@ -3,15 +3,21 @@ package cn.nuonuoya.friend.controller;
 import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.domain.TableDataResult;
+import cn.nuonuoya.friend.aspect.CheckUserStatus;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
+import cn.nuonuoya.friend.dto.UserSubmitDTO;
 import cn.nuonuoya.friend.service.QuestionService;
+import cn.nuonuoya.friend.service.UserSubmitService;
+import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
+import cn.nuonuoya.friend.vo.UserSubmitResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,6 +32,10 @@ public class QuestionController extends BaseController {
     // 注入题目业务服务
     @Autowired
     private QuestionService questionService;
+
+    // 注入代码提交评测服务
+    @Autowired
+    private UserSubmitService userSubmitService;
 
     /** 分页检索题目列表 */
     @GetMapping("/list")
@@ -48,5 +58,40 @@ public class QuestionController extends BaseController {
     public OJResult<Integer> sync() {
         int count = questionService.syncAllQuestionsToEs();
         return OJResult.ok(count);
+    }
+
+    /** 获取上一题与下一题ID */
+    @GetMapping("/preAndNext")
+    @Operation(summary = "题目导航", description = "根据当前题目ID与可选竞赛ID获取上一题与下一题ID")
+    public OJResult<QuestionPreNextVO> preAndNext(
+            @RequestParam("questionId") Long questionId,
+            @RequestParam(value = "examId", required = false) Long examId) {
+        QuestionPreNextVO vo = questionService.getPreAndNext(questionId, examId);
+        return OJResult.ok(vo);
+    }
+
+    /** 获取首道题目ID */
+    @GetMapping("/first")
+    @Operation(summary = "获取首题ID", description = "获取普通题库或指定竞赛的首道题目ID")
+    public OJResult<String> first(@RequestParam(value = "examId", required = false) Long examId) {
+        Long firstId = questionService.getFirstQuestionId(examId);
+        return OJResult.ok(firstId == null ? null : String.valueOf(firstId));
+    }
+
+    /** 用户提交代码并进行评测 */
+    @CheckUserStatus
+    @PostMapping("/submit")
+    @Operation(summary = "提交代码评测", description = "用户在答题工作台提交代码，执行入库与评测")
+    public OJResult<UserSubmitResultVO> submit(@RequestBody @Validated UserSubmitDTO submitDTO) {
+        UserSubmitResultVO vo = userSubmitService.submit(submitDTO);
+        return OJResult.ok(vo);
+    }
+
+    /** 查询用户代码评测结果 */
+    @GetMapping("/submit/result")
+    @Operation(summary = "查询评测结果", description = "根据提交ID获取最新评测状态与结果")
+    public OJResult<UserSubmitResultVO> getSubmitResult(@RequestParam("submitId") Long submitId) {
+        UserSubmitResultVO vo = userSubmitService.getSubmitResult(submitId);
+        return OJResult.ok(vo);
     }
 }

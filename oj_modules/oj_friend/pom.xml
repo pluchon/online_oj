@@ -42,6 +42,27 @@
             <groupId>cn.nuonuoya</groupId>
             <artifactId>oj_common_elastic</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.4</version>
+        </dependency>
+        <!-- 判题跨服务契约包 -->
+        <dependency>
+            <groupId>cn.nuonuoya</groupId>
+            <artifactId>oj_api</artifactId>
+            <version>${oj_api.version}</version>
+        </dependency>
+        <!-- RabbitMQ 消息队列 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+        <!-- AOP 切面支持 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

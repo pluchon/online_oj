@@ -119,3 +119,26 @@ INSERT INTO `tb_user` (`user_id`, `nick_name`, `head_image`, `sex`, `phone`, `em
 (1700000000000000002, '算法达人', 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png', 2, '13800000002', 'coder2@oj.com', '北京大学', '软件工程', '保持热爱，奔赴山海。', 1, NOW())
 ON DUPLICATE KEY UPDATE `nick_name` = VALUES(`nick_name`), `head_image` = VALUES(`head_image`), `status` = VALUES(`status`);
 
+# 用户代码提交表（判题模块核心表）
+DROP TABLE IF EXISTS `tb_user_submit`;
+CREATE TABLE `tb_user_submit` (
+    `submit_id` bigint unsigned NOT NULL COMMENT '提交记录id (主键，雪花算法)',
+    `user_id` bigint unsigned NOT NULL COMMENT '用户id',
+    `question_id` bigint unsigned NOT NULL COMMENT '题目id',
+    `exam_id` bigint unsigned DEFAULT NULL COMMENT '竞赛id (为空表示非竞赛练习提交)',
+    `program_type` tinyint NOT NULL COMMENT '代码类型 0: java 1: CPP',
+    `user_code` text NOT NULL COMMENT '用户代码',
+    `pass` tinyint NOT NULL DEFAULT '0' COMMENT '判题结果 0: 未通过 1: 通过',
+    `exe_message` varchar(2000) DEFAULT '' COMMENT '执行结果/报错信息',
+    `score` int NOT NULL DEFAULT '0' COMMENT '得分',
+    `create_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+    `update_time` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`submit_id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_question_id` (`question_id`),
+    KEY `idx_exam_id` (`exam_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户代码提交记录表';
+
+

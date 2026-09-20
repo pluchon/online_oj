@@ -1,6 +1,7 @@
 package cn.nuonuoya.system.service.impl;
 
 import cn.nuonuoya.common.enums.ResultCode;
+import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.system.converter.UserConverter;
 import cn.nuonuoya.system.domain.TbUser;
@@ -24,6 +25,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private RedisService redisService;
 
     // 分页多条件查询用户列表实现
     @Override
@@ -57,7 +61,11 @@ public class UserServiceImpl implements UserService {
         TbUser updateEntity = new TbUser();
         updateEntity.setUserId(statusDTO.getUserId());
         updateEntity.setStatus(statusDTO.getStatus());
-        // TODO: 后续开发C端时，在此处根据 userId 踢除/注销拉黑用户的在线 Token，并禁止受限操作（登录/提交评测/报名竞赛等）
-        return userMapper.updateById(updateEntity);
+        int rows = userMapper.updateById(updateEntity);
+
+        // 同步清除C端用户的Redis详情缓存，确保切面校验即时感知
+        redisService.deleteObject("user:detail:" + statusDTO.getUserId());
+
+        return rows;
     }
 }

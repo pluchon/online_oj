@@ -3,5 +3,16 @@ server:
   port: 9204
 spring:
   application:
-    # 应⽤名称
+    # 应用名称
     name: oj-judge
+  profiles:
+    active: local
+  cloud:
+    nacos:
+      discovery:
+        namespace: 8f599ee1-85ee-45b3-8435-1522e90fb2e0
+        server-addr: 127.0.0.1:8848
+      config:
+        namespace: 8f599ee1-85ee-45b3-8435-1522e90fb2e0
+        server-addr: 127.0.0.1:8848
+        file-extension: yaml

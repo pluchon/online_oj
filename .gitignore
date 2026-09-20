@@ -47,3 +47,5 @@ build/
 hs_err_pid*
 replay_pid*
 test-output/
+user-code/
+oj_modules/oj_judge/user-code/

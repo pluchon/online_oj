@@ -2,7 +2,9 @@ package cn.nuonuoya.system.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.common.enums.ResultCode;
+import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.dto.QuestionAddDTO;
@@ -27,6 +29,9 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Autowired
     private QuestionMapper questionMapper;
+
+    @Autowired(required = false)
+    private RedisService redisService;
 
     // 分页查询题目列表实现
     @Override
@@ -57,7 +62,11 @@ public class QuestionServiceImpl implements QuestionService {
         // 使用 Hutool BeanUtil 进行 DTO 到实体的属性拷贝
         TbQuestion question = new TbQuestion();
         BeanUtil.copyProperties(addDTO, question);
-        return questionMapper.insert(question);
+        int rows = questionMapper.insert(question);
+        if (rows > 0 && redisService != null) {
+            redisService.deleteObject(CacheConstants.QUESTION_LIST_KEY);
+        }
+        return rows;
     }
 
     // 查询题目详情实现
@@ -123,6 +132,10 @@ public class QuestionServiceImpl implements QuestionService {
         if (question == null) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
-        return questionMapper.deleteById(questionId);
+        int rows = questionMapper.deleteById(questionId);
+        if (rows > 0 && redisService != null) {
+            redisService.deleteObject(CacheConstants.QUESTION_LIST_KEY);
+        }
+        return rows;
     }
 }

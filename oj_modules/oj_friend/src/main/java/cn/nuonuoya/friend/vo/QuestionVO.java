@@ -44,72 +44,17 @@ public class QuestionVO {
     @Schema(description = "题目内容描述")
     private String content;
 
+    // 默认代码模板
+    @Schema(description = "默认代码模板")
+    private String defaultCode;
+
+    // 题目测试用例JSON
+    @Schema(description = "题目测试用例JSON")
+    private String questionCase;
+
     // 创建时间
     @Schema(description = "创建时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
-    public Long getQuestionId() {
-        return questionId;
-    }
-
-    public void setQuestionId(Long questionId) {
-        this.questionId = questionId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public Integer getDifficulty() {
-        return difficulty;
-    }
-
-    public void setDifficulty(Integer difficulty) {
-        this.difficulty = difficulty;
-    }
-
-    public String getDifficultyDesc() {
-        return difficultyDesc;
-    }
-
-    public void setDifficultyDesc(String difficultyDesc) {
-        this.difficultyDesc = difficultyDesc;
-    }
-
-    public Integer getTimeLimit() {
-        return timeLimit;
-    }
-
-    public void setTimeLimit(Integer timeLimit) {
-        this.timeLimit = timeLimit;
-    }
-
-    public Integer getSpaceLimit() {
-        return spaceLimit;
-    }
-
-    public void setSpaceLimit(Integer spaceLimit) {
-        this.spaceLimit = spaceLimit;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public LocalDateTime getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime) {
-        this.createTime = createTime;
-    }
 }

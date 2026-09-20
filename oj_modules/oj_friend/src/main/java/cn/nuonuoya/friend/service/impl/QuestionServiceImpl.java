@@ -5,11 +5,13 @@ import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.elastic.repository.QuestionRepository;
+import cn.nuonuoya.friend.cache.QuestionCacheManager;
 import cn.nuonuoya.friend.converter.QuestionConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.service.QuestionService;
+import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
@@ -50,6 +52,10 @@ public class QuestionServiceImpl implements QuestionService {
     // 注入ES操作模板
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
+
+    // 注入题目缓存管理器
+    @Autowired
+    private QuestionCacheManager questionCacheManager;
 
     // 分页全文检索题目列表
     @Override
@@ -173,4 +179,17 @@ public class QuestionServiceImpl implements QuestionService {
                 .collect(Collectors.toList());
         return TableDataResult.success(voList, total);
     }
+
+    // 获取题目上一题与下一题导航信息
+    @Override
+    public QuestionPreNextVO getPreAndNext(Long questionId, Long examId) {
+        return questionCacheManager.getPreAndNextQuestionId(questionId, examId);
+    }
+
+    // 获取首道题目ID
+    @Override
+    public Long getFirstQuestionId(Long examId) {
+        return questionCacheManager.getFirstQuestionId(examId);
+    }
 }
+

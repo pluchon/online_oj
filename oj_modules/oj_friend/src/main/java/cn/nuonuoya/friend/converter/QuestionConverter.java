@@ -25,6 +25,8 @@ public class QuestionConverter {
         vo.setTimeLimit(doc.getTimeLimit());
         vo.setSpaceLimit(doc.getSpaceLimit());
         vo.setContent(doc.getContent());
+        vo.setQuestionCase(doc.getQuestionCase());
+        vo.setDefaultCode(doc.getDefaultCode());
         vo.setCreateTime(doc.getCreateTime());
         return vo;
     }
@@ -85,6 +87,8 @@ public class QuestionConverter {
         vo.setTimeLimit(entity.getTimeLimit());
         vo.setSpaceLimit(entity.getSpaceLimit());
         vo.setContent(entity.getContent());
+        vo.setQuestionCase(entity.getQuestionCase());
+        vo.setDefaultCode(entity.getDefaultCode());
         vo.setCreateTime(entity.getCreateTime());
         return vo;
     }

@@ -1,8 +1,10 @@
 package cn.nuonuoya.friend.service;
 
 import cn.nuonuoya.common.domain.PageQuery;
+import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
+import cn.nuonuoya.friend.vo.ExamRankVO;
 import cn.nuonuoya.friend.vo.ExamVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
 
@@ -25,4 +27,16 @@ public interface ExamService {
 
     // 分页查询当前用户已报名的竞赛列表
     List<UserExamVO> getMyExamList(PageQuery pageQuery);
+
+    // 获取指定竞赛详情
+    ExamVO getExamDetail(Long examId);
+
+    // 分页查询竞赛选手得分与排名榜单
+    TableDataResult<ExamRankVO> getExamRankList(Long examId, PageQuery pageQuery);
+
+    // 获取当前登录用户在指定竞赛中的成绩与排名
+    ExamRankVO getMyExamRank(Long examId);
+
+    // 结算指定竞赛排名并发送战报通知
+    void settleExamRank(Long examId);
 }

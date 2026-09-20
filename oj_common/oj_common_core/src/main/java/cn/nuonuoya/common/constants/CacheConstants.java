@@ -50,4 +50,13 @@ public class CacheConstants {
 
     // 用户已报名竞赛ID列表缓存键前缀（user:exam:list:{userId}）
     public final static String USER_EXAM_LIST_KEY = "user:exam:list:";
-}
+
+    // 题目顺序列表缓存键（q:l）
+    public final static String QUESTION_LIST_KEY = "q:l";
+
+    // 竞赛题目顺序列表缓存键前缀（exam:q:l:{examId}）
+    public final static String EXAM_QUESTION_LIST_KEY = "exam:q:l:";
+
+    // 竞赛排名列表缓存键前缀（exam:rank:{examId}）
+    public final static String EXAM_RANK_LIST_KEY = "exam:rank:";
+}

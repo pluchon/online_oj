@@ -9,7 +9,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import org.springframework.context.annotation.Configuration;
+
 // Web MVC 配置，注册全局拦截器
+@Configuration
 @AutoConfiguration
 @Import({TokenInterceptor.class, TokenService.class, GlobalExceptionHandler.class})
 public class WebMvcConfig implements WebMvcConfigurer {

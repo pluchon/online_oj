@@ -25,6 +25,7 @@
         <dependency>
             <groupId>cn.nuonuoya</groupId>
             <artifactId>oj_common_core</artifactId>
+            <version>${oj-common-core.version}</version>
         </dependency>
     </dependencies>
 

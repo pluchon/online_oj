@@ -58,11 +58,11 @@ public class ExamConverter {
     }
 
     // 组装用户已报名竞赛视图对象
-    public static UserExamVO toUserExamVO(TbExam exam, cn.nuonuoya.friend.domain.TbUserExam userExam) {
+    public static UserExamVO toUserExamVO(TbExam exam, TbUserExam userExam) {
         if (exam == null) {
             return null;
         }
-        cn.nuonuoya.friend.vo.UserExamVO vo = new cn.nuonuoya.friend.vo.UserExamVO();
+        UserExamVO vo = new UserExamVO();
         vo.setExamId(exam.getExamId());
         vo.setTitle(exam.getTitle());
         vo.setStartTime(exam.getStartTime());

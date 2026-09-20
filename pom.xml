@@ -7,7 +7,8 @@
 	<modules>
 		<module>oj_common</module>
 		<module>oj_modules</module>
-	</modules>
+        <module>oj_api</module>
+    </modules>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -59,6 +60,7 @@
 		<hutool-all.version>5.8.22</hutool-all.version>
 		<oj_common_mybatis.version>1.0-SNAPSHOT</oj_common_mybatis.version>
 		<transmittable-thread-local.version>2.14.4</transmittable-thread-local.version>
+		<oj_api.version>1.0-SNAPSHOT</oj_api.version>
 	</properties>
 
 	<dependencies>
@@ -143,6 +145,13 @@
 				<groupId>cn.nuonuoya</groupId>
 				<artifactId>oj_common_elastic</artifactId>
 				<version>${oj-common-elastic.version}</version>
+			</dependency>
+
+			<!-- 跨服务统一契约 API 依赖 -->
+			<dependency>
+				<groupId>cn.nuonuoya</groupId>
+				<artifactId>oj_api</artifactId>
+				<version>${oj_api.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
