@@ -28,38 +28,23 @@
 		<spring-cloud-alibaba.version>2022.0.0.0-RC2</spring-cloud-alibaba.version>
 		<spring-cloud.version>2022.0.0</spring-cloud.version>
 		<mybatis-plus.version>3.5.5</mybatis-plus.version>
+		<pagehelper.boot.version>2.0.0</pagehelper.boot.version>
+		<springdoc-openapi.version>2.2.0</springdoc-openapi.version>
 		<fastjson.version>2.0.43</fastjson.version>
 		<jwt.version>0.9.1</jwt.version>
 		<jaxb-api.version>2.4.0-b180830.0359</jaxb-api.version>
 		<hutool-all.version>5.8.22</hutool-all.version>
+		<transmittable-thread-local.version>2.14.4</transmittable-thread-local.version>
+		<xxl-job.version>2.4.0</xxl-job.version>
+		<aliyun-oss.version>3.17.4</aliyun-oss.version>
+		<aliyun.dypnsapi.version>1.2.2</aliyun.dypnsapi.version>
 		<oj-common-core.version>1.0-SNAPSHOT</oj-common-core.version>
 		<oj-common-swagger.version>1.0-SNAPSHOT</oj-common-swagger.version>
 		<oj-common-security.version>1.0-SNAPSHOT</oj-common-security.version>
 		<oj-common-redis.version>1.0-SNAPSHOT</oj-common-redis.version>
 		<oj-common-mybatis.version>1.0-SNAPSHOT</oj-common-mybatis.version>
 		<oj-common-message.version>1.0-SNAPSHOT</oj-common-message.version>
-		<oj-common-file.version>1.0-SNAPSHOT</oj-common-file.version>
 		<oj-common-elastic.version>1.0-SNAPSHOT</oj-common-elastic.version>
-		<springdoc-openapi.version>2.2.0</springdoc-openapi.version>
-		<pagehelper.boot.version>2.0.0</pagehelper.boot.version>
-		<xxl-job.version>2.4.0</xxl-job.version>
-		<transmittable-thread-local.version>2.14.4</transmittable-thread-local.version>
-		<javax-xml-bind.version>2.3.1</javax-xml-bind.version>
-		<javax-activation.version>1.1.1</javax-activation.version>
-		<org-glassfish-jaxb.version>2.3.3</org-glassfish-jaxb.version>
-		<aliyun-oss.version>3.17.4</aliyun-oss.version>
-		<aliyun.dypnsapi.version>1.2.2</aliyun.dypnsapi.version>
-		<mybatis-plus.version>3.5.5</mybatis-plus.version>
-		<springdoc-openapi.version>2.2.0</springdoc-openapi.version>
-		<oj-common-security.core>1.0-SNAPSHOT</oj-common-security.core>
-		<oj-common-security.version>1.0-SNAPSHOT</oj-common-security.version>
-		<oj-common-redis.version>1.0-SNAPSHOT</oj-common-redis.version>
-		<fastjson.version>2.0.43</fastjson.version>
-		<jwt.version>0.9.1</jwt.version>
-		<javax.version>2.4.0-b180830.0359</javax.version>
-		<hutool-all.version>5.8.22</hutool-all.version>
-		<oj_common_mybatis.version>1.0-SNAPSHOT</oj_common_mybatis.version>
-		<transmittable-thread-local.version>2.14.4</transmittable-thread-local.version>
 		<oj_api.version>1.0-SNAPSHOT</oj_api.version>
 	</properties>
 

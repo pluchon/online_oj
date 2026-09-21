@@ -26,7 +26,7 @@
         <dependency>
             <groupId>cn.nuonuoya</groupId>
             <artifactId>oj_common_swagger</artifactId>
-            <version>1.0-SNAPSHOT</version>
+            <version>${oj-common-swagger.version}</version>
         </dependency>
         <dependency>
             <groupId>cn.nuonuoya</groupId>
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>
-            <version>3.17.4</version>
+            <version>${aliyun-oss.version}</version>
         </dependency>
         <!-- 判题跨服务契约包 -->
         <dependency>

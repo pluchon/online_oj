@@ -35,7 +35,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
         <dependency>
             <groupId>cn.nuonuoya</groupId>
             <artifactId>oj_common_security</artifactId>
-            <version>${oj-common-security.core}</version>
+            <version>${oj-common-security.version}</version>
         </dependency>
         <dependency>
             <groupId>cn.nuonuoya</groupId>
