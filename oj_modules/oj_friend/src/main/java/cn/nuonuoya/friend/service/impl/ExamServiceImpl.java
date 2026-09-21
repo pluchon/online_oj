@@ -371,6 +371,10 @@ public class ExamServiceImpl implements ExamService {
         if (exam == null) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
+        // 竞赛结束前不允许结算
+        if (exam.getEndTime() == null || LocalDateTime.now().isBefore(exam.getEndTime())) {
+            throw new ServiceException(ResultCode.FAILED_EXAM_RANK_NOT_PUBLISHED);
+        }
 
         // 重新计算最新完整排名列表并同步数据库
         List<ExamRankVO> fullRankList = calculateAndPersistRanks(exam);

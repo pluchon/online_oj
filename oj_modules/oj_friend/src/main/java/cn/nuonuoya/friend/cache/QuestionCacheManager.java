@@ -59,6 +59,11 @@ public class QuestionCacheManager {
         }
     }
 
+    // 清除题目顺序列表缓存（下次访问时自动重建）
+    public void evictListCache(Long examId) {
+        redisService.deleteObject(getListKey(examId));
+    }
+
     // 获取题目列表首道题目的ID
     public Long getFirstQuestionId(Long examId) {
         String listKey = getListKey(examId);

@@ -1110,6 +1110,32 @@
         "description": "网关屏蔽 /**/internal/**，预期返回 code=3001「禁止访问内部接口」"
       },
       "response": []
+    },
+    {
+      "name": "31-内部接口-刷新C端题目缓存与ES(直连friend)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://127.0.0.1:9202/friend/internal/question/refresh",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "9202",
+          "path": [
+            "friend",
+            "internal",
+            "question",
+            "refresh"
+          ]
+        },
+        "description": "服务间内部接口（调用方 oj-system 题目增删改提交后），清除题目顺序缓存并全量同步ES、移除已删除题目；返回同步题数"
+      },
+      "response": []
     }
   ],
   "variable": [

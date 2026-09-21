@@ -1,10 +1,9 @@
 package cn.nuonuoya.system.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.common.enums.ResultCode;
-import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.exception.ServiceException;
+import cn.nuonuoya.system.client.FriendQuestionClient;
 import cn.nuonuoya.system.converter.QuestionConverter;
 import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.dto.QuestionAddDTO;
@@ -13,10 +12,12 @@ import cn.nuonuoya.system.dto.QuestionEditDTO;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.service.QuestionService;
+import cn.nuonuoya.system.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.QuestionDetailVO;
 import cn.nuonuoya.system.vo.QuestionVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,14 +25,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 // 题目业务实现类
+@Slf4j
 @Service
 public class QuestionServiceImpl implements QuestionService {
 
     @Autowired
     private QuestionMapper questionMapper;
 
-    @Autowired(required = false)
-    private RedisService redisService;
+    @Autowired
+    private FriendQuestionClient friendQuestionClient;
 
     // 分页查询题目列表实现
     @Override
@@ -64,9 +66,7 @@ public class QuestionServiceImpl implements QuestionService {
         }
         TbQuestion question = QuestionConverter.toEntity(addDTO);
         int rows = questionMapper.insert(question);
-        if (rows > 0 && redisService != null) {
-            redisService.deleteObject(CacheConstants.QUESTION_LIST_KEY);
-        }
+        notifyQuestionChanged(rows);
         return rows;
     }
 
@@ -105,7 +105,9 @@ public class QuestionServiceImpl implements QuestionService {
         }
         // 转换更新字段并入库
         TbQuestion question = QuestionConverter.toEntity(editDTO);
-        return questionMapper.updateById(question);
+        int rows = questionMapper.updateById(question);
+        notifyQuestionChanged(rows);
+        return rows;
     }
 
     // 删除题目实现
@@ -121,9 +123,19 @@ public class QuestionServiceImpl implements QuestionService {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         int rows = questionMapper.deleteById(questionId);
-        if (rows > 0 && redisService != null) {
-            redisService.deleteObject(CacheConstants.QUESTION_LIST_KEY);
-        }
+        notifyQuestionChanged(rows);
         return rows;
+    }
+
+    // 题目有变更时，事务提交后通知C端刷新题目缓存与ES索引
+    private void notifyQuestionChanged(int rows) {
+        if (rows <= 0) {
+            return;
+        }
+        TransactionUtils.afterCommit(() -> {
+            if (!friendQuestionClient.refreshQuestionData()) {
+                log.warn("题目已保存但C端数据未刷新，C端题库可能暂未更新");
+            }
+        });
     }
 }

@@ -244,9 +244,7 @@ mvn clean install -DskipTests
 * `GET  /friend/exam/list`：竞赛大厅列表查询（自动区隔未完赛/历史竞赛）
 * `POST /friend/exam/enroll`：当前登录用户报名指定竞赛（防重复、防过期）
 * `GET  /friend/exam/my/list`：查询当前用户报名的全部竞赛与得分战况
-* `GET  /friend/exam/rank/list`：分页查询竞赛全员排行榜单
-* `GET  /friend/exam/rank/my`：获取当前登录用户在指定竞赛中的成绩与排名战报
-* `POST /friend/exam/rank/settle`：结算指定竞赛排名并向选手群发战报通知
+* `GET  /friend/exam/rank/list`：分页查询竞赛全员排行榜单（竞赛结束后公布）
 * `GET  /friend/message/list`：分页查询当前用户站内消息通知
 * `GET  /friend/message/unread-count`：获取当前用户未读消息总数
 * `PUT  /friend/message/read`：将指定单条消息标记为已读

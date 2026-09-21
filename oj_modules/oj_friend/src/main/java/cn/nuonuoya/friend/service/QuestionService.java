@@ -18,8 +18,8 @@ public interface QuestionService {
     // 获取题库总题数与当前学员解题统计信息
     QuestionStatsVO getStats();
 
-    // 全量同步MySQL题目数据至ES索引
-    int syncAllQuestionsToEs();
+    // 题目数据变更后刷新：清除题目顺序缓存并全量同步ES，返回同步题数
+    int refreshQuestionData();
 
     // 获取题目上一题与下一题导航信息
     QuestionPreNextVO getPreAndNext(Long questionId, Long examId);

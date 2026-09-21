@@ -65,14 +65,6 @@ public class QuestionController extends BaseController {
         return OJResult.ok(vo);
     }
 
-    /** 手动同步MySQL题目至ES索引 */
-    @PostMapping("/sync")
-    @Operation(summary = "同步题目至ES", description = "手动触发将MySQL题目全量写入ES索引")
-    public OJResult<Integer> sync() {
-        int count = questionService.syncAllQuestionsToEs();
-        return OJResult.ok(count);
-    }
-
     /** 获取上一题与下一题ID */
     @GetMapping("/preAndNext")
     @Operation(summary = "题目导航", description = "根据当前题目ID与可选竞赛ID获取上一题与下一题ID")

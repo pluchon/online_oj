@@ -226,17 +226,32 @@ public class QuestionServiceImpl implements QuestionService {
         return statsVO;
     }
 
-    // 全量同步MySQL题目数据至ES索引
+    // 题目数据变更后刷新：清除题目顺序缓存并全量同步ES
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public int syncAllQuestionsToEs() {
+    public int refreshQuestionData() {
+        questionCacheManager.evictListCache(null);
+        return syncAllQuestionsToEs();
+    }
+
+    // 全量同步MySQL题目数据至ES索引，并移除MySQL中已不存在的文档
+    private int syncAllQuestionsToEs() {
         List<TbQuestion> list = questionMapper.selectList(null);
-        if (CollUtil.isEmpty(list)) {
-            return 0;
-        }
         List<QuestionDoc> docList = QuestionConverter.toDocList(list);
-        questionRepository.saveAll(docList);
-        log.info("成功同步 {} 道题目至Elasticsearch索引", docList.size());
+        if (CollUtil.isNotEmpty(docList)) {
+            questionRepository.saveAll(docList);
+        }
+
+        Set<Long> validIds = docList.stream().map(QuestionDoc::getQuestionId).collect(Collectors.toSet());
+        List<Long> staleIds = new ArrayList<>();
+        for (QuestionDoc doc : questionRepository.findAll()) {
+            if (!validIds.contains(doc.getQuestionId())) {
+                staleIds.add(doc.getQuestionId());
+            }
+        }
+        if (!staleIds.isEmpty()) {
+            questionRepository.deleteAllById(staleIds);
+        }
+        log.info("同步 {} 道题目至Elasticsearch索引，移除 {} 道已删除题目", docList.size(), staleIds.size());
         return docList.size();
     }
 

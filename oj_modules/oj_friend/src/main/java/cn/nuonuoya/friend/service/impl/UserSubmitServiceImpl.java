@@ -47,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -93,6 +93,9 @@ public class UserSubmitServiceImpl implements UserSubmitService {
     @Autowired
     private ExamQuestionMapper examQuestionMapper;
 
+    @Autowired
+    private TransactionTemplate transactionTemplate;
+
     // 获取当前请求登录用户ID（优先ThreadLocal，兼顾HttpServletRequest兜底）
     private Long getCurrentUserId() {
         Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
@@ -115,8 +118,8 @@ public class UserSubmitServiceImpl implements UserSubmitService {
     }
 
     // 提交代码、落库初始化记录并向 RabbitMQ 投递异步判题任务（全部用例）
+    // 记录先独立提交再投递消息，避免判题结果先于记录提交回写而丢失
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public UserSubmitResultVO submit(UserSubmitDTO submitDTO) {
         if (submitDTO == null || submitDTO.getQuestionId() == null || StrUtil.isBlank(submitDTO.getUserCode())) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
@@ -158,8 +161,8 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         submit.setCreateBy(userId);
         submit.setCreateTime(LocalDateTime.now());
 
-        // 持久化落库至 tb_user_submit 表，生成 submitId
-        userSubmitMapper.insert(submit);
+        // 持久化落库至 tb_user_submit 表并提交事务，生成 submitId
+        transactionTemplate.executeWithoutResult(status -> userSubmitMapper.insert(submit));
 
         // 组装跨服务判题请求 DTO
         JudgeRequestDTO requestDTO = buildJudgeRequest(question, userId, submit.getUserCode(), caseList);
@@ -180,7 +183,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             submit.setPass(SubmitPassEnum.NOT_PASS.getCode());
             submit.setJudgeStatus(JudgeStatusEnum.SE.getCode());
             submit.setExeMessage("系统异常：判题任务队列投递失败");
-            userSubmitMapper.updateById(submit);
+            transactionTemplate.executeWithoutResult(status -> userSubmitMapper.updateById(submit));
         }
 
         return toResultVO(submit);

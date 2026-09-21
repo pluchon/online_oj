@@ -10,14 +10,13 @@ import cn.nuonuoya.system.dto.UserStatusDTO;
 import cn.nuonuoya.system.enums.UserStatus;
 import cn.nuonuoya.system.mapper.UserMapper;
 import cn.nuonuoya.system.service.UserService;
+import cn.nuonuoya.system.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.UserVO;
 import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Objects;
@@ -75,12 +74,9 @@ public class UserServiceImpl implements UserService {
 
         // 事务提交后再通知C端清除用户缓存，避免提交前被旧状态重新回填
         Long userId = statusDTO.getUserId();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                if (!friendUserClient.evictUserCache(userId)) {
-                    log.warn("用户状态已更新但C端缓存未清除，将在缓存过期后生效, userId = {}", userId);
-                }
+        TransactionUtils.afterCommit(() -> {
+            if (!friendUserClient.evictUserCache(userId)) {
+                log.warn("用户状态已更新但C端缓存未清除，将在缓存过期后生效, userId = {}", userId);
             }
         });
         return rows;

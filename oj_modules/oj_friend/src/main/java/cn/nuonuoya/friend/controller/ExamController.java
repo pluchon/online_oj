@@ -89,12 +89,4 @@ public class ExamController extends BaseController {
     public TableDataResult<ExamRankVO> rankList(@RequestParam("examId") Long examId, PageQuery pageQuery) {
         return examService.getExamRankList(examId, pageQuery);
     }
-
-    /** 结算指定竞赛排名并发送战报通知 */
-    @PostMapping("/rank/settle")
-    @Operation(summary = "结算竞赛排名", description = "手动或定时触发结算指定竞赛排名并向选手发送战报通知")
-    public OJResult<Void> settleRank(@RequestParam("examId") Long examId) {
-        examService.settleExamRank(examId);
-        return OJResult.ok();
-    }
 }
