@@ -1,6 +1,7 @@
 package cn.nuonuoya.judge.service;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -10,11 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-// 用户待评测代码本地持久化落盘管理服务
+// 评测代码落盘管理服务（每次评测使用独立目录，评测结束后清理）
 @Service
 public class CodeFileStorageService {
 
-    // 默认源码文件名称
+    // 源码文件名称
     public static final String SOLUTION_FILE_NAME = "Solution.java";
 
     // 用例标准输入文件名称
@@ -27,35 +28,17 @@ public class CodeFileStorageService {
     @Value("${oj.judge.code-dir:./user-code}")
     private String codeDir;
 
-    // 将用户完整源码持久化写入本地磁盘文件
+    // 将完整源码写入独立评测目录：{userId或submitId}_{yyyyMMddHHmmss}_{随机串}/Solution.java
     public File saveSolutionFile(Long userId, Long submitId, String completeCode) {
         if (StrUtil.isBlank(completeCode)) {
             throw new IllegalArgumentException("待保存的代码内容不能为空");
         }
-
-        // 规范化根目录绝对路径
-        File rootDir = new File(codeDir).getAbsoluteFile();
-        if (!rootDir.exists()) {
-            rootDir.mkdirs();
-        }
-
-        // 按照用户要求生成隔离子目录名称：{userId}_{yyyyMMddHHmmss}
         String idPrefix = userId != null ? String.valueOf(userId) : String.valueOf(submitId);
-        String timestamp = LocalDateTime.now().format(TIME_FORMATTER);
-        String folderName = idPrefix + "_" + timestamp;
+        String folderName = idPrefix + "_" + LocalDateTime.now().format(TIME_FORMATTER) + "_" + IdUtil.fastSimpleUUID().substring(0, 8);
+        File workDir = FileUtil.mkdir(new File(new File(codeDir).getAbsoluteFile(), folderName));
 
-        File subDir = new File(rootDir, folderName);
-        // 同一秒并发提交防重名保护
-        if (subDir.exists()) {
-            folderName = folderName + "_" + (System.currentTimeMillis() % 1000);
-            subDir = new File(rootDir, folderName);
-        }
-        subDir.mkdirs();
-
-        // 写入 Solution.java 文件
-        File solutionFile = new File(subDir, SOLUTION_FILE_NAME);
+        File solutionFile = new File(workDir, SOLUTION_FILE_NAME);
         FileUtil.writeString(completeCode, solutionFile, StandardCharsets.UTF_8);
-
         return solutionFile;
     }
 
@@ -66,7 +49,7 @@ public class CodeFileStorageService {
         return inputFile;
     }
 
-    // 清理指定评测临时目录
+    // 删除评测目录
     public void deleteFolder(File folder) {
         if (folder != null && folder.exists()) {
             FileUtil.del(folder);

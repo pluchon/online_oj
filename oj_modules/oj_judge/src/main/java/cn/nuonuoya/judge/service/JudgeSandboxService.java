@@ -29,29 +29,43 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class JudgeSandboxService {
 
-    // 注入代码持久化落盘服务
+    // 请求未携带时间限制时的默认值（毫秒）
+    private static final int DEFAULT_TIME_LIMIT_MS = 1000;
+
+    // 请求未携带空间限制时的默认值（MB）
+    private static final int DEFAULT_SPACE_LIMIT_MB = 128;
+
+    // 编译超时时间（毫秒）
+    private static final int COMPILE_TIMEOUT_MS = 5000;
+
+    // 等待空闲沙箱容器的最长时间（毫秒）
+    private static final long BORROW_TIMEOUT_MS = 5000;
+
+    // 容器被系统 OOM 杀死时的退出码
+    private static final int OOM_KILLED_EXIT_CODE = 137;
+
+    // 输出流读取完成的等待时间（毫秒）
+    private static final long OUTPUT_DRAIN_TIMEOUT_MS = 500;
+
     @Autowired
     private CodeFileStorageService codeFileStorageService;
 
-    // 注入常驻沙箱容器池管理器
     @Autowired
     private DockerContainerPool dockerContainerPool;
 
-    // 判题执行超时缓冲毫秒数
+    // 运行超时缓冲毫秒数（抵消 docker exec 与 JVM 启动开销）
     @Value("${oj.judge.docker.timeout-buffer-ms:500}")
     private int timeoutBufferMs;
 
-    // 最大日志输出截取字符长度
+    // 程序输出上限（字符），超出判为输出超限
     @Value("${oj.judge.docker.max-output-length:8192}")
     private int maxOutputLength;
 
     // 核心评测执行入口方法
     public JudgeResultVO executeJudge(JudgeRequestDTO requestDTO) {
         Long submitId = requestDTO.getSubmitId();
-        Long userId = requestDTO.getUserId();
-        Integer timeLimit = requestDTO.getTimeLimit() != null ? requestDTO.getTimeLimit() : 1000;
-        Integer spaceLimit = requestDTO.getSpaceLimit() != null ? requestDTO.getSpaceLimit() : 128;
-        Integer difficulty = requestDTO.getDifficulty();
+        int timeLimit = requestDTO.getTimeLimit() != null ? requestDTO.getTimeLimit() : DEFAULT_TIME_LIMIT_MS;
+        int spaceLimit = requestDTO.getSpaceLimit() != null ? requestDTO.getSpaceLimit() : DEFAULT_SPACE_LIMIT_MB;
         List<JudgeCaseDTO> cases = requestDTO.getCases() != null ? requestDTO.getCases() : new ArrayList<>();
 
         JudgeResultVO resultVO = new JudgeResultVO();
@@ -69,66 +83,58 @@ public class JudgeSandboxService {
             return resultVO;
         }
 
-        // 步骤 1：用户代码与用例输入持久化落盘至 user-code/{userId}_{timestamp}/
-        File solutionFile;
+        // 步骤 1：用户代码与用例输入落盘至独立评测目录
+        File workDir;
         try {
-            solutionFile = codeFileStorageService.saveSolutionFile(userId, submitId, requestDTO.getCompleteCode());
-            codeFileStorageService.saveInputFile(solutionFile.getParentFile(), buildStdin(cases));
+            File solutionFile = codeFileStorageService.saveSolutionFile(requestDTO.getUserId(), submitId, requestDTO.getCompleteCode());
+            workDir = solutionFile.getParentFile();
+            codeFileStorageService.saveInputFile(workDir, buildStdin(cases));
         } catch (Exception e) {
-            log.error("用户代码持久化保存失败, submitId: {}, error: {}", submitId, e.getMessage(), e);
+            log.error("用户代码持久化保存失败, submitId: {}", submitId, e);
             fillStatus(resultVO, JudgeStatusEnum.SE, "系统错误：代码落盘失败");
             return resultVO;
         }
 
-        // 获取隔离子目录名称，用于在共享挂载卷中定位
-        String subFolderName = solutionFile.getParentFile().getName();
-
-        // 步骤 2：从容器池中借用一个已预热就绪的常驻沙箱容器（免除频繁起停容器）
         String containerName = null;
         boolean shouldEvict = false;
         try {
-            containerName = dockerContainerPool.borrowContainer(5000);
+            // 步骤 2：借用已预热的常驻沙箱容器
+            containerName = dockerContainerPool.borrowContainer(BORROW_TIMEOUT_MS);
             if (containerName == null) {
                 log.warn("沙箱容器池暂无可用容器, submitId: {}", submitId);
                 fillStatus(resultVO, JudgeStatusEnum.SE, "系统繁忙：评测队列排队超时，请稍后重试");
                 return resultVO;
             }
 
-            // 步骤 3：第一阶段 - 在沙箱容器内执行 javac 编译检查
-            ProcessResult compileResult = runDockerExecCommand(
-                    containerName,
-                    subFolderName,
-                    5000,
-                    "javac Solution.java"
-            );
-
-            if (compileResult.isTimeout()) {
+            // 步骤 3：编译
+            ProcessResult compileResult = runDockerExecCommand(containerName, workDir.getName(), COMPILE_TIMEOUT_MS, "javac Solution.java");
+            if (compileResult.isSystemError()) {
                 shouldEvict = true;
-                fillStatus(resultVO, JudgeStatusEnum.CE, "编译超时（超过 5 秒）");
+                fillStatus(resultVO, JudgeStatusEnum.SE, "系统错误：沙箱执行失败");
                 return resultVO;
             }
-
+            if (compileResult.isTimeout()) {
+                shouldEvict = true;
+                fillStatus(resultVO, JudgeStatusEnum.CE, "编译超时（超过 " + COMPILE_TIMEOUT_MS / 1000 + " 秒）");
+                return resultVO;
+            }
             if (compileResult.getExitCode() != 0) {
                 fillStatus(resultVO, JudgeStatusEnum.CE, compileResult.getOutput());
                 return resultVO;
             }
 
-            // 步骤 4：第二阶段 - 在沙箱容器内执行 java 运行，全部用例经标准输入一次性喂入
-            int runTimeoutMs = timeLimit + timeoutBufferMs;
-            String runCmd = String.format("java -Xmx%dm -Xss256k Solution < %s",
-                    spaceLimit, CodeFileStorageService.INPUT_FILE_NAME);
-
-            ProcessResult runResult = runDockerExecCommand(
-                    containerName,
-                    subFolderName,
-                    runTimeoutMs,
-                    runCmd
-            );
-
+            // 步骤 4：运行，全部用例经标准输入一次性喂入
+            String runCmd = String.format("java -Xmx%dm -Xss256k Solution < %s", spaceLimit, CodeFileStorageService.INPUT_FILE_NAME);
+            ProcessResult runResult = runDockerExecCommand(containerName, workDir.getName(), timeLimit + timeoutBufferMs, runCmd);
             resultVO.setTimeCost(runResult.getDurationMs());
             resultVO.setMemoryCost((long) spaceLimit);
 
-            // 处理死循环超时（TLE）：必须淘汰并强杀该容器，防止后台死循环进程残留
+            if (runResult.isSystemError()) {
+                shouldEvict = true;
+                fillStatus(resultVO, JudgeStatusEnum.SE, "系统错误：沙箱执行失败");
+                return resultVO;
+            }
+            // 超时后容器内进程可能仍在运行，必须淘汰该容器
             if (runResult.isTimeout()) {
                 shouldEvict = true;
                 fillStatus(resultVO, JudgeStatusEnum.TLE, "程序执行时间超过限制（" + timeLimit + " ms）");
@@ -143,15 +149,17 @@ public class JudgeSandboxService {
             int passCount = compareCases(cases, outputLines.subList(0, validLineCount), resultVO);
             resultVO.setPassCount(passCount);
 
-            // 处理非零退出异常（RE 运行时异常 / MLE 内存溢出）
             if (!exitedNormally) {
-                String output = runResult.getOutput();
-                if (output.contains("OutOfMemoryError")) {
+                if (runResult.getExitCode() == OOM_KILLED_EXIT_CODE || runResult.getOutput().contains("OutOfMemoryError")) {
                     shouldEvict = true;
                     fillStatus(resultVO, JudgeStatusEnum.MLE, "程序占用内存超出限制（" + spaceLimit + " MB）");
                 } else {
                     fillStatus(resultVO, JudgeStatusEnum.RE, extractErrorOutput(outputLines, validLineCount));
                 }
+                return resultVO;
+            }
+            if (runResult.isTruncated()) {
+                fillStatus(resultVO, JudgeStatusEnum.OLE, "程序输出超过限制（" + maxOutputLength + " 字符）");
                 return resultVO;
             }
 
@@ -161,7 +169,7 @@ public class JudgeSandboxService {
             } else {
                 fillStatus(resultVO, JudgeStatusEnum.WA, null);
             }
-            resultVO.setScore(calculateScore(difficulty, passCount, cases.size()));
+            resultVO.setScore(calculateScore(requestDTO.getDifficulty(), passCount, cases.size()));
             return resultVO;
 
         } catch (InterruptedException e) {
@@ -169,7 +177,6 @@ public class JudgeSandboxService {
             fillStatus(resultVO, JudgeStatusEnum.SE, "系统中断异常");
             return resultVO;
         } finally {
-            // 归还或淘汰自愈
             if (containerName != null) {
                 if (shouldEvict) {
                     dockerContainerPool.evictAndReplaceContainer(containerName);
@@ -177,6 +184,8 @@ public class JudgeSandboxService {
                     dockerContainerPool.returnContainer(containerName);
                 }
             }
+            // 评测结束即清理代码与输入，源码已在提交记录中留存
+            codeFileStorageService.deleteFolder(workDir);
         }
     }
 
@@ -265,21 +274,15 @@ public class JudgeSandboxService {
         return String.join("\n", outputLines.subList(validLineCount, outputLines.size()));
     }
 
-    // 在常驻就绪容器内极速执行命令（避免重新启动容器）
-    private ProcessResult runDockerExecCommand(
-            String containerName,
-            String subFolderName,
-            int timeoutMs,
-            String innerCommand
-    ) {
+    // 在常驻容器内执行命令，按上限收集合并后的标准输出与错误输出
+    private ProcessResult runDockerExecCommand(String containerName, String subFolderName, long timeoutMs, String innerCommand) {
         ProcessBuilder pb = new ProcessBuilder(
                 "docker", "exec",
                 "-w", "/sandbox/" + subFolderName,
                 containerName,
                 "sh", "-c", innerCommand
         );
-
-        // 合并标准输出与标准错误输出，彻底消除 Pipe 阻塞死锁
+        // 合并标准输出与错误输出，避免两路管道互相阻塞
         pb.redirectErrorStream(true);
 
         long startTime = System.currentTimeMillis();
@@ -288,86 +291,133 @@ public class JudgeSandboxService {
             process = pb.start();
             final Process p = process;
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            boolean[] truncated = {false};
 
-            // 独立异步线程按上限读取输出流，避免缓冲区打满
+            // 独立线程持续读取输出，超出上限的部分丢弃，防止管道缓冲区写满导致子进程阻塞
             CompletableFuture<Void> readFuture = CompletableFuture.runAsync(() -> {
                 try (InputStream is = p.getInputStream()) {
                     byte[] buf = new byte[1024];
                     int len;
                     while ((len = is.read(buf)) != -1) {
-                        if (baos.size() < maxOutputLength) {
-                            int writeLen = Math.min(len, maxOutputLength - baos.size());
-                            baos.write(buf, 0, writeLen);
+                        int remain = maxOutputLength - baos.size();
+                        if (len > remain) {
+                            truncated[0] = true;
+                        }
+                        if (remain > 0) {
+                            baos.write(buf, 0, Math.min(len, remain));
                         }
                     }
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    // 进程被强制结束时流会被关闭，属于预期情况
+                    log.debug("读取沙箱输出流结束: {}", e.getMessage());
                 }
             });
 
             boolean finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
             long costTime = System.currentTimeMillis() - startTime;
-
             if (!finished) {
                 process.destroyForcibly();
                 readFuture.cancel(true);
-                return new ProcessResult(true, -1, costTime, "Execution Timeout");
+                return ProcessResult.timeout(costTime);
             }
 
             try {
-                readFuture.get(500, TimeUnit.MILLISECONDS);
-            } catch (Exception ignored) {
+                readFuture.get(OUTPUT_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+                // 进程已结束但输出未在时限内读完，按已读取部分处理
+                log.warn("沙箱输出读取未在 {} ms 内完成, container: {}", OUTPUT_DRAIN_TIMEOUT_MS, containerName);
             }
+            return ProcessResult.finished(process.exitValue(), costTime, baos.toString(StandardCharsets.UTF_8), truncated[0]);
 
-            int exitCode = process.exitValue();
-            String output = baos.toString(StandardCharsets.UTF_8);
-            return new ProcessResult(false, exitCode, costTime, output);
-
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            process.destroyForcibly();
+            return ProcessResult.systemError(System.currentTimeMillis() - startTime);
         } catch (Exception e) {
             if (process != null) {
                 process.destroyForcibly();
             }
-            long costTime = System.currentTimeMillis() - startTime;
-            return new ProcessResult(false, -1, costTime, "进程执行异常: " + e.getMessage());
+            log.error("沙箱命令执行失败, container: {}", containerName, e);
+            return ProcessResult.systemError(System.currentTimeMillis() - startTime);
         }
     }
 
     // 根据题目难度与通过用例数计算实际得分
     private int calculateScore(Integer difficulty, int passCount, int totalCount) {
-        int baseScore = QuestionDifficultyScoreEnum.getFullScore(difficulty);
         if (totalCount <= 0) {
             return 0;
         }
-        return (int) Math.round((double) baseScore * passCount / totalCount);
+        int fullScore = QuestionDifficultyScoreEnum.getFullScore(difficulty);
+        return (int) Math.round((double) fullScore * passCount / totalCount);
     }
 
-    // 子进程运行结果结构体
+    // 沙箱子进程执行结果
     private static class ProcessResult {
+
+        // 是否执行超时
         private final boolean timeout;
+
+        // 是否因沙箱自身故障未能执行（与用户代码无关）
+        private final boolean systemError;
+
+        // 进程退出码
         private final int exitCode;
+
+        // 执行耗时（毫秒）
         private final long durationMs;
+
+        // 合并后的输出
         private final String output;
 
-        public ProcessResult(boolean timeout, int exitCode, long durationMs, String output) {
+        // 输出是否因超过上限被截断
+        private final boolean truncated;
+
+        private ProcessResult(boolean timeout, boolean systemError, int exitCode, long durationMs, String output, boolean truncated) {
             this.timeout = timeout;
+            this.systemError = systemError;
             this.exitCode = exitCode;
             this.durationMs = durationMs;
             this.output = output != null ? output : StrUtil.EMPTY;
+            this.truncated = truncated;
         }
 
-        public boolean isTimeout() {
+        // 正常结束
+        static ProcessResult finished(int exitCode, long durationMs, String output, boolean truncated) {
+            return new ProcessResult(false, false, exitCode, durationMs, output, truncated);
+        }
+
+        // 执行超时
+        static ProcessResult timeout(long durationMs) {
+            return new ProcessResult(true, false, -1, durationMs, null, false);
+        }
+
+        // 沙箱故障
+        static ProcessResult systemError(long durationMs) {
+            return new ProcessResult(false, true, -1, durationMs, null, false);
+        }
+
+        boolean isTimeout() {
             return timeout;
         }
 
-        public int getExitCode() {
+        boolean isSystemError() {
+            return systemError;
+        }
+
+        int getExitCode() {
             return exitCode;
         }
 
-        public long getDurationMs() {
+        long getDurationMs() {
             return durationMs;
         }
 
-        public String getOutput() {
+        String getOutput() {
             return output;
+        }
+
+        boolean isTruncated() {
+            return truncated;
         }
     }
 }

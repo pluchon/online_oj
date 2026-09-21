@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -17,17 +18,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class DockerContainerPool {
 
-    // 容器池阻塞队列
+    // 沙箱容器名称前缀
+    private static final String CONTAINER_PREFIX = "oj_worker_";
+
+    // 创建容器的等待时间（秒）
+    private static final long CREATE_TIMEOUT_SECONDS = 10;
+
+    // 销毁容器的等待时间（秒）
+    private static final long DESTROY_TIMEOUT_SECONDS = 5;
+
+    // 空闲容器队列
     private final BlockingQueue<String> pool = new LinkedBlockingQueue<>();
 
     // 递增计数器用于命名
     private final AtomicInteger counter = new AtomicInteger(1);
 
-    // 用户代码本地保存根目录
+    // 用户代码本地保存根目录（挂载到容器 /sandbox）
     @Value("${oj.judge.code-dir:./user-code}")
     private String codeDir;
 
-    // 默认执行镜像
+    // 沙箱执行镜像
     @Value("${oj.judge.docker.image:maven:3.9-eclipse-temurin-17-alpine}")
     private String dockerImage;
 
@@ -40,14 +50,13 @@ public class DockerContainerPool {
     public void initPool() {
         log.info("开始初始化 Docker 沙箱容器池, 目标池大小: {}", poolSize);
         File rootDir = new File(codeDir).getAbsoluteFile();
-        if (!rootDir.exists()) {
-            rootDir.mkdirs();
+        if (!rootDir.exists() && !rootDir.mkdirs()) {
+            log.error("创建沙箱挂载目录失败: {}", rootDir);
         }
 
-        // 清理历史残留的同名容器
+        // 清理上次运行残留的容器
         cleanHistoricalContainers();
 
-        // 预热指定数量的常驻容器
         for (int i = 1; i <= poolSize; i++) {
             String containerName = createNewContainer();
             if (containerName != null) {
@@ -57,34 +66,33 @@ public class DockerContainerPool {
         log.info("Docker 沙箱容器池初始化完成, 当前可用容器数: {}", pool.size());
     }
 
-    // 从容器池中借出一个可用沙箱容器
+    // 借出一个空闲容器，超时返回 null
     public String borrowContainer(long timeoutMs) throws InterruptedException {
         return pool.poll(timeoutMs, TimeUnit.MILLISECONDS);
     }
 
-    // 正常执行完毕后归还容器至池中
+    // 归还容器
     public void returnContainer(String containerName) {
         if (containerName != null) {
             pool.offer(containerName);
         }
     }
 
-    // 淘汰中毒/超时容器并自动补充全新容器入池
+    // 销毁异常或超时的容器，并补充新容器入池
     public void evictAndReplaceContainer(String poisonedContainerName) {
-        log.warn("检测到异常/超时容器: {}, 执行物理销毁并补充新容器", poisonedContainerName);
+        log.warn("检测到异常/超时容器: {}, 执行销毁并补充新容器", poisonedContainerName);
         destroyContainer(poisonedContainerName);
         String newContainerName = createNewContainer();
         if (newContainerName != null) {
             pool.offer(newContainerName);
-            log.info("全新沙箱容器补充入池成功: {}", newContainerName);
+            log.info("新沙箱容器补充入池成功: {}", newContainerName);
         }
     }
 
-    // 创建并启动一个常驻待命的无网络沙箱容器
+    // 创建并启动一个常驻待命的无网络沙箱容器，失败返回 null
     public synchronized String createNewContainer() {
-        String containerName = "oj_worker_" + counter.getAndIncrement() + "_" + (System.currentTimeMillis() % 100000);
-        File rootDir = new File(codeDir).getAbsoluteFile();
-        String hostMountDir = rootDir.getAbsolutePath().replace("\\", "/");
+        String containerName = CONTAINER_PREFIX + counter.getAndIncrement() + "_" + (System.currentTimeMillis() % 100000);
+        String hostMountDir = new File(codeDir).getAbsolutePath().replace("\\", "/");
 
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -102,53 +110,67 @@ public class DockerContainerPool {
             );
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            boolean ok = process.waitFor(10, TimeUnit.SECONDS);
-            if (ok && process.exitValue() == 0) {
+            if (!process.waitFor(CREATE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                log.error("创建沙箱容器超时: {}", containerName);
+                return null;
+            }
+            if (process.exitValue() == 0) {
                 log.info("成功创建常驻沙箱容器: {}", containerName);
                 return containerName;
-            } else {
-                log.error("创建沙箱容器失败: exitCode = {}", process.exitValue());
             }
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            log.error("创建沙箱容器失败: exitCode = {}, output = {}", process.exitValue(), output);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("创建沙箱容器被中断: {}", containerName);
         } catch (Exception e) {
             log.error("创建沙箱容器发生异常: {}", e.getMessage(), e);
         }
         return null;
     }
 
-    // 销毁指定容器
+    // 强制销毁指定容器
     public void destroyContainer(String containerName) {
         try {
             new ProcessBuilder("docker", "rm", "-f", containerName)
                     .start()
-                    .waitFor(5, TimeUnit.SECONDS);
-        } catch (Exception ignored) {
+                    .waitFor(DESTROY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("销毁沙箱容器被中断: {}", containerName);
+        } catch (Exception e) {
+            log.warn("销毁沙箱容器失败: {}, error = {}", containerName, e.getMessage());
         }
     }
 
-    // 清理历史残留容器
+    // 清理上次运行残留的沙箱容器
     private void cleanHistoricalContainers() {
         try {
-            ProcessBuilder pb = new ProcessBuilder("docker", "ps", "-a", "--filter", "name=oj_worker_", "-q");
-            Process p = pb.start();
-            String ids = new String(p.getInputStream().readAllBytes()).trim();
-            p.waitFor(5, TimeUnit.SECONDS);
+            Process p = new ProcessBuilder("docker", "ps", "-a", "--filter", "name=" + CONTAINER_PREFIX, "-q").start();
+            String ids = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            p.waitFor(DESTROY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!ids.isEmpty()) {
                 for (String id : ids.split("\\s+")) {
-                    new ProcessBuilder("docker", "rm", "-f", id).start().waitFor(3, TimeUnit.SECONDS);
+                    destroyContainer(id);
                 }
             }
-        } catch (Exception ignored) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("清理历史沙箱容器被中断");
+        } catch (Exception e) {
+            log.warn("清理历史沙箱容器失败: {}", e.getMessage());
         }
     }
 
-    // 容器池优雅销毁钩子
+    // 服务关闭时销毁池中空闲容器（借出中的容器由下次启动时的残留清理处理）
     @PreDestroy
     public void destroyPool() {
-        log.info("判题服务正在关闭，开始销毁所有常驻沙箱容器...");
-        while (!pool.isEmpty()) {
-            String name = pool.poll();
+        log.info("判题服务正在关闭，开始销毁常驻沙箱容器...");
+        String name;
+        while ((name = pool.poll()) != null) {
             destroyContainer(name);
         }
-        log.info("所有常驻沙箱容器已成功清理销毁");
+        log.info("常驻沙箱容器已清理完成");
     }
 }

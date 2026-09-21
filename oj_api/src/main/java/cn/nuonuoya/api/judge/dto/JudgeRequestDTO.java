@@ -26,7 +26,7 @@ public class JudgeRequestDTO implements Serializable {
     // 提交用户ID（用于全链路审计与日志排障）
     private Long userId;
 
-    // 语言类型（0: Java, 1: C++）
+    // 语言类型（见 ProgramTypeEnum）
     private Integer programType;
 
     // 用户提交的原始代码

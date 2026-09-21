@@ -20,13 +20,13 @@ public class JudgeResultVO implements Serializable {
     // 提交记录ID
     private Long submitId;
 
-    // 状态编码（1:AC 2:WA 3:TLE 4:MLE 5:CE 6:RE 7:OLE 8:SE）
+    // 状态编码（见 JudgeStatusEnum）
     private Integer status;
 
     // 状态英文标识（如 Accepted, Wrong Answer, Time Limit Exceeded）
     private String statusDesc;
 
-    // 是否通过（1: 通过, 0: 未通过）
+    // 是否通过（见 JudgePassEnum）
     private Integer pass;
 
     // 本次提交最终得分

@@ -42,14 +42,17 @@ public class JudgeTaskConsumer {
             // 调用 Docker 沙箱容器池执行评测
             resultVO = judgeSandboxService.executeJudge(requestDTO);
         } catch (Exception e) {
-            log.error("沙箱执行发生未捕获异常: submitId = {}, error = {}", submitId, e.getMessage(), e);
+            log.error("沙箱执行发生未捕获异常: submitId = {}", submitId, e);
             resultVO = new JudgeResultVO();
             resultVO.setSubmitId(submitId);
             resultVO.setStatus(JudgeStatusEnum.SE.getCode());
             resultVO.setStatusDesc(JudgeStatusEnum.SE.getName());
             resultVO.setPass(JudgePassEnum.NOT_PASS.getCode());
             resultVO.setScore(0);
-            resultVO.setExeMessage("系统评测异常: " + e.getMessage());
+            resultVO.setPassCount(0);
+            resultVO.setTotalCount(requestDTO.getCases() == null ? 0 : requestDTO.getCases().size());
+            // 异常细节只记日志，不回显给用户
+            resultVO.setExeMessage("系统评测异常，请稍后重试");
         }
 
         // 将评测结果异步回传至结果队列

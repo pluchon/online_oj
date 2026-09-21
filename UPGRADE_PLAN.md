@@ -231,6 +231,7 @@ B 端题目管理接入 `tb_question_case`（当前尚未完成）是功能 1 �
 |---|---|---|---|
 | T1 | 竞赛结算无触发方 | C 端公开入口 `/friend/exam/rank/settle` 已关闭，`settleExamRank` 暂无调用方，战报消息不会发出；查看排名的 GET 请求在赛后会顺带把排名写库且不在事务内 | job 定时扫描已结束竞赛，经 friend 内部接口触发结算；`tb_exam` 增加"已结算"标记保证战报不重复（需确认表结构变更） |
 | T2 | 竞赛列表缓存跨服务耦合 | system 与 job 通过 `CacheConstants` 直接改写 friend 的竞赛列表缓存 | 与题目刷新同一模式：friend 提供 `/friend/internal/exam/refresh`，system 提交后与 job 定时调用 |
+| T4 | 判题沙箱共享挂载 | 所有常驻容器都把整个 `user-code/` 挂到 `/sandbox`，用户代码可读写同一时刻其他评测目录（读他人代码、篡改他人输入） | 每次评测改为 `docker cp` 进容器私有目录并在结束后删除，或按评测目录单独挂载 |
 | T3 | Nacos 网关白名单拼写 | `oj-gateway-local.yaml` 中 `/**/webjars/**m` 多了结尾的 m | 在 Nacos 控制台改为 `/**/webjars/**` |
 
 ## 回退方案
