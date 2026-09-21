@@ -47,7 +47,8 @@ public enum ResultCode {
     FAILED_EXAM_RANK_NOT_PUBLISHED (3214, "竞赛结束后公布排名"),
 
     // 判题相关
-    FAILED_QUESTION_NO_CASE (3301, "题目尚未配置测试用例");
+    FAILED_QUESTION_NO_CASE (3301, "题目尚未配置测试用例"),
+    FAILED_QUESTION_NO_SAMPLE (3302, "请至少设置一组公开示例用例");
 
     private final int code;
     private final String msg;

@@ -6,10 +6,14 @@ import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.system.client.FriendQuestionClient;
 import cn.nuonuoya.system.converter.QuestionConverter;
 import cn.nuonuoya.system.domain.TbQuestion;
+import cn.nuonuoya.system.domain.TbQuestionCase;
 import cn.nuonuoya.system.dto.QuestionAddDTO;
+import cn.nuonuoya.system.dto.QuestionCaseDTO;
 import cn.nuonuoya.system.dto.QuestionDTO;
 import cn.nuonuoya.system.dto.QuestionEditDTO;
+import cn.nuonuoya.system.enums.QuestionCaseType;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
+import cn.nuonuoya.system.mapper.QuestionCaseMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.service.QuestionService;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
@@ -23,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 // 题目业务实现类
 @Slf4j
@@ -34,6 +39,9 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Autowired
     private FriendQuestionClient friendQuestionClient;
+
+    @Autowired
+    private QuestionCaseMapper questionCaseMapper;
 
     // 分页查询题目列表实现
     @Override
@@ -64,8 +72,10 @@ public class QuestionServiceImpl implements QuestionService {
         if (count != null && count > 0) {
             throw new ServiceException(ResultCode.FAILED_ALREADY_EXISTS);
         }
+        checkCases(addDTO.getCases());
         TbQuestion question = QuestionConverter.toEntity(addDTO);
         int rows = questionMapper.insert(question);
+        saveCases(question.getQuestionId(), addDTO.getCases());
         notifyQuestionChanged(rows);
         return rows;
     }
@@ -81,7 +91,9 @@ public class QuestionServiceImpl implements QuestionService {
         if (question == null) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
-        return QuestionConverter.toDetailVO(question);
+        QuestionDetailVO vo = QuestionConverter.toDetailVO(question);
+        vo.setCases(QuestionConverter.toCaseVOList(listCases(questionId)));
+        return vo;
     }
 
     // 修改题目实现
@@ -103,9 +115,13 @@ public class QuestionServiceImpl implements QuestionService {
         if (count != null && count > 0) {
             throw new ServiceException(ResultCode.FAILED_ALREADY_EXISTS);
         }
-        // 转换更新字段并入库
+        checkCases(editDTO.getCases());
+        // 转换更新字段并入库，用例整体替换（旧用例逻辑删除）
         TbQuestion question = QuestionConverter.toEntity(editDTO);
         int rows = questionMapper.updateById(question);
+        questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
+                .eq(TbQuestionCase::getQuestionId, editDTO.getQuestionId()));
+        saveCases(editDTO.getQuestionId(), editDTO.getCases());
         notifyQuestionChanged(rows);
         return rows;
     }
@@ -123,8 +139,34 @@ public class QuestionServiceImpl implements QuestionService {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         int rows = questionMapper.deleteById(questionId);
+        questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
+                .eq(TbQuestionCase::getQuestionId, questionId));
         notifyQuestionChanged(rows);
         return rows;
+    }
+
+    // 校验用例：至少包含一个公开示例（用于题面展示与运行）
+    private void checkCases(List<QuestionCaseDTO> cases) {
+        boolean hasSample = cases.stream()
+                .anyMatch(c -> Objects.equals(c.getIsSample(), QuestionCaseType.SAMPLE.getValue()));
+        if (!hasSample) {
+            throw new ServiceException(ResultCode.FAILED_QUESTION_NO_SAMPLE);
+        }
+    }
+
+    // 批量写入题目用例
+    private void saveCases(Long questionId, List<QuestionCaseDTO> cases) {
+        for (TbQuestionCase entity : QuestionConverter.toCaseEntities(questionId, cases)) {
+            questionCaseMapper.insert(entity);
+        }
+    }
+
+    // 查询题目的全部用例（公开示例在前）
+    private List<TbQuestionCase> listCases(Long questionId) {
+        return questionCaseMapper.selectList(new LambdaQueryWrapper<TbQuestionCase>()
+                .eq(TbQuestionCase::getQuestionId, questionId)
+                .orderByDesc(TbQuestionCase::getIsSample)
+                .orderByAsc(TbQuestionCase::getSortOrder, TbQuestionCase::getCaseId));
     }
 
     // 题目有变更时，事务提交后通知C端刷新题目缓存与ES索引

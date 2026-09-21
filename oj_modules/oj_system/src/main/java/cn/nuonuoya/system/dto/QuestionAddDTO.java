@@ -1,13 +1,17 @@
 package cn.nuonuoya.system.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 // 题目新增请求参数数据对象
 @Getter
@@ -46,11 +50,12 @@ public class QuestionAddDTO {
     @Size(max = 1000, message = "题目内容描述长度不能超过1000个字符")
     private String content;
 
-    // 题目用例
-    @Schema(description = "题目用例", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "题目用例不能为空")
-    @Size(max = 1000, message = "题目用例长度不能超过1000个字符")
-    private String questionCase;
+    // 测试用例（至少包含一个公开示例）
+    @Schema(description = "测试用例", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotEmpty(message = "请至少配置一组测试用例")
+    @Size(max = 50, message = "测试用例不能超过50组")
+    @Valid
+    private List<QuestionCaseDTO> cases;
 
     // 默认代码块
     @Schema(description = "默认代码块", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -61,6 +66,6 @@ public class QuestionAddDTO {
     // main函数
     @Schema(description = "main函数", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "main函数不能为空")
-    @Size(max = 500, message = "main函数长度不能超过500个字符")
+    @Size(max = 5000, message = "main函数长度不能超过5000个字符")
     private String mainFunc;
 }

@@ -38,10 +38,6 @@ public class QuestionDoc {
     @Field(type = FieldType.Text, analyzer = "ik_smart", searchAnalyzer = "ik_smart")
     private String content;
 
-    // 题目测试用例
-    @Field(type = FieldType.Keyword, index = false)
-    private String questionCase;
-
     // 默认代码模板
     @Field(type = FieldType.Keyword, index = false)
     private String defaultCode;

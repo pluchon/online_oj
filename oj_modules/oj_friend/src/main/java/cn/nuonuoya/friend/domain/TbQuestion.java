@@ -34,9 +34,6 @@ public class TbQuestion extends BaseEntity {
     // 题目内容描述
     private String content;
 
-    // 题目测试用例
-    private String questionCase;
-
     // 默认代码模板
     private String defaultCode;
 

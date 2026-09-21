@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 // 题目详情视图对象
 @Getter
@@ -44,9 +45,9 @@ public class QuestionDetailVO {
     @Schema(description = "题目内容描述")
     private String content;
 
-    // 题目用例
-    @Schema(description = "题目用例")
-    private String questionCase;
+    // 测试用例（含隐藏用例）
+    @Schema(description = "测试用例")
+    private List<QuestionCaseVO> cases;
 
     // 默认代码块
     @Schema(description = "默认代码块")
