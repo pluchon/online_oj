@@ -5,12 +5,10 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
-import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.common.enums.UserIdentity;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.cache.UserCacheManager;
 import cn.nuonuoya.friend.converter.UserConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
@@ -38,20 +36,18 @@ import cn.nuonuoya.friend.vo.UserCalendarItemVO;
 import cn.nuonuoya.friend.vo.UserCalendarVO;
 import cn.nuonuoya.friend.vo.UserOverviewVO;
 import cn.nuonuoya.friend.vo.UserVO;
+import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.message.sms.config.SmsProperties;
 import cn.nuonuoya.message.sms.service.SmsService;
 import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.service.TokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.DayOfWeek;
@@ -238,7 +234,7 @@ public class UserServiceImpl implements UserService {
     // 获取当前登录用户个人资料
     @Override
     public OJResult<UserVO> getUserProfile() {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         log.info("[个人中心] 获取当前用户, userId: {}", userId);
         if (userId == null) {
             log.warn("[个人中心] 当前上下文 userId 为空");
@@ -256,7 +252,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OJResult<Void> updateUserProfile(UserProfileUpdateDTO updateDTO) {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
         }
@@ -286,7 +282,7 @@ public class UserServiceImpl implements UserService {
         userCacheManager.deleteUserCache(userId);
 
         // 若用户昵称发生变更，同步刷新Redis会话中的登录用户信息
-        String userKey = getCurrentUserKey();
+        String userKey = SecurityUtils.getUserKey();
         if (StringUtils.hasText(userKey)) {
             String tokenKey = CacheConstants.LOGIN_TOKEN_KEY + userKey;
             LoginUser loginUser = redisService.getCacheObject(tokenKey, LoginUser.class);
@@ -308,7 +304,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OJResult<String> uploadAvatar(MultipartFile file) {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
         }
@@ -333,52 +329,10 @@ public class UserServiceImpl implements UserService {
         return OJResult.ok(avatarUrl);
     }
 
-    // 获取当前请求登录用户ID（优先ThreadLocal，兼顾HttpServletRequest兜底）
-    private Long getCurrentUserId() {
-        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
-        if (userId != null) {
-            return userId;
-        }
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            String headerUserId = request.getHeader(HttpConstants.USER_ID);
-            if (StringUtils.hasText(headerUserId)) {
-                return cn.hutool.core.convert.Convert.toLong(headerUserId);
-            }
-            String token = request.getHeader(HttpConstants.AUTHENTICATION);
-            if (StringUtils.hasText(token)) {
-                return tokenService.getUserId(token);
-            }
-        }
-        return null;
-    }
-
-    // 获取当前用户会话Key（优先ThreadLocal，兼顾HttpServletRequest兜底）
-    private String getCurrentUserKey() {
-        String userKey = ThreadLocalUtil.get(HttpConstants.USER_KEY, String.class);
-        if (StringUtils.hasText(userKey)) {
-            return userKey;
-        }
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            String headerUserKey = request.getHeader(HttpConstants.USER_KEY);
-            if (StringUtils.hasText(headerUserKey)) {
-                return headerUserKey;
-            }
-            String token = request.getHeader(HttpConstants.AUTHENTICATION);
-            if (StringUtils.hasText(token)) {
-                return tokenService.getUserKey(token);
-            }
-        }
-        return null;
-    }
-
     // 获取当前登录用户数据总览统计（支持时间范围筛选）
     @Override
     public OJResult<UserOverviewVO> getUserOverview(UserOverviewQueryDTO queryDTO) {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
         }
@@ -549,7 +503,7 @@ public class UserServiceImpl implements UserService {
     // 获取当前登录用户解题日历按年份统计
     @Override
     public OJResult<UserCalendarVO> getUserCalendar(UserCalendarQueryDTO queryDTO) {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
         }

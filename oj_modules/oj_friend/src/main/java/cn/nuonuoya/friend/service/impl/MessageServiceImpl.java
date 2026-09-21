@@ -1,13 +1,10 @@
 package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.domain.TbMessage;
 import cn.nuonuoya.friend.domain.TbMessageText;
@@ -15,19 +12,16 @@ import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.mapper.MessageMapper;
 import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.MessageVO;
+import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
-import cn.nuonuoya.security.service.TokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -45,34 +39,11 @@ public class MessageServiceImpl implements MessageService {
     @Autowired
     private MessageCacheManager messageCacheManager;
 
-    @Autowired
-    private TokenService tokenService;
-
-    // 获取当前登录用户ID
-    private Long getCurrentUserId() {
-        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
-        if (userId != null) {
-            return userId;
-        }
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            String headerUserId = request.getHeader(HttpConstants.USER_ID);
-            if (StrUtil.isNotBlank(headerUserId)) {
-                return Convert.toLong(headerUserId);
-            }
-            String token = request.getHeader(HttpConstants.AUTHENTICATION);
-            if (StrUtil.isNotBlank(token)) {
-                return tokenService.getUserId(token);
-            }
-        }
-        return null;
-    }
 
     // 分页查询当前登录用户的站内消息列表
     @Override
     public TableDataResult<MessageVO> list(PageQuery pageQuery) {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -118,7 +89,7 @@ public class MessageServiceImpl implements MessageService {
     // 获取未读消息数量
     @Override
     public int getUnreadCount() {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             return 0;
         }
@@ -132,7 +103,7 @@ public class MessageServiceImpl implements MessageService {
         if (messageId == null) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -163,7 +134,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void readAll() {
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }

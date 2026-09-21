@@ -1,11 +1,9 @@
 package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.common.constants.HttpConstants;
+import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.common.domain.TableDataResult;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.elastic.repository.QuestionRepository;
 import cn.nuonuoya.friend.cache.QuestionCacheManager;
@@ -24,11 +22,9 @@ import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
-import cn.nuonuoya.security.service.TokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,8 +38,6 @@ import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -82,9 +76,6 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private QuestionCacheManager questionCacheManager;
 
-    // 注入安全凭证Token解析服务
-    @Autowired
-    private TokenService tokenService;
 
     @Autowired
     private QuestionCaseService questionCaseService;
@@ -194,7 +185,7 @@ public class QuestionServiceImpl implements QuestionService {
         long totalCount = questionMapper.selectCount(null);
         statsVO.setTotalCount(totalCount);
 
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             statsVO.setSolvedCount(0L);
             statsVO.setInProgressCount(0L);
@@ -293,33 +284,12 @@ public class QuestionServiceImpl implements QuestionService {
         return questionCacheManager.getFirstQuestionId(examId);
     }
 
-    // 从请求上下文获取当前登录用户ID
-    private Long getCurrentUserId() {
-        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
-        if (userId != null) {
-            return userId;
-        }
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            String headerUserId = request.getHeader(HttpConstants.USER_ID);
-            if (StrUtil.isNotBlank(headerUserId)) {
-                return Convert.toLong(headerUserId);
-            }
-            String token = request.getHeader(HttpConstants.AUTHENTICATION);
-            if (StrUtil.isNotBlank(token)) {
-                return tokenService.getUserId(token);
-            }
-        }
-        return null;
-    }
-
     // 批量装配题目标签与当前用户做题状态
     private void populateUserStatusAndTags(List<QuestionVO> voList) {
         if (CollUtil.isEmpty(voList)) {
             return;
         }
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         Map<Long, Integer> statusMap = new HashMap<>();
         if (userId != null) {
             List<Long> questionIds = voList.stream()
@@ -364,7 +334,7 @@ public class QuestionServiceImpl implements QuestionService {
             return;
         }
         vo.setTags(resolveQuestionTags(vo));
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null || vo.getQuestionId() == null) {
             vo.setUserStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());
             vo.setPassStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());

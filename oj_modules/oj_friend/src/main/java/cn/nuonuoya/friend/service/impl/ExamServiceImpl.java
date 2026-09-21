@@ -1,11 +1,9 @@
 package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.cache.ExamCacheManager;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.cache.UserCacheManager;
@@ -34,6 +32,7 @@ import cn.nuonuoya.friend.vo.ExamVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
 import cn.nuonuoya.friend.vo.UserVO;
 import cn.nuonuoya.redis.service.RedisService;
+import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -149,7 +148,7 @@ public class ExamServiceImpl implements ExamService {
 
         List<TbExam> examList = examMapper.selectList(wrapper);
         List<ExamVO> voList = ExamConverter.toVOList(examList);
-        Long currentUserId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        Long currentUserId = SecurityUtils.getUserId();
         examCacheManager.populateIsEnter(voList, currentUserId);
         populateExamCountFields(voList);
         return voList;
@@ -173,7 +172,7 @@ public class ExamServiceImpl implements ExamService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void enroll(ExamEnrollDTO enrollDTO) {
-        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -211,7 +210,7 @@ public class ExamServiceImpl implements ExamService {
     // 分页查询当前用户已报名的竞赛列表
     @Override
     public List<UserExamVO> getMyExamList(ExamQueryDTO queryDTO) {
-        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -305,7 +304,7 @@ public class ExamServiceImpl implements ExamService {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         ExamVO vo = ExamConverter.toVO(exam);
-        Long currentUserId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        Long currentUserId = SecurityUtils.getUserId();
         if (currentUserId != null) {
             Long count = userExamMapper.selectCount(new LambdaQueryWrapper<TbUserExam>()
                     .eq(TbUserExam::getUserId, currentUserId)
@@ -352,7 +351,7 @@ public class ExamServiceImpl implements ExamService {
             pageList = new ArrayList<>(fullRankList.subList(start, end));
         }
 
-        Long currentUserId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        Long currentUserId = SecurityUtils.getUserId();
         for (ExamRankVO vo : pageList) {
             vo.setIsCurrentUser(currentUserId != null && Objects.equals(vo.getUserId(), currentUserId));
         }

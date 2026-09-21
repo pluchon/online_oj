@@ -1,7 +1,6 @@
 package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.judge.constants.JudgeMqConstants;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
@@ -10,9 +9,7 @@ import cn.nuonuoya.api.judge.enums.ProgramTypeEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.domain.TableDataResult;
-import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.enums.ResultCode;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.client.JudgeClient;
 import cn.nuonuoya.friend.converter.QuestionCaseConverter;
 import cn.nuonuoya.friend.converter.UserSubmitConverter;
@@ -39,17 +36,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import cn.nuonuoya.friend.vo.UserSubmitResultVO;
+import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.redis.service.RedisService;
-import cn.nuonuoya.security.service.TokenService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -72,8 +66,6 @@ public class UserSubmitServiceImpl implements UserSubmitService {
     @Autowired
     private RabbitTemplate rabbitTemplate;
 
-    @Autowired
-    private TokenService tokenService;
 
     @Autowired
     private QuestionCaseService questionCaseService;
@@ -96,27 +88,6 @@ public class UserSubmitServiceImpl implements UserSubmitService {
     @Autowired
     private TransactionTemplate transactionTemplate;
 
-    // 获取当前请求登录用户ID（优先ThreadLocal，兼顾HttpServletRequest兜底）
-    private Long getCurrentUserId() {
-        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
-        if (userId != null) {
-            return userId;
-        }
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            String headerUserId = request.getHeader(HttpConstants.USER_ID);
-            if (StrUtil.isNotBlank(headerUserId)) {
-                return Convert.toLong(headerUserId);
-            }
-            String token = request.getHeader(HttpConstants.AUTHENTICATION);
-            if (StrUtil.isNotBlank(token)) {
-                return tokenService.getUserId(token);
-            }
-        }
-        return null;
-    }
-
     // 提交代码、落库初始化记录并向 RabbitMQ 投递异步判题任务（全部用例）
     // 记录先独立提交再投递消息，避免判题结果先于记录提交回写而丢失
     @Override
@@ -126,7 +97,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         }
 
         // 从认证上下文提取用户身份，严格保障安全性
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -196,7 +167,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -240,7 +211,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         if (submitId == null) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
@@ -257,7 +228,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         if (queryDTO == null || queryDTO.getQuestionId() == null) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
-        Long userId = getCurrentUserId();
+        Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }

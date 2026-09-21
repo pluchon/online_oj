@@ -1,10 +1,9 @@
 package cn.nuonuoya.friend.cache;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
-import cn.nuonuoya.common.constants.HttpConstants;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.converter.ExamConverter;
 import cn.nuonuoya.friend.domain.TbExam;
 import cn.nuonuoya.friend.domain.TbUserExam;
@@ -100,7 +99,7 @@ public class ExamCacheManager {
         List<ExamVO> voList = ExamConverter.toVOList(finalList);
 
         // 获取当前请求登录用户并填充是否已报名状态
-        Long currentUserId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        Long currentUserId = SecurityUtils.getUserId();
         populateIsEnter(voList, currentUserId);
 
         // 组装 PageHelper Page 对象以保留物理分页元数据
