@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,7 +31,7 @@ public class UserController extends BaseController {
     private UserService userService;
 
     /** 分页查询用户列表 */
-    @GetMapping("/list")
+    @GetMapping
     @Operation(summary = "用户列表", description = "支持按用户ID与昵称模糊筛选的分页查询")
     public TableDataResult<UserVO> list(@Validated UserDTO queryDTO) {
         List<UserVO> list = userService.list(queryDTO);
@@ -38,9 +39,10 @@ public class UserController extends BaseController {
     }
 
     /** 修改用户状态（拉黑 / 解禁） */
-    @PutMapping("/updateStatus")
+    @PutMapping("/{userId}/status")
     @Operation(summary = "修改用户状态", description = "修改用户状态（0: 拉黑，1: 正常）")
-    public OJResult<Void> updateStatus(@Validated @RequestBody UserStatusDTO statusDTO) {
+    public OJResult<Void> updateStatus(@PathVariable("userId") Long userId, @Validated @RequestBody UserStatusDTO statusDTO) {
+        statusDTO.setUserId(userId);
         return toResult(userService.updateStatus(statusDTO));
     }
 }

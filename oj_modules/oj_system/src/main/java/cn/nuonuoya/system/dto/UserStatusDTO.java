@@ -13,9 +13,8 @@ import lombok.ToString;
 @Schema(description = "修改用户状态参数")
 public class UserStatusDTO {
 
-    // 用户ID
-    @NotNull(message = "用户ID不能为空")
-    @Schema(description = "用户ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    // 用户ID（由路径参数填充）
+    @Schema(hidden = true)
     private Long userId;
 
     // 用户状态（0: 拉黑 1: 正常）

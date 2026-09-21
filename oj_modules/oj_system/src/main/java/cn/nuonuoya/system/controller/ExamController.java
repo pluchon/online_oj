@@ -39,7 +39,7 @@ public class ExamController extends BaseController {
     private ExamService examService;
 
     /** 分页查询竞赛列表 */
-    @GetMapping("/list")
+    @GetMapping
     @Operation(summary = "竞赛列表", description = "支持按时间范围与标题模糊筛选的分页查询")
     public TableDataResult<ExamVO> list(@Validated ExamDTO queryDTO) {
         List<ExamVO> list = examService.list(queryDTO);
@@ -47,66 +47,67 @@ public class ExamController extends BaseController {
     }
 
     /** 新增竞赛基本信息 */
-    @PostMapping("/add")
+    @PostMapping
     @Operation(summary = "新增竞赛基本信息", description = "校验入参并持久化竞赛基本信息，返回生成的竞赛ID")
     public OJResult<String> add(@Validated @RequestBody ExamAddDTO addDTO) {
         return OJResult.ok(examService.add(addDTO));
     }
 
     /** 获取竞赛详情 */
-    @GetMapping("/detail")
+    @GetMapping("/{examId}")
     @Operation(summary = "竞赛详情", description = "根据竞赛ID查询详情信息")
-    public OJResult<ExamDetailVO> detail(@NotNull(message = "竞赛ID不能为空") @RequestParam("examId") Long examId) {
+    public OJResult<ExamDetailVO> detail(@PathVariable("examId") Long examId) {
         return OJResult.ok(examService.getDetail(examId));
     }
 
     /** 编辑竞赛基本信息 */
-    @PutMapping("/edit")
+    @PutMapping("/{examId}")
     @Operation(summary = "编辑竞赛基本信息", description = "校验入参并更新竞赛基本信息")
-    public OJResult<Void> edit(@Validated @RequestBody ExamEditDTO editDTO) {
+    public OJResult<Void> edit(@PathVariable("examId") Long examId, @Validated @RequestBody ExamEditDTO editDTO) {
+        editDTO.setExamId(examId);
         return toResult(examService.edit(editDTO));
     }
 
     /** 删除竞赛 */
     @DeleteMapping("/{examId}")
     @Operation(summary = "删除竞赛", description = "根据竞赛ID删除竞赛数据及关联题目")
-    public OJResult<Void> delete(@NotNull(message = "竞赛ID不能为空") @PathVariable("examId") Long examId) {
+    public OJResult<Void> delete(@PathVariable("examId") Long examId) {
         return toResult(examService.delete(examId));
     }
 
     /** 发布竞赛 */
-    @PutMapping("/publish/{examId}")
+    @PutMapping("/{examId}/publish")
     @Operation(summary = "发布竞赛", description = "校验题目数量并发布竞赛")
-    public OJResult<Void> publish(@NotNull(message = "竞赛ID不能为空") @PathVariable("examId") Long examId) {
+    public OJResult<Void> publish(@PathVariable("examId") Long examId) {
         return toResult(examService.publish(examId));
     }
 
     /** 撤销发布竞赛 */
-    @PutMapping("/cancel-publish/{examId}")
+    @DeleteMapping("/{examId}/publish")
     @Operation(summary = "撤销发布竞赛", description = "将竞赛恢复为未发布状态")
-    public OJResult<Void> cancelPublish(@NotNull(message = "竞赛ID不能为空") @PathVariable("examId") Long examId) {
+    public OJResult<Void> cancelPublish(@PathVariable("examId") Long examId) {
         return toResult(examService.cancelPublish(examId));
     }
 
     /** 绑定题目到竞赛 */
-    @PostMapping("/question/add")
+    @PostMapping("/{examId}/questions")
     @Operation(summary = "绑定题目到竞赛", description = "将选中的题目关联到指定竞赛")
-    public OJResult<Void> addQuestion(@Validated @RequestBody ExamQuestionAddDTO addDTO) {
+    public OJResult<Void> addQuestion(@PathVariable("examId") Long examId, @Validated @RequestBody ExamQuestionAddDTO addDTO) {
+        addDTO.setExamId(examId);
         return toResult(examService.addQuestion(addDTO));
     }
 
     /** 查询竞赛关联题目列表 */
-    @GetMapping("/question/list")
+    @GetMapping("/{examId}/questions")
     @Operation(summary = "竞赛关联题目列表", description = "查询指定竞赛已绑定的题目列表")
-    public OJResult<List<QuestionVO>> getQuestionList(@NotNull(message = "竞赛ID不能为空") @RequestParam("examId") Long examId) {
+    public OJResult<List<QuestionVO>> getQuestionList(@PathVariable("examId") Long examId) {
         return OJResult.ok(examService.getQuestionList(examId));
     }
 
     /** 移除竞赛关联题目 */
-    @DeleteMapping("/question/{examId}/{questionId}")
+    @DeleteMapping("/{examId}/questions/{questionId}")
     @Operation(summary = "移除竞赛关联题目", description = "从竞赛中移除指定题目")
-    public OJResult<Void> deleteQuestion(@NotNull(message = "竞赛ID不能为空") @PathVariable("examId") Long examId,
-                                         @NotNull(message = "题目ID不能为空") @PathVariable("questionId") Long questionId) {
+    public OJResult<Void> deleteQuestion(@PathVariable("examId") Long examId, @PathVariable("questionId") Long questionId) {
         return toResult(examService.deleteQuestion(examId, questionId));
     }
 }

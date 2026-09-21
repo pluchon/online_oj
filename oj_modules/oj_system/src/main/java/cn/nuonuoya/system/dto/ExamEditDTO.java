@@ -20,7 +20,6 @@ public class ExamEditDTO {
 
     // 竞赛ID
     @Schema(description = "竞赛ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "竞赛ID不能为空")
     private Long examId;
 
     // 竞赛名称

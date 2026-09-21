@@ -16,7 +16,6 @@ import cn.nuonuoya.friend.domain.TbMessage;
 import cn.nuonuoya.friend.domain.TbMessageText;
 import cn.nuonuoya.friend.domain.TbUserExam;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
-import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.enums.ExamListTypeEnum;
 import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
@@ -162,30 +161,15 @@ public class ExamServiceImpl implements ExamService {
         return voList;
     }
 
-    // 分页查询未完赛竞赛列表实现
-    @Override
-    public List<ExamVO> getUnfinishList(ExamQueryDTO queryDTO) {
-        queryDTO.setType(ExamListTypeEnum.UNFINISHED.getCode());
-        return list(queryDTO);
-    }
-
-    // 分页查询历史竞赛列表实现
-    @Override
-    public List<ExamVO> getHistoryList(ExamQueryDTO queryDTO) {
-        queryDTO.setType(ExamListTypeEnum.HISTORY.getCode());
-        return list(queryDTO);
-    }
-
     // 报名参加竞赛
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void enroll(ExamEnrollDTO enrollDTO) {
+    public void enroll(Long examId) {
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
 
-        Long examId = enrollDTO.getExamId();
         TbExam exam = examMapper.selectById(examId);
         if (exam == null || !ExamPublishStatusEnum.PUBLISHED.getCode().equals(exam.getStatus())) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);

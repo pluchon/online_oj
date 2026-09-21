@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,16 +44,16 @@ public class QuestionController extends BaseController {
     private UserSubmitService userSubmitService;
 
     /** 分页检索题目列表 */
-    @GetMapping("/list")
+    @GetMapping
     @Operation(summary = "题目列表检索", description = "支持关键字(标题/内容)最少切分模糊检索、难度筛选与分页")
     public TableDataResult<QuestionVO> list(QuestionQueryDTO queryDTO) {
         return questionService.search(queryDTO);
     }
 
     /** 获取题目详情 */
-    @GetMapping("/detail")
+    @GetMapping("/{questionId}")
     @Operation(summary = "题目详情", description = "根据题目ID获取详细信息")
-    public OJResult<QuestionVO> detail(@RequestParam("questionId") Long questionId) {
+    public OJResult<QuestionVO> detail(@PathVariable("questionId") Long questionId) {
         QuestionVO vo = questionService.getDetail(questionId);
         return OJResult.ok(vo);
     }
@@ -66,10 +67,10 @@ public class QuestionController extends BaseController {
     }
 
     /** 获取上一题与下一题ID */
-    @GetMapping("/preAndNext")
+    @GetMapping("/{questionId}/neighbors")
     @Operation(summary = "题目导航", description = "根据当前题目ID与可选竞赛ID获取上一题与下一题ID")
     public OJResult<QuestionPreNextVO> preAndNext(
-            @RequestParam("questionId") Long questionId,
+            @PathVariable("questionId") Long questionId,
             @RequestParam(value = "examId", required = false) Long examId) {
         QuestionPreNextVO vo = questionService.getPreAndNext(questionId, examId);
         return OJResult.ok(vo);
@@ -85,33 +86,39 @@ public class QuestionController extends BaseController {
 
     /** 用户提交代码并进行评测 */
     @CheckUserStatus
-    @PostMapping("/submit")
+    @PostMapping("/{questionId}/submissions")
     @Operation(summary = "提交代码评测", description = "用户在答题工作台提交代码，执行入库与评测")
-    public OJResult<UserSubmitResultVO> submit(@RequestBody @Validated UserSubmitDTO submitDTO) {
+    public OJResult<UserSubmitResultVO> submit(@PathVariable("questionId") Long questionId,
+                                               @RequestBody @Validated UserSubmitDTO submitDTO) {
+        submitDTO.setQuestionId(questionId);
         UserSubmitResultVO vo = userSubmitService.submit(submitDTO);
         return OJResult.ok(vo);
     }
 
     /** 运行公开示例用例 */
     @CheckUserStatus
-    @PostMapping("/run")
+    @PostMapping("/{questionId}/run")
     @Operation(summary = "运行示例用例", description = "同步执行题目公开示例，不落库、不计分")
-    public OJResult<QuestionRunResultVO> run(@RequestBody @Validated QuestionRunDTO runDTO) {
+    public OJResult<QuestionRunResultVO> run(@PathVariable("questionId") Long questionId,
+                                             @RequestBody @Validated QuestionRunDTO runDTO) {
+        runDTO.setQuestionId(questionId);
         QuestionRunResultVO vo = userSubmitService.run(runDTO);
         return OJResult.ok(vo);
     }
 
     /** 分页查询本人本题提交记录 */
-    @GetMapping("/submit/history")
+    @GetMapping("/{questionId}/submissions")
     @Operation(summary = "本题提交记录", description = "按提交时间倒序分页返回当前用户本题的提交记录")
-    public TableDataResult<SubmitHistoryVO> submitHistory(@Validated SubmitHistoryQueryDTO queryDTO) {
+    public TableDataResult<SubmitHistoryVO> submitHistory(@PathVariable("questionId") Long questionId,
+                                                          @Validated SubmitHistoryQueryDTO queryDTO) {
+        queryDTO.setQuestionId(questionId);
         return userSubmitService.listHistory(queryDTO);
     }
 
     /** 查询用户代码评测结果 */
-    @GetMapping("/submit/result")
+    @GetMapping("/submissions/{submitId}")
     @Operation(summary = "查询评测结果", description = "根据提交ID获取最新评测状态与结果")
-    public OJResult<UserSubmitResultVO> getSubmitResult(@RequestParam("submitId") Long submitId) {
+    public OJResult<UserSubmitResultVO> getSubmitResult(@PathVariable("submitId") Long submitId) {
         UserSubmitResultVO vo = userSubmitService.getSubmitResult(submitId);
         return OJResult.ok(vo);
     }

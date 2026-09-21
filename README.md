@@ -236,25 +236,40 @@ mvn clean install -DskipTests
 通过统一网关（`http://127.0.0.1:19090`）访问各微服务，主要功能路由如下：
 
 ### 1. C端用户与竞赛接口 (`/friend/**`)
-* `GET  /friend/question/list`：题库多维筛选分页查询（支持难度、关键字等）
-* `GET  /friend/question/detail`：获取单题详情、代码初始模板与限制参数
-* `GET  /friend/question/pre-next`：根据当前题目获取上一题、下一题快捷导航
-* `POST /friend/submit/do`：代码在线提交，落库并推入沙箱判题队列
-* `GET  /friend/submit/result`：轮询查看单次提交的判题状态与执行日志
-* `GET  /friend/exam/list`：竞赛大厅列表查询（自动区隔未完赛/历史竞赛）
-* `POST /friend/exam/enroll`：当前登录用户报名指定竞赛（防重复、防过期）
-* `GET  /friend/exam/my/list`：查询当前用户报名的全部竞赛与得分战况
-* `GET  /friend/exam/rank/list`：分页查询竞赛全员排行榜单（竞赛结束后公布）
-* `GET  /friend/message/list`：分页查询当前用户站内消息通知
-* `GET  /friend/message/unread-count`：获取当前用户未读消息总数
-* `PUT  /friend/message/read`：将指定单条消息标记为已读
-* `PUT  /friend/message/read/all`：一键将所有未读消息置为已读
+* `POST /friend/user/send-code`、`POST /friend/user/login`：短信验证码登录（新用户自动注册）
+* `GET|PUT /friend/user/profile`、`POST /friend/user/avatar`：个人资料与头像
+* `GET  /friend/user/profile/overview`、`GET /friend/user/profile/calendar`：做题统计、能力雷达与解题日历
+* `GET  /friend/question`：题库分页检索（关键字、难度）
+* `GET  /friend/question/{questionId}`：单题详情与公开示例
+* `GET  /friend/question/{questionId}/neighbors`：上一题、下一题导航（可带 `examId`）
+* `GET  /friend/question/first`、`GET /friend/question/stats`：首题与题库统计
+* `POST /friend/question/{questionId}/run`：同步运行公开示例（不落库）
+* `POST /friend/question/{questionId}/submissions`：提交代码并异步判题
+* `GET  /friend/question/{questionId}/submissions`：本人本题提交记录分页
+* `GET  /friend/question/submissions/{submitId}`：查询单次提交的判题结果
+* `GET  /friend/exam`：竞赛列表（`type` 为 0 未完赛、1 历史竞赛）
+* `GET  /friend/exam/{examId}`：竞赛详情
+* `POST /friend/exam/{examId}/enrollment`：报名竞赛
+* `GET  /friend/exam/mine`：我报名的竞赛
+* `GET  /friend/exam/{examId}/rank`：竞赛排名（竞赛结束后公布）
+* `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息与未读数
+* `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
 
 ### 2. B端管理系统接口 (`/system/**`)
-* `POST /system/sysUser/login`：管理员登录鉴权与 Token 签发
-* `GET  /system/question/list`：管理端全量题目检索
-* `POST /system/question/add` / `PUT /system/question/edit`：题目发布与用例配置
-* `GET  /system/exam/list` / `POST /system/exam/add`：官方竞赛创建与题目编排
+* `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
+* `POST /system/sysUser`、`DELETE /system/sysUser/{userId}`：新增、删除管理员
+* `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理
+* `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
+* `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
+* `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排
+* `GET  /system/user`、`PUT /system/user/{userId}/status`：C端用户列表与拉黑解禁
+
+### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
+* `POST /judge/internal/run`：friend 同步运行示例
+* `POST /friend/internal/user/{userId}/cache/evict`：system 修改用户状态后清除缓存
+* `POST /friend/internal/question/refresh`：system 题目变更后刷新题目缓存与 ES
+* `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
+* `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛
 
 ---
 

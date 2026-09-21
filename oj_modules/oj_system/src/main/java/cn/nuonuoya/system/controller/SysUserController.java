@@ -35,7 +35,7 @@ public class SysUserController extends BaseController {
     }
 
     /** 新增管理员 */
-    @PostMapping("/add")
+    @PostMapping
     @Operation(summary = "新增管理员", description = "账号唯一，密码加密存储")
     public OJResult<Void> add(@Validated @RequestBody SysUserSaveDTO saveDTO) {
         return toResult(sysUserService.add(saveDTO));
@@ -50,7 +50,7 @@ public class SysUserController extends BaseController {
     }
 
     /** 获取当前登录管理员信息 */
-    @GetMapping("/detail")
+    @GetMapping("/me")
     @Operation(summary = "当前管理员信息", description = "获取当前登录管理员的昵称")
     public OJResult<SysUserVO> detail() {
         return OJResult.ok(sysUserService.getCurrentUser());

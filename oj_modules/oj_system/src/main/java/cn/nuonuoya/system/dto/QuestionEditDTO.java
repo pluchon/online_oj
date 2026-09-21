@@ -13,6 +13,5 @@ public class QuestionEditDTO extends QuestionAddDTO {
 
     // 题目ID
     @Schema(description = "题目ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "题目ID不能为空")
     private Long questionId;
 }

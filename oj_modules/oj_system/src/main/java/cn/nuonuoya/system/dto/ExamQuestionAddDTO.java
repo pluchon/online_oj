@@ -18,7 +18,6 @@ public class ExamQuestionAddDTO {
 
     // 竞赛ID
     @Schema(description = "竞赛ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "竞赛ID不能为空")
     private Long examId;
 
     // 选中的题目ID列表

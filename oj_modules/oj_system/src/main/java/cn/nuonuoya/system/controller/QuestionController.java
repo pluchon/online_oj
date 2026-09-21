@@ -37,7 +37,7 @@ public class QuestionController extends BaseController {
     private QuestionService questionService;
 
     /** 分页查询题目列表 */
-    @GetMapping("/list")
+    @GetMapping
     @Operation(summary = "题目列表", description = "支持按难度与标题模糊筛选的分页查询")
     public TableDataResult<QuestionVO> list(@Validated QuestionDTO queryDTO) {
         List<QuestionVO> list = questionService.list(queryDTO);
@@ -45,30 +45,31 @@ public class QuestionController extends BaseController {
     }
 
     /** 新增题目 */
-    @PostMapping("/add")
+    @PostMapping
     @Operation(summary = "新增题目", description = "校验入参并持久化题目数据")
     public OJResult<Void> add(@Validated @RequestBody QuestionAddDTO addDTO) {
         return toResult(questionService.add(addDTO));
     }
 
     /** 获取题目详情 */
-    @GetMapping("/detail")
+    @GetMapping("/{questionId}")
     @Operation(summary = "题目详情", description = "根据题目ID查询详情信息")
-    public OJResult<QuestionDetailVO> detail(@NotNull(message = "题目ID不能为空") @RequestParam("questionId") Long questionId) {
+    public OJResult<QuestionDetailVO> detail(@PathVariable("questionId") Long questionId) {
         return OJResult.ok(questionService.getDetail(questionId));
     }
 
     /** 编辑题目 */
-    @PutMapping("/edit")
+    @PutMapping("/{questionId}")
     @Operation(summary = "编辑题目", description = "校验入参并更新题目信息")
-    public OJResult<Void> edit(@Validated @RequestBody QuestionEditDTO editDTO) {
+    public OJResult<Void> edit(@PathVariable("questionId") Long questionId, @Validated @RequestBody QuestionEditDTO editDTO) {
+        editDTO.setQuestionId(questionId);
         return toResult(questionService.edit(editDTO));
     }
 
     /** 删除题目 */
     @DeleteMapping("/{questionId}")
     @Operation(summary = "删除题目", description = "根据题目ID删除题目数据")
-    public OJResult<Void> delete(@NotNull(message = "题目ID不能为空") @PathVariable("questionId") Long questionId) {
+    public OJResult<Void> delete(@PathVariable("questionId") Long questionId) {
         return toResult(questionService.delete(questionId));
     }
 }

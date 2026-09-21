@@ -5,7 +5,6 @@ import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.aspect.CheckUserStatus;
-import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.service.ExamService;
 import cn.nuonuoya.friend.vo.ExamRankVO;
@@ -16,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,48 +35,32 @@ public class ExamController extends BaseController {
     private ExamService examService;
 
     /** 分页查询竞赛列表（通用入口） */
-    @GetMapping("/list")
+    @GetMapping
     @Operation(summary = "竞赛列表", description = "支持按分类(未完赛/历史竞赛)、起止时间及标题筛选的分页查询")
     public TableDataResult<ExamVO> list(@Validated ExamQueryDTO queryDTO) {
         List<ExamVO> list = examService.list(queryDTO);
         return getTableData(list);
     }
 
-    /** 分页查询未完赛竞赛列表 */
-    @GetMapping("/unfinish/list")
-    @Operation(summary = "未完赛竞赛列表", description = "查询当前未结束的竞赛列表")
-    public TableDataResult<ExamVO> unfinishList(@Validated ExamQueryDTO queryDTO) {
-        List<ExamVO> list = examService.getUnfinishList(queryDTO);
-        return getTableData(list);
-    }
-
-    /** 分页查询历史竞赛列表 */
-    @GetMapping("/history/list")
-    @Operation(summary = "历史竞赛列表", description = "查询已结束的历史竞赛列表")
-    public TableDataResult<ExamVO> historyList(@Validated ExamQueryDTO queryDTO) {
-        List<ExamVO> list = examService.getHistoryList(queryDTO);
-        return getTableData(list);
-    }
-
     /** 查询指定竞赛详情 */
-    @GetMapping("/detail")
+    @GetMapping("/{examId}")
     @Operation(summary = "竞赛详情", description = "根据竞赛ID查询详情与开赛状态")
-    public OJResult<ExamVO> detail(@RequestParam("examId") Long examId) {
+    public OJResult<ExamVO> detail(@PathVariable("examId") Long examId) {
         ExamVO vo = examService.getExamDetail(examId);
         return OJResult.ok(vo);
     }
 
     /** 竞赛报名 */
     @CheckUserStatus
-    @PostMapping("/enroll")
+    @PostMapping("/{examId}/enrollment")
     @Operation(summary = "竞赛报名", description = "当前登录用户报名参加指定竞赛")
-    public OJResult<Void> enroll(@RequestBody @Validated ExamEnrollDTO enrollDTO) {
-        examService.enroll(enrollDTO);
+    public OJResult<Void> enroll(@PathVariable("examId") Long examId) {
+        examService.enroll(examId);
         return OJResult.ok();
     }
 
     /** 分页查询我的竞赛列表 */
-    @GetMapping("/my/list")
+    @GetMapping("/mine")
     @Operation(summary = "我的竞赛列表", description = "分页查询当前登录用户报名的竞赛列表，支持类型、名称与时间区间筛选")
     public TableDataResult<UserExamVO> myExamList(@Validated ExamQueryDTO queryDTO) {
         List<UserExamVO> list = examService.getMyExamList(queryDTO);
@@ -84,9 +68,9 @@ public class ExamController extends BaseController {
     }
 
     /** 分页查询指定竞赛的选手排名榜单 */
-    @GetMapping("/rank/list")
+    @GetMapping("/{examId}/rank")
     @Operation(summary = "竞赛排名列表", description = "分页查询指定竞赛的选手得分与排名榜单")
-    public TableDataResult<ExamRankVO> rankList(@RequestParam("examId") Long examId, PageQuery pageQuery) {
+    public TableDataResult<ExamRankVO> rankList(@PathVariable("examId") Long examId, PageQuery pageQuery) {
         return examService.getExamRankList(examId, pageQuery);
     }
 }

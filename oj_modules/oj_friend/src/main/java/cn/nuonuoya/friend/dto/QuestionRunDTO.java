@@ -12,9 +12,8 @@ import lombok.Setter;
 @Schema(description = "运行示例用例请求DTO")
 public class QuestionRunDTO {
 
-    // 题目ID
-    @NotNull(message = "题目ID不能为空")
-    @Schema(description = "题目ID")
+    // 题目ID（由路径参数填充）
+    @Schema(hidden = true)
     private Long questionId;
 
     // 用户编写的代码

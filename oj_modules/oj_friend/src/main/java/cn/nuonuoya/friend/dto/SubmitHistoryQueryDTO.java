@@ -12,8 +12,7 @@ import lombok.Setter;
 @Schema(description = "本题提交记录分页查询DTO")
 public class SubmitHistoryQueryDTO extends PageQuery {
 
-    // 题目ID
-    @NotNull(message = "题目ID不能为空")
-    @Schema(description = "题目ID")
+    // 题目ID（由路径参数填充）
+    @Schema(hidden = true)
     private Long questionId;
 }

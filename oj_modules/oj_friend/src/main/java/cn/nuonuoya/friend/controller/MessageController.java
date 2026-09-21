@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,7 +28,7 @@ public class MessageController extends BaseController {
     private MessageService messageService;
 
     /** 分页查询当前用户站内消息列表 */
-    @GetMapping("/list")
+    @GetMapping
     @Operation(summary = "消息列表", description = "分页查询当前登录用户的站内消息列表")
     public TableDataResult<MessageVO> list(PageQuery pageQuery) {
         return messageService.list(pageQuery);
@@ -42,9 +43,9 @@ public class MessageController extends BaseController {
     }
 
     /** 标记单条消息为已读 */
-    @PutMapping("/read")
+    @PutMapping("/{messageId}/read")
     @Operation(summary = "标记消息已读", description = "将指定的一条消息标记为已读状态")
-    public OJResult<Void> readMessage(@RequestParam("messageId") Long messageId) {
+    public OJResult<Void> readMessage(@PathVariable("messageId") Long messageId) {
         messageService.readMessage(messageId);
         return OJResult.ok();
     }
