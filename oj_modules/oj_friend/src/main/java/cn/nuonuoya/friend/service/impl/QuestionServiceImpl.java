@@ -4,6 +4,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.common.domain.TableDataResult;
+import cn.nuonuoya.security.exception.ServiceException;
+import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.elastic.repository.QuestionRepository;
 import cn.nuonuoya.friend.cache.QuestionCacheManager;
@@ -25,10 +27,10 @@ import cn.nuonuoya.friend.vo.QuestionVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
@@ -51,10 +53,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 // 题目业务服务实现类
+@Slf4j
 @Service
 public class QuestionServiceImpl implements QuestionService {
-
-    private static final Logger log = LoggerFactory.getLogger(QuestionServiceImpl.class);
 
     // 注入ES持久层仓库
     @Autowired
@@ -117,7 +118,10 @@ public class QuestionServiceImpl implements QuestionService {
             // 分页参数装配
             int pageNum = Math.max(1, queryDTO.getPageNum());
             int pageSize = Math.max(1, queryDTO.getPageSize());
-            Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+            // 有关键字按相关度排序，无关键字与数据库降级查询保持一致（题目ID倒序）
+            Pageable pageable = StrUtil.isNotBlank(queryDTO.getKeyword())
+                    ? PageRequest.of(pageNum - 1, pageSize)
+                    : PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.DESC, "questionId"));
 
             Query esQuery;
             if (criteria != null) {
@@ -149,7 +153,7 @@ public class QuestionServiceImpl implements QuestionService {
     @Override
     public QuestionVO getDetail(Long questionId) {
         if (questionId == null) {
-            return null;
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
         QuestionVO vo = null;
@@ -171,10 +175,11 @@ public class QuestionServiceImpl implements QuestionService {
             }
         }
 
-        if (vo != null) {
-            populateSingleUserStatusAndTags(vo);
-            vo.setSampleCases(QuestionCaseConverter.toSampleVOList(questionCaseService.listSamples(questionId)));
+        if (vo == null) {
+            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
+        populateSingleUserStatusAndTags(vo);
+        vo.setSampleCases(QuestionCaseConverter.toSampleVOList(questionCaseService.listSamples(questionId)));
         return vo;
     }
 
