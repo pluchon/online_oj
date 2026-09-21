@@ -19,6 +19,12 @@ import java.util.UUID;
 @Service
 public class OssService {
 
+    // 头像文件大小上限（2MB）
+    private static final long MAX_AVATAR_SIZE = 2 * 1024 * 1024L;
+
+    // 未配置存储目录时的默认头像目录
+    private static final String DEFAULT_AVATAR_DIR = "online_oj/avatar/";
+
     // OSS配置属性
     @Autowired
     private OssProperties ossProperties;
@@ -29,9 +35,8 @@ public class OssService {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
-        // 校验文件大小，限制最大2MB
-        long maxSize = 2 * 1024 * 1024L;
-        if (file.getSize() > maxSize) {
+        // 校验文件大小
+        if (file.getSize() > MAX_AVATAR_SIZE) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
@@ -49,7 +54,7 @@ public class OssService {
         String fileName = UUID.randomUUID().toString().replace("-", "") + extension;
         String dir = ossProperties.getAvatarDir();
         if (dir == null || dir.trim().isEmpty()) {
-            dir = "online_oj/avatar/";
+            dir = DEFAULT_AVATAR_DIR;
         }
         if (dir.startsWith("/")) {
             dir = dir.substring(1);
