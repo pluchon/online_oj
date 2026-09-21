@@ -70,8 +70,7 @@ public class QuestionCacheManager {
         if (Boolean.FALSE.equals(redisService.hasKey(listKey))) {
             initListCache(examId);
         }
-        Object firstObj = redisService.redisTemplate.opsForList().index(listKey, 0);
-        return firstObj != null ? Long.valueOf(firstObj.toString()) : null;
+        return redisService.getListByIndex(listKey, 0, Long.class);
     }
 
     // 根据当前题目ID获取上一题与下一题ID
@@ -86,29 +85,21 @@ public class QuestionCacheManager {
         }
 
         // 查询当前题目在Redis List中的下标
-        Long index = redisService.redisTemplate.opsForList().indexOf(listKey, questionId);
+        Long index = redisService.indexOfList(listKey, questionId);
         // 若缓存未命中（可能新录入题目），触发自愈刷新重试
         if (index == null || index < 0) {
             initListCache(examId);
-            index = redisService.redisTemplate.opsForList().indexOf(listKey, questionId);
+            index = redisService.indexOfList(listKey, questionId);
         }
 
         QuestionPreNextVO vo = new QuestionPreNextVO();
         if (index != null && index >= 0) {
             Long size = redisService.getListSize(listKey);
-            // 上一题获取
             if (index > 0) {
-                Object preObj = redisService.redisTemplate.opsForList().index(listKey, index - 1);
-                if (preObj != null) {
-                    vo.setPreQuestionId(Long.valueOf(preObj.toString()));
-                }
+                vo.setPreQuestionId(redisService.getListByIndex(listKey, index - 1, Long.class));
             }
-            // 下一题获取
             if (size != null && index < size - 1) {
-                Object nextObj = redisService.redisTemplate.opsForList().index(listKey, index + 1);
-                if (nextObj != null) {
-                    vo.setNextQuestionId(Long.valueOf(nextObj.toString()));
-                }
+                vo.setNextQuestionId(redisService.getListByIndex(listKey, index + 1, Long.class));
             }
         }
         return vo;

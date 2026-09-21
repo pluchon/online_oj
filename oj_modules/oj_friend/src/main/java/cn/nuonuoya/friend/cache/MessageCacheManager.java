@@ -145,9 +145,7 @@ public class MessageCacheManager {
         String listKey = getUserMsgListKey(userId);
         redisService.leftPushForList(listKey, textId);
         // 修剪列表，最多保留最新 100 条
-        if (redisService.redisTemplate != null) {
-            redisService.redisTemplate.opsForList().trim(listKey, 0, 99);
-        }
+        redisService.trimList(listKey, 0, 99);
         redisService.expire(listKey, CACHE_TTL_DAYS, TimeUnit.DAYS);
         incrementUnreadCount(userId);
     }
