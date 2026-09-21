@@ -34,16 +34,6 @@ public class SmsProperties {
     // 单手机号每天最大发送次数限制（默认10次）
     private Integer maxDailyCount = 10;
 
-    // 是否开启真实短信发送扣费开关（默认true开启；false为模拟发码模式，只入库Redis不扣费）
+    // 是否真实发送短信（默认 true；false 为模拟发码模式，只写 Redis 不扣费）
     private Boolean isConfirm = true;
-
-    // 兼容用户配置别名注入
-    public void setIsComfire(Boolean isComfire) {
-        this.isConfirm = isComfire;
-    }
-
-    // 兼容用户配置别名获取
-    public Boolean getIsComfire() {
-        return this.isConfirm;
-    }
 }
