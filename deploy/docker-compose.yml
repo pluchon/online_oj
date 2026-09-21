@@ -74,7 +74,8 @@ services:
     container_name: oj-xxl-job-admin
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # Windows 常把 8080 列入系统保留端口，宿主机改用 18080
+      - "18080:8080"
     environment:
       PARAMS: "--spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai --spring.datasource.username=root --spring.datasource.password=${MYSQL_ROOT_PASSWORD:-123456789}"
     depends_on:
