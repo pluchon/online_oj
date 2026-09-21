@@ -37,7 +37,7 @@ public class UserController extends BaseController {
             queryDTO = new UserDTO();
         }
         List<UserVO> list = userService.list(queryDTO);
-        return getTableDataInfo(list);
+        return getTableData(list);
     }
 
     /** 修改用户状态（拉黑 / 解禁） */

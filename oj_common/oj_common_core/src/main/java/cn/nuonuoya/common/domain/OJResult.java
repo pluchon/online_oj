@@ -43,11 +43,6 @@ public class OJResult<T> implements Serializable {
         return assembleResult(data, ResultCode.SUCCESS);
     }
 
-    // 成功，自定义提示信息，无数据
-    public static <T> OJResult<T> okMsg(String msg) {
-        return assembleResult(ResultCode.SUCCESS.getCode(), msg, null);
-    }
-
     // 成功，自定义提示信息并带数据
     public static <T> OJResult<T> ok(String msg, T data) {
         return assembleResult(ResultCode.SUCCESS.getCode(), msg, data);

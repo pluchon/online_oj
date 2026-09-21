@@ -2,6 +2,7 @@ package cn.nuonuoya.friend.cache;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
+import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.converter.ExamConverter;
@@ -131,7 +132,7 @@ public class ExamCacheManager {
         if (userId == null) {
             return Collections.emptySet();
         }
-        String userExamListKey = CacheConstants.USER_EXAM_LIST_KEY + userId;
+        String userExamListKey = FriendCacheConstants.USER_EXAM_LIST_KEY + userId;
         if (Boolean.FALSE.equals(redisService.hasKey(userExamListKey))) {
             initUserExamCache(userId);
         }
@@ -144,7 +145,7 @@ public class ExamCacheManager {
         if (userId == null || examId == null) {
             return;
         }
-        String userExamListKey = CacheConstants.USER_EXAM_LIST_KEY + userId;
+        String userExamListKey = FriendCacheConstants.USER_EXAM_LIST_KEY + userId;
         if (Boolean.TRUE.equals(redisService.hasKey(userExamListKey))) {
             redisService.leftPushForList(userExamListKey, examId);
         } else {
@@ -157,7 +158,7 @@ public class ExamCacheManager {
         if (userId == null) {
             return;
         }
-        String userExamListKey = CacheConstants.USER_EXAM_LIST_KEY + userId;
+        String userExamListKey = FriendCacheConstants.USER_EXAM_LIST_KEY + userId;
         List<TbUserExam> list = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
                 .select(TbUserExam::getExamId)
                 .eq(TbUserExam::getUserId, userId)
@@ -176,7 +177,7 @@ public class ExamCacheManager {
             emptyPage.setTotal(0);
             return emptyPage;
         }
-        String listKey = CacheConstants.USER_EXAM_LIST_KEY + userId;
+        String listKey = FriendCacheConstants.USER_EXAM_LIST_KEY + userId;
         if (Boolean.FALSE.equals(redisService.hasKey(listKey))) {
             initUserExamCache(userId);
         }

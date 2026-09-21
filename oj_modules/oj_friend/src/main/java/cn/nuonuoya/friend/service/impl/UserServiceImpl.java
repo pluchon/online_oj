@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
+import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.domain.OJResult;
@@ -113,9 +114,9 @@ public class UserServiceImpl implements UserService {
             return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
-        String intervalKey = CacheConstants.SMS_CODE_INTERVAL_KEY + phone;
-        String countKey = CacheConstants.SMS_CODE_COUNT_KEY + phone;
-        String codeKey = CacheConstants.SMS_CODE_KEY + phone;
+        String intervalKey = FriendCacheConstants.SMS_CODE_INTERVAL_KEY + phone;
+        String countKey = FriendCacheConstants.SMS_CODE_COUNT_KEY + phone;
+        String codeKey = FriendCacheConstants.SMS_CODE_KEY + phone;
 
         // 2. 校验发送频率（防刷冷却，默认60秒）
         if (Boolean.TRUE.equals(redisService.hasKey(intervalKey))) {
@@ -187,7 +188,7 @@ public class UserServiceImpl implements UserService {
         }
 
         // 2. 校验短信验证码（比对 Redis 中缓存的验证码）
-        String codeKey = CacheConstants.SMS_CODE_KEY + phone;
+        String codeKey = FriendCacheConstants.SMS_CODE_KEY + phone;
         String cachedCode = redisService.getCacheObject(codeKey, String.class);
         if (!StringUtils.hasText(cachedCode) || !cachedCode.equals(code.trim())) {
             return OJResult.fail(ResultCode.FAILED_CODE_ERROR);

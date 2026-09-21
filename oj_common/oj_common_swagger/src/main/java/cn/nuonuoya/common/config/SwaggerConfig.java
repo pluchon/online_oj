@@ -13,7 +13,7 @@ public class SwaggerConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("在线oj系统")
-                        .description("在线oj系统接⼝⽂档")
+                        .description("在线oj系统接口文档")
                         .version("v1"));
     }
 }

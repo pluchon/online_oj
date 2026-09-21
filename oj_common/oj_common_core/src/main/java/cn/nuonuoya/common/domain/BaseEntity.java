@@ -14,16 +14,19 @@ public class BaseEntity implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    // 自动填充字段
+    // 创建人（插入时自动填充）
     @TableField(fill = FieldFill.INSERT)
     private Long createBy;
 
+    // 创建时间（插入时自动填充）
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
+    // 更新人（更新时自动填充）
     @TableField(fill = FieldFill.UPDATE)
     private Long updateBy;
 
+    // 更新时间（更新时自动填充）
     @TableField(fill = FieldFill.UPDATE)
     private LocalDateTime updateTime;
 }

@@ -8,7 +8,7 @@ import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.enums.ProgramTypeEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
-import cn.nuonuoya.common.constants.CacheConstants;
+import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.enums.ResultCode;
@@ -202,7 +202,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         }
 
         // 按用户限流，避免高频占用沙箱容器
-        String limitKey = CacheConstants.QUESTION_RUN_LIMIT_KEY + userId;
+        String limitKey = FriendCacheConstants.QUESTION_RUN_LIMIT_KEY + userId;
         Long runCount = redisService.increment(limitKey);
         if (runCount != null && runCount == 1L) {
             redisService.expire(limitKey, RUN_LIMIT_SECONDS, TimeUnit.SECONDS);

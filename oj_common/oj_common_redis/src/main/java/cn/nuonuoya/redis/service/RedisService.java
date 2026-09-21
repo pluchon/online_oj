@@ -214,21 +214,21 @@ public class RedisService {
     }
 
     /**
-     * 底层使⽤list结构存储数据(尾插 批量插⼊)
+     * 底层使用list结构存储数据(尾插 批量插入)
      */
     public <T> Long rightPushAll(final String key, Collection<T> list) {
         return redisTemplate.opsForList().rightPushAll(key, list);
     }
 
     /**
-     * 底层使⽤list结构存储数据(头插)
+     * 底层使用list结构存储数据(头插)
      */
     public <T> Long leftPushForList(final String key, T value) {
         return redisTemplate.opsForList().leftPush(key, value);
     }
 
     /**
-     * 底层使⽤list结构,删除指定数据
+     * 底层使用list结构,删除指定数据
      */
     public <T> Long removeForList(final String key, T value) {
         return redisTemplate.opsForList().remove(key, 1L, value);
@@ -263,7 +263,7 @@ public class RedisService {
     }
 
     /**
-     * 往Hash中存⼊数据
+     * 往Hash中存入数据
      *
      * @param key   Redis键
      * @param hKey  Hash键

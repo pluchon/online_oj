@@ -43,7 +43,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
     // 服务间内部接口路径（/{domain}/internal/**），网关不对外暴露
     private static final String INTERNAL_PATH_PATTERN = "/**/internal/**";
 
-    // 排除过滤的 uri ⽩名单地址，在nacos⾃⾏添加
+    // 排除过滤的 uri 白名单地址，在nacos自行添加
     @Autowired
     private IgnoreWhiteProperties ignoreWhite;
 
@@ -131,7 +131,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 查找指定url是否匹配指定匹配规则链表中的任意⼀个字符串
+     * 查找指定url是否匹配指定匹配规则链表中的任意一个字符串
      *
      * @param url         指定url
      * @param patternList 需要检查的匹配规则链表
@@ -152,9 +152,9 @@ public class AuthFilter implements GlobalFilter, Ordered {
     /**
      * 判断url是否与规则匹配
      * 匹配规则中：
-     * ? 表⽰单个字符;
-     * * 表⽰⼀层路径内的任意字符串，不可跨层级;
-     * ** 表⽰任意层路径;
+     * ? 表示单个字符;
+     * * 表示一层路径内的任意字符串，不可跨层级;
+     * ** 表示任意层路径;
      *
      * @param pattern 匹配规则
      * @param url     需要匹配的url

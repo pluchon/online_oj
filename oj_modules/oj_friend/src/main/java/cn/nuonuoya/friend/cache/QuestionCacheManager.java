@@ -1,7 +1,7 @@
 package cn.nuonuoya.friend.cache;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.nuonuoya.common.constants.CacheConstants;
+import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.friend.domain.TbExamQuestion;
 import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
@@ -30,7 +30,7 @@ public class QuestionCacheManager {
 
     // 解析缓存Key（区分日常题库与特定竞赛）
     private String getListKey(Long examId) {
-        return examId == null ? CacheConstants.QUESTION_LIST_KEY : (CacheConstants.EXAM_QUESTION_LIST_KEY + examId);
+        return examId == null ? FriendCacheConstants.QUESTION_LIST_KEY : (FriendCacheConstants.EXAM_QUESTION_LIST_KEY + examId);
     }
 
     // 初始化题目顺序列表缓存

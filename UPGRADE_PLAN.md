@@ -225,6 +225,14 @@ B 端题目管理接入 `tb_question_case`（当前尚未完成）是功能 1 �
 | Q3 | 大模型提供方，以及是否需要流式输出 | 阶段 3 |
 | Q4 | 是否需要记录 AI 调用日志表（用于额度统计与审计） | 阶段 3 |
 
+## 暂缓事项（2026-09-21 代码优化中发现）
+
+| 编号 | 事项 | 现状 | 建议 |
+|---|---|---|---|
+| T1 | 竞赛结算无触发方 | C 端公开入口 `/friend/exam/rank/settle` 已关闭，`settleExamRank` 暂无调用方，战报消息不会发出；查看排名的 GET 请求在赛后会顺带把排名写库且不在事务内 | job 定时扫描已结束竞赛，经 friend 内部接口触发结算；`tb_exam` 增加"已结算"标记保证战报不重复（需确认表结构变更） |
+| T2 | 竞赛列表缓存跨服务耦合 | system 与 job 通过 `CacheConstants` 直接改写 friend 的竞赛列表缓存 | 与题目刷新同一模式：friend 提供 `/friend/internal/exam/refresh`，system 提交后与 job 定时调用 |
+| T3 | Nacos 网关白名单拼写 | `oj-gateway-local.yaml` 中 `/**/webjars/**m` 多了结尾的 m | 在 Nacos 控制台改为 `/**/webjars/**` |
+
 ## 回退方案
 
 - 阶段 1 开始前打标签 `pre-upgrade`；升级分支验收不通过则整体回退到该标签。

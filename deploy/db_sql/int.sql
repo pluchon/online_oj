@@ -5,17 +5,17 @@ use bitoj_dev;
 # 用户表
 DROP TABLE IF EXISTS `tb_sys_user`;
 CREATE TABLE `tb_sys_user` (
-                               `user_id` bigint(20) unsigned NOT NULL COMMENT '⽤⼾id', # 表示不允许存在负数，并且不用自增主键
-                               `user_account` varchar(32) DEFAULT NULL COMMENT '⽤⼾账号',# 用户的账号名
-                               `password` varchar(100) DEFAULT NULL COMMENT '⽤⼾密码',
+                               `user_id` bigint(20) unsigned NOT NULL COMMENT '用户id', # 表示不允许存在负数，并且不用自增主键
+                               `user_account` varchar(32) DEFAULT NULL COMMENT '用户账号',# 用户的账号名
+                               `password` varchar(100) DEFAULT NULL COMMENT '用户密码',
                                `nick_name` varchar(32) DEFAULT NULL COMMENT '昵称',
-                               `create_by` bigint(8) NOT NULL COMMENT '创建⽤⼾',# 是谁添加的，便于追踪数据
+                               `create_by` bigint(8) NOT NULL COMMENT '创建用户',# 是谁添加的，便于追踪数据
                                `create_time` datetime NOT NULL COMMENT '创建时间',
-                               `update_by` bigint(8) DEFAULT NULL COMMENT '更新⽤⼾',# 是谁更新的，便于追踪数据
+                               `update_by` bigint(8) DEFAULT NULL COMMENT '更新用户',# 是谁更新的，便于追踪数据
                                `update_time` datetime DEFAULT NULL COMMENT '更新时间',
                                PRIMARY KEY (`user_id`),
                                UNIQUE KEY `user_account` (`user_account`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管理端⽤⼾表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='管理端用户表';
 
 # 初始管理员账号（账号: admin, 密码: 123456）
 INSERT INTO `tb_sys_user` (`user_id`, `user_account`, `password`, `nick_name`, `create_by`, `create_time`)

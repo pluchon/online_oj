@@ -1,59 +1,45 @@
 package cn.nuonuoya.common.domain;
 
+import lombok.Getter;
 import lombok.ToString;
 
 import java.io.Serial;
 import java.io.Serializable;
 
-// 分页查询基础请求类
+// 分页查询基础请求类（入参在 setter 中统一纠正）
+@Getter
 @ToString
 public class PageQuery implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
-    // 当前页码（默认 1）
-    private Integer pageNum = 1;
+    // 默认页码
+    private static final int DEFAULT_PAGE_NUM = 1;
 
-    // 每页条数（默认固定 10，上限 50）
-    private Integer pageSize = 10;
+    // 默认每页条数
+    private static final int DEFAULT_PAGE_SIZE = 10;
 
-    // 获取当前页码（空或小于1时兜底为1）
-    public Integer getPageNum() {
-        if (pageNum == null || pageNum < 1) {
-            return 1;
-        }
-        return pageNum;
-    }
+    // 每页条数上限
+    private static final int MAX_PAGE_SIZE = 50;
 
-    // 设置当前页码
+    // 当前页码
+    private Integer pageNum = DEFAULT_PAGE_NUM;
+
+    // 每页条数
+    private Integer pageSize = DEFAULT_PAGE_SIZE;
+
+    // 设置当前页码（空或小于1时取默认值）
     public void setPageNum(Integer pageNum) {
-        if (pageNum == null || pageNum < 1) {
-            this.pageNum = 1;
-        } else {
-            this.pageNum = pageNum;
-        }
+        this.pageNum = pageNum == null || pageNum < 1 ? DEFAULT_PAGE_NUM : pageNum;
     }
 
-    // 获取每页条数（空或非法时兜底为10，超大时上限限制为50）
-    public Integer getPageSize() {
-        if (pageSize == null || pageSize <= 0) {
-            return 10;
-        }
-        if (pageSize > 50) {
-            return 50;
-        }
-        return pageSize;
-    }
-
-    // 设置每页条数
+    // 设置每页条数（空或非法时取默认值，超过上限时取上限）
     public void setPageSize(Integer pageSize) {
         if (pageSize == null || pageSize <= 0) {
-            this.pageSize = 10;
-        } else if (pageSize > 50) {
-            this.pageSize = 50;
+            this.pageSize = DEFAULT_PAGE_SIZE;
         } else {
-            this.pageSize = pageSize;
+            this.pageSize = Math.min(pageSize, MAX_PAGE_SIZE);
         }
     }
 }

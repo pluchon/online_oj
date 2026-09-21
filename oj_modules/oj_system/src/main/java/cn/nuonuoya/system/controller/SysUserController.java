@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 // 管理员用户控制器
 @RestController
 @RequestMapping("/sysUser")
-@Tag(name = "管理员⽤⼾API")
+@Tag(name = "管理员用户API")
 public class SysUserController extends BaseController {
 
     @Autowired
@@ -37,14 +37,14 @@ public class SysUserController extends BaseController {
     @PostMapping("/login")
     @Operation(summary = "管理员登录", description = "需要管理员的用户名以及密码，通过JSON传入")
     @ApiResponse(responseCode = "1000", description = "操作成功")
-    @ApiResponse(responseCode = "3102", description = "⽤⼾不存在")
-    @ApiResponse(responseCode = "3103", description = "⽤⼾名或密码错误")
+    @ApiResponse(responseCode = "3102", description = "用户不存在")
+    @ApiResponse(responseCode = "3103", description = "用户名或密码错误")
     public OJResult<String> login(@RequestBody UserLoginDTO userLoginDTO) {
         return sysUserService.login(userLoginDTO.getUserAccount(), userLoginDTO.getPassword());
     }
 
     /** 新增管理员用户 */
-    @Operation(summary = "新增管理员", description = "根据提供的信息新增管理员⽤⼾")
+    @Operation(summary = "新增管理员", description = "根据提供的信息新增管理员用户")
     @PostMapping("/add")
     @ApiResponse(responseCode = "1000", description = "操作成功")
     @ApiResponse(responseCode = "2000", description = "服务繁忙请稍后重试")
@@ -53,13 +53,13 @@ public class SysUserController extends BaseController {
     }
 
     @DeleteMapping("/{userId}")
-    @Operation(summary = "删除⽤⼾", description = "通过⽤⼾id删除⽤⼾")
+    @Operation(summary = "删除用户", description = "通过用户id删除用户")
     @Parameters(value = {
-            @Parameter(name = "userId", in = ParameterIn.PATH, description = "⽤⼾ID")
+            @Parameter(name = "userId", in = ParameterIn.PATH, description = "用户ID")
     })
-    @ApiResponse(responseCode = "1000", description = "成功删除⽤⼾")
+    @ApiResponse(responseCode = "1000", description = "成功删除用户")
     @ApiResponse(responseCode = "2000", description = "服务繁忙请稍后重试")
-    @ApiResponse(responseCode = "3102", description = "⽤⼾不存在")
+    @ApiResponse(responseCode = "3102", description = "用户不存在")
     public OJResult<Void> delete(@PathVariable Long userId) {
         return sysUserService.delete(userId);
     }
