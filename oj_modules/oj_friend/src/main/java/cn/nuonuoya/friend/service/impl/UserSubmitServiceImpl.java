@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
@@ -220,6 +221,16 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         return toResultVO(submit);
+    }
+
+    // 回写异步判题结果（重复投递时覆盖写入，结果一致）
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveJudgeResult(JudgeResultVO resultVO) {
+        int rows = userSubmitMapper.updateById(UserSubmitConverter.toJudgedEntity(resultVO));
+        if (rows == 0) {
+            log.warn("判题结果对应的提交记录不存在: submitId = {}", resultVO.getSubmitId());
+        }
     }
 
     // 分页查询当前用户本题的提交记录（按提交时间倒序）

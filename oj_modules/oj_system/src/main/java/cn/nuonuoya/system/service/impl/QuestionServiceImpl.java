@@ -12,7 +12,7 @@ import cn.nuonuoya.system.dto.QuestionEditDTO;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.service.QuestionService;
-import cn.nuonuoya.system.utils.TransactionUtils;
+import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.QuestionDetailVO;
 import cn.nuonuoya.system.vo.QuestionVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;

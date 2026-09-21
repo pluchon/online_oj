@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.service;
 
+import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.dto.QuestionRunDTO;
 import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
@@ -22,4 +23,7 @@ public interface UserSubmitService {
 
     // 根据提交ID查询当前评测状态与结果
     UserSubmitResultVO getSubmitResult(Long submitId);
+
+    // 回写异步判题结果
+    void saveJudgeResult(JudgeResultVO resultVO);
 }

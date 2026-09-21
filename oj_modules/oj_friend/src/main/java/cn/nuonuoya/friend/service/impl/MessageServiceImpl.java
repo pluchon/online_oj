@@ -6,6 +6,8 @@ import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
+import cn.nuonuoya.friend.converter.MessageConverter;
+import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.friend.domain.TbMessage;
 import cn.nuonuoya.friend.domain.TbMessageText;
 import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
@@ -54,7 +56,7 @@ public class MessageServiceImpl implements MessageService {
         PageHelper.startPage(pageNum, pageSize);
         List<TbMessage> messageList = messageMapper.selectList(new LambdaQueryWrapper<TbMessage>()
                 .eq(TbMessage::getRecId, userId)
-                .orderByDesc(TbMessage::getCreateTime));
+                .orderByDesc(TbMessage::getCreateTime, TbMessage::getMessageId));
 
         if (CollUtil.isEmpty(messageList)) {
             return TableDataResult.empty();
@@ -64,23 +66,9 @@ public class MessageServiceImpl implements MessageService {
         List<MessageVO> voList = new ArrayList<>(messageList.size());
 
         for (TbMessage message : messageList) {
-            MessageVO vo = new MessageVO();
-            vo.setMessageId(message.getMessageId());
-            vo.setTextId(message.getTextId());
-            vo.setSendId(message.getSendId());
-            vo.setIsRead(message.getIsRead());
-            vo.setCreateTime(message.getCreateTime());
-
-            // 优先通过 Redis String 缓存加载消息正文
+            // 正文优先从缓存读取
             TbMessageText text = messageCacheManager.getMessageText(message.getTextId());
-            if (text != null) {
-                vo.setTitle(text.getMessageTitle());
-                vo.setContent(text.getMessageContent());
-            } else {
-                vo.setTitle("系统通知");
-                vo.setContent("");
-            }
-            voList.add(vo);
+            voList.add(MessageConverter.toVO(message, text));
         }
 
         return TableDataResult.success(voList, total);
@@ -125,8 +113,7 @@ public class MessageServiceImpl implements MessageService {
             updateEntity.setIsRead(MessageReadStatusEnum.READ.getCode());
             updateEntity.setUpdateTime(LocalDateTime.now());
             messageMapper.updateById(updateEntity);
-
-            messageCacheManager.decrementUnreadCount(userId);
+            TransactionUtils.afterCommit(() -> messageCacheManager.decrementUnreadCount(userId));
         }
     }
 
@@ -146,7 +133,7 @@ public class MessageServiceImpl implements MessageService {
                 .eq(TbMessage::getRecId, userId)
                 .eq(TbMessage::getIsRead, MessageReadStatusEnum.UNREAD.getCode()));
 
-        // 清空缓存中的未读计数
-        messageCacheManager.clearUnreadCount(userId);
+        // 事务提交后清空缓存中的未读计数
+        TransactionUtils.afterCommit(() -> messageCacheManager.clearUnreadCount(userId));
     }
 }

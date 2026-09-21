@@ -20,7 +20,7 @@ import cn.nuonuoya.system.mapper.ExamQuestionMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.mapper.SysUserMapper;
 import cn.nuonuoya.system.service.ExamService;
-import cn.nuonuoya.system.utils.TransactionUtils;
+import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.ExamDetailVO;
 import cn.nuonuoya.system.vo.ExamVO;
 import cn.nuonuoya.system.vo.QuestionVO;

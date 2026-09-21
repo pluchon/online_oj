@@ -10,7 +10,7 @@ import cn.nuonuoya.system.dto.UserStatusDTO;
 import cn.nuonuoya.system.enums.UserStatus;
 import cn.nuonuoya.system.mapper.UserMapper;
 import cn.nuonuoya.system.service.UserService;
-import cn.nuonuoya.system.utils.TransactionUtils;
+import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.UserVO;
 import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
