@@ -6,68 +6,82 @@ import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-import java.util.Collection;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-// 全局异常处理器，不同的异常可以通过不同的方法进行处理
+// 全局异常处理器（业务与参数错误记 warn，未知异常记 error 并隐藏细节）
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 请求方式不支持异常处理
+    // 请求方式不支持
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public OJResult<?> handleHttpRequestMethodNotSupported(HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
-        String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',不支持'{}'请求", requestURI, e.getMethod());
-        return OJResult.fail(ResultCode.ERROR);
+    public OJResult<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
+        log.warn("请求地址'{}'不支持'{}'请求", request.getRequestURI(), e.getMethod());
+        return OJResult.fail(ResultCode.FAILED.getCode(), "不支持的请求方式");
     }
 
-    // 运行时异常处理
-    @ExceptionHandler(RuntimeException.class)
-    public OJResult<?> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
-        String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',运行时发生异常.", requestURI, e);
-        return OJResult.fail(ResultCode.ERROR);
-    }
-
-    // 自定义异常
+    // 业务异常
     @ExceptionHandler(ServiceException.class)
-    public OJResult<?> handleServiceException(ServiceException e, HttpServletRequest request) {
-        String requestURI = request.getRequestURI();
-        ResultCode resultCode = e.getResultCode();
-        log.error("请求地址'{}',业务发生异常.", requestURI, e);
-        return OJResult.fail(resultCode);
+    public OJResult<Void> handleServiceException(ServiceException e, HttpServletRequest request) {
+        log.warn("请求地址'{}'业务异常: {}", request.getRequestURI(), e.getMessage());
+        return OJResult.fail(e.getResultCode());
     }
 
-    // 参数校验相关的异常
+    // 请求体或表单参数校验失败
     @ExceptionHandler(BindException.class)
-    public OJResult<Void> handleBindException(BindException e) {
-        log.error(e.getMessage());
-        String message = join(e.getAllErrors(), DefaultMessageSourceResolvable::getDefaultMessage, ", ");
-        return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE.getCode(), message);
+    public OJResult<Void> handleBindException(BindException e, HttpServletRequest request) {
+        String message = e.getAllErrors().stream()
+                .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(", "));
+        log.warn("请求地址'{}'参数校验失败: {}", request.getRequestURI(), message);
+        return paramsInvalid(message);
     }
 
-    private <E> String join(Collection<E> collection, Function<E, String> function, CharSequence delimiter) {
-        if (CollUtil.isEmpty(collection)) {
-            return StrUtil.EMPTY;
-        }
-        return collection.stream().map(function).filter(Objects::nonNull).collect(Collectors.joining(delimiter));
+    // 方法参数约束校验失败（@Validated 标注的简单参数）
+    @ExceptionHandler(ConstraintViolationException.class)
+    public OJResult<Void> handleConstraintViolation(ConstraintViolationException e, HttpServletRequest request) {
+        String message = CollUtil.isEmpty(e.getConstraintViolations()) ? null : e.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+        log.warn("请求地址'{}'参数校验失败: {}", request.getRequestURI(), message);
+        return paramsInvalid(message);
     }
 
-    // 系统异常兜底处理
+    // 缺少必填参数、参数类型不匹配、请求体格式错误
+    @ExceptionHandler({MissingServletRequestParameterException.class,
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class})
+    public OJResult<Void> handleBadRequest(Exception e, HttpServletRequest request) {
+        log.warn("请求地址'{}'参数错误: {}", request.getRequestURI(), e.getMessage());
+        return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE);
+    }
+
+    // 未知异常兜底
     @ExceptionHandler(Exception.class)
-    public OJResult<?> handleException(Exception e, HttpServletRequest request) {
-        String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',发生未知异常.", requestURI, e);
+    public OJResult<Void> handleException(Exception e, HttpServletRequest request) {
+        log.error("请求地址'{}'发生未知异常", request.getRequestURI(), e);
         return OJResult.fail(ResultCode.ERROR);
+    }
+
+    // 组装参数校验失败响应（无具体信息时使用默认提示）
+    private OJResult<Void> paramsInvalid(String message) {
+        if (StrUtil.isBlank(message)) {
+            return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE.getCode(), message);
     }
 }

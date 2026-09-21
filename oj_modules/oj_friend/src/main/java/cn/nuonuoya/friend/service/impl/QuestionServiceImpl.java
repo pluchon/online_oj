@@ -308,7 +308,7 @@ public class QuestionServiceImpl implements QuestionService {
             }
             String token = request.getHeader(HttpConstants.AUTHENTICATION);
             if (StrUtil.isNotBlank(token)) {
-                return tokenService.getUserId(tokenService.cleanToken(token));
+                return tokenService.getUserId(token);
             }
         }
         return null;

@@ -1,4 +1,1 @@
-cn.nuonuoya.security.GlobalExceptionHandler
-cn.nuonuoya.security.service.TokenService
-cn.nuonuoya.security.interceptor.TokenInterceptor
 cn.nuonuoya.security.config.WebMvcConfig

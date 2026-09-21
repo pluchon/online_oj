@@ -9,19 +9,15 @@ import org.springframework.context.annotation.Import;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import org.springframework.context.annotation.Configuration;
-
-// Web MVC 配置，注册全局拦截器
-@Configuration
+// 安全模块自动装配：注册登录上下文拦截器、令牌服务与全局异常处理
 @AutoConfiguration
 @Import({TokenInterceptor.class, TokenService.class, GlobalExceptionHandler.class})
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    // Token拦截器
     @Autowired
     private TokenInterceptor tokenInterceptor;
 
-    // 注册拦截器并配置拦截与排除路径
+    // 注册拦截器，登录与接口文档路径无需解析身份
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(tokenInterceptor)

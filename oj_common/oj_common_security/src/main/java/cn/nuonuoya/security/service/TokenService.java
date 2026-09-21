@@ -4,9 +4,9 @@ import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.common.constants.JWTConstant;
-import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.utils.JwtUtils;
+import cn.nuonuoya.redis.service.RedisService;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-// 用户登录的令牌操作
+// 登录令牌服务（JWT 只存 userId 与 userKey，会话信息存 Redis）
 @Slf4j
 @Component
 public class TokenService {
@@ -29,67 +29,50 @@ public class TokenService {
     @Autowired
     private RedisService redisService;
 
-    // 根据 userId 和登录用户信息生成 Token，并将用户信息写入 Redis 缓存
+    // 签发令牌，并以随机 userKey 为键将登录信息写入 Redis
     public String createToken(Long userId, LoginUser loginUser) {
-        // 生成随机 userKey，作为 Redis 中的唯一标识
         String userKey = UUID.fastUUID().toString();
-        // 构建 JWT 载荷：存 userId 和 userKey（敏感信息不写进 JWT）
         Map<String, Object> claims = new HashMap<>();
         claims.put(JWTConstant.LOGIN_USER_ID, userId);
         claims.put(JWTConstant.LOGIN_USER_KEY, userKey);
         String token = JwtUtils.createToken(claims, secret);
-        // 以 userKey 为键将用户身份信息存入 Redis，有效期 720 分钟
-        String key = getTokenKey(userKey);
-        redisService.setCacheObject(key, loginUser, CacheConstants.EXPIRATION, TimeUnit.MINUTES);
+        redisService.setCacheObject(getTokenKey(userKey), loginUser, CacheConstants.EXPIRATION, TimeUnit.MINUTES);
         return token;
     }
 
-    // 清洗Token 去除Bearer前缀 双引号及空白字符
-    public String cleanToken(String token) {
-        if (StrUtil.isEmpty(token)) {
-            return null;
-        }
-        token = token.trim();
-        if (token.startsWith("\"") && token.endsWith("\"") && token.length() > 1) {
-            token = token.substring(1, token.length() - 1).trim();
-        }
-        while (token.toLowerCase().startsWith("bearer ")) {
-            token = token.substring(7).trim();
-        }
-        return token;
-    }
-
-    // 解析并获取Token中的Claims载荷
+    // 解析令牌载荷，令牌为空或无效时返回 null
     public Claims getClaims(String token) {
-        token = cleanToken(token);
-        if (StrUtil.isEmpty(token)) {
+        token = JwtUtils.cleanToken(token);
+        if (token == null) {
             return null;
         }
         try {
             return JwtUtils.parseToken(token, secret);
         } catch (Exception e) {
-            log.error("[Token解析] 解析令牌发生异常: {}", e.getMessage());
+            log.warn("[Token解析] 令牌无效: {}", e.getMessage());
             return null;
         }
     }
 
-    // 从Token中解析出用户ID
+    // 从令牌中解析用户ID
     public Long getUserId(String token) {
         Claims claims = getClaims(token);
-        if (claims == null) {
-            return null;
-        }
+        return claims == null ? null : getUserId(claims);
+    }
+
+    // 从载荷中获取用户ID
+    public Long getUserId(Claims claims) {
         String userId = JwtUtils.getUserId(claims);
         return StrUtil.isNotEmpty(userId) ? Long.valueOf(userId) : null;
     }
 
-    // 从Token中解析出userKey
+    // 从令牌中解析 userKey
     public String getUserKey(String token) {
         Claims claims = getClaims(token);
         return claims != null ? JwtUtils.getUserKey(claims) : null;
     }
 
-    // 从Token中获取Redis中存储的登录用户信息
+    // 获取令牌对应的登录用户信息
     public LoginUser getLoginUser(String token) {
         String userKey = getUserKey(token);
         if (StrUtil.isEmpty(userKey)) {
@@ -106,31 +89,22 @@ public class TokenService {
         }
     }
 
-    // 延长Token有效期
-    public void extendTokenTTL(String token) {
-        Claims claims = getClaims(token);
-        if (claims == null) {
-            return;
-        }
+    // 会话剩余有效期低于阈值时自动续期
+    public void extendTokenTTL(Claims claims) {
         String userKey = JwtUtils.getUserKey(claims);
         if (StrUtil.isEmpty(userKey)) {
-            log.warn("[Token续期] 令牌中未包含有效的 userKey，跳过续期");
             return;
         }
         String key = getTokenKey(userKey);
         Long expire = redisService.getExpire(key, TimeUnit.MINUTES);
-        if (expire != null && expire < CacheConstants.TOKEN_REFRESH_TIME) {
+        if (expire != null && expire > 0 && expire < CacheConstants.TOKEN_REFRESH_TIME) {
             redisService.expire(key, CacheConstants.EXPIRATION, TimeUnit.MINUTES);
-            log.info("[Token续期] 用户会话即将过期，成功刷新有效期: userKey={}, 原剩余时间={}分钟", userKey, expire);
+            log.debug("[Token续期] 会话即将过期，已刷新有效期，原剩余 {} 分钟", expire);
         }
     }
 
-    // 延长Token有效期 兼容双参调用
-    public void extendTokenTTL(String token, String secret) {
-        extendTokenTTL(token);
-    }
-
-    private String getTokenKey(String userKey){
+    // 拼接登录会话缓存键
+    private String getTokenKey(String userKey) {
         return CacheConstants.LOGIN_TOKEN_KEY + userKey;
     }
 }

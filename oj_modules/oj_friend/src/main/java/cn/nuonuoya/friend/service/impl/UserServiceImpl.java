@@ -348,7 +348,7 @@ public class UserServiceImpl implements UserService {
             }
             String token = request.getHeader(HttpConstants.AUTHENTICATION);
             if (StringUtils.hasText(token)) {
-                return tokenService.getUserId(tokenService.cleanToken(token));
+                return tokenService.getUserId(token);
             }
         }
         return null;
@@ -369,7 +369,7 @@ public class UserServiceImpl implements UserService {
             }
             String token = request.getHeader(HttpConstants.AUTHENTICATION);
             if (StringUtils.hasText(token)) {
-                return tokenService.getUserKey(tokenService.cleanToken(token));
+                return tokenService.getUserKey(token);
             }
         }
         return null;
