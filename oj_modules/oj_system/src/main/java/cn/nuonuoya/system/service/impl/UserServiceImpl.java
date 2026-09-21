@@ -1,8 +1,8 @@
 package cn.nuonuoya.system.service.impl;
 
 import cn.nuonuoya.common.enums.ResultCode;
-import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.exception.ServiceException;
+import cn.nuonuoya.system.client.FriendUserClient;
 import cn.nuonuoya.system.converter.UserConverter;
 import cn.nuonuoya.system.domain.TbUser;
 import cn.nuonuoya.system.dto.UserDTO;
@@ -12,14 +12,18 @@ import cn.nuonuoya.system.mapper.UserMapper;
 import cn.nuonuoya.system.service.UserService;
 import cn.nuonuoya.system.vo.UserVO;
 import com.github.pagehelper.PageHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Objects;
 
 // 用户业务实现类
+@Slf4j
 @Service
 public class UserServiceImpl implements UserService {
 
@@ -27,7 +31,7 @@ public class UserServiceImpl implements UserService {
     private UserMapper userMapper;
 
     @Autowired
-    private RedisService redisService;
+    private FriendUserClient friendUserClient;
 
     // 分页多条件查询用户列表实现
     @Override
@@ -69,9 +73,16 @@ public class UserServiceImpl implements UserService {
         updateEntity.setStatus(statusDTO.getStatus());
         int rows = userMapper.updateById(updateEntity);
 
-        // 同步清除C端用户的Redis详情缓存，确保切面校验即时感知
-        redisService.deleteObject("user:detail:" + statusDTO.getUserId());
-
+        // 事务提交后再通知C端清除用户缓存，避免提交前被旧状态重新回填
+        Long userId = statusDTO.getUserId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (!friendUserClient.evictUserCache(userId)) {
+                    log.warn("用户状态已更新但C端缓存未清除，将在缓存过期后生效, userId = {}", userId);
+                }
+            }
+        });
         return rows;
     }
 }

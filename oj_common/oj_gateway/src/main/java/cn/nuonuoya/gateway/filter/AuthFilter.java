@@ -40,6 +40,9 @@ import java.util.Objects;
 @Component
 public class AuthFilter implements GlobalFilter, Ordered {
 
+    // 服务间内部接口路径（/{domain}/internal/**），网关不对外暴露
+    private static final String INTERNAL_PATH_PATTERN = "/**/internal/**";
+
     // 排除过滤的 uri ⽩名单地址，在nacos⾃⾏添加
     @Autowired
     private IgnoreWhiteProperties ignoreWhite;
@@ -54,6 +57,11 @@ public class AuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String url = request.getURI().getPath();
+
+        // 内部接口仅供服务间调用，一律禁止经网关访问
+        if (isMatch(INTERNAL_PATH_PATTERN, url)) {
+            return unauthorizedResponse(exchange, "禁止访问内部接口");
+        }
         boolean isWhite = matches(url, ignoreWhite.getWhites());
 
         // 从http请求头中获取token

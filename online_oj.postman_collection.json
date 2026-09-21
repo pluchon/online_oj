@@ -1047,6 +1047,69 @@
         "description": "当前用户本题提交记录（需登录），按提交时间倒序分页，返回 rows/total，含 userCode 供载回编辑器"
       },
       "response": []
+    },
+    {
+      "name": "29-内部接口-清除C端用户缓存(直连friend)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://127.0.0.1:9202/friend/internal/user/1800000000000000001/cache/evict",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "9202",
+          "path": [
+            "friend",
+            "internal",
+            "user",
+            "1800000000000000001",
+            "cache",
+            "evict"
+          ]
+        },
+        "description": "服务间内部接口（调用方 oj-system 修改用户状态后），直连 oj-friend 端口调试；成功返回 true"
+      },
+      "response": []
+    },
+    {
+      "name": "30-内部接口-经网关访问应被拒绝",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/friend/internal/user/1800000000000000001/cache/evict",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "friend",
+            "internal",
+            "user",
+            "1800000000000000001",
+            "cache",
+            "evict"
+          ]
+        },
+        "description": "网关屏蔽 /**/internal/**，预期返回 code=3001「禁止访问内部接口」"
+      },
+      "response": []
     }
   ],
   "variable": [

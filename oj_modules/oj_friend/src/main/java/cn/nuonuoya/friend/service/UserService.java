@@ -34,6 +34,9 @@ public interface UserService {
 
     // 获取当前登录用户解题日历按年份统计
     OJResult<UserCalendarVO> getUserCalendar(UserCalendarQueryDTO queryDTO);
+
+    // 清除指定用户的详情缓存（供管理端修改用户状态后调用）
+    void evictUserCache(Long userId);
 }
 
 

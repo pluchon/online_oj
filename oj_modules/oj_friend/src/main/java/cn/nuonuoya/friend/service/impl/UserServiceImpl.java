@@ -37,6 +37,7 @@ import cn.nuonuoya.friend.vo.UserCalendarItemVO;
 import cn.nuonuoya.friend.vo.UserCalendarVO;
 import cn.nuonuoya.friend.vo.UserOverviewVO;
 import cn.nuonuoya.friend.vo.UserVO;
+import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.message.sms.config.SmsProperties;
 import cn.nuonuoya.message.sms.service.SmsService;
 import cn.nuonuoya.redis.service.RedisService;
@@ -597,6 +598,15 @@ public class UserServiceImpl implements UserService {
         calendarVO.setCalendarData(calendarData);
 
         return OJResult.ok(calendarVO);
+    }
+
+    // 清除指定用户的详情缓存
+    @Override
+    public void evictUserCache(Long userId) {
+        if (userId == null) {
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        userCacheManager.deleteUserCache(userId);
     }
 }
 
