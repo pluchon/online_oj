@@ -24,6 +24,15 @@ public class FriendCacheConstants {
     // 运行示例用例限流键前缀（q:run:limit:{userId}）
     public final static String QUESTION_RUN_LIMIT_KEY = "q:run:limit:";
 
+    // 未完赛竞赛ID列表缓存键
+    public final static String EXAM_UNFINISH_LIST_KEY = "exam:unfinish:list";
+
+    // 历史竞赛ID列表缓存键
+    public final static String EXAM_HISTORY_LIST_KEY = "exam:history:list";
+
+    // 竞赛详情缓存键前缀（exam:detail:{examId}）
+    public final static String EXAM_DETAIL_KEY = "exam:detail:";
+
     // 竞赛排名列表缓存键前缀（exam:rank:{examId}）
     public final static String EXAM_RANK_LIST_KEY = "exam:rank:";
 

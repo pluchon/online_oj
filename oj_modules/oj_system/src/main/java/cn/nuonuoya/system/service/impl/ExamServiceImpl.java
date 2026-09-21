@@ -3,7 +3,7 @@ package cn.nuonuoya.system.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
-import cn.nuonuoya.system.cache.ExamCacheManager;
+import cn.nuonuoya.system.client.FriendExamClient;
 import cn.nuonuoya.system.converter.ExamConverter;
 import cn.nuonuoya.system.domain.SysUser;
 import cn.nuonuoya.system.domain.TbExam;
@@ -27,6 +27,7 @@ import cn.nuonuoya.system.vo.QuestionVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.github.pagehelper.PageHelper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 // 竞赛业务实现类
+@Slf4j
 @Service
 public class ExamServiceImpl implements ExamService {
 
@@ -55,7 +57,7 @@ public class ExamServiceImpl implements ExamService {
     private QuestionMapper questionMapper;
 
     @Autowired
-    private ExamCacheManager examCacheManager;
+    private FriendExamClient friendExamClient;
 
     // 分页查询竞赛列表实现
     @Override
@@ -130,13 +132,9 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setStartTime(editDTO.getStartTime());
         updateExam.setEndTime(editDTO.getEndTime());
         int rows = examMapper.updateById(updateExam);
-        // 已发布的竞赛在事务提交后同步更新缓存
+        // 已发布的竞赛需刷新C端缓存
         if (isPublished(exam)) {
-            Long examId = editDTO.getExamId();
-            TransactionUtils.afterCommit(() -> {
-                examCacheManager.saveExamDetail(examMapper.selectById(examId));
-                examCacheManager.refreshUnfinishList();
-            });
+            notifyExamChanged(editDTO.getExamId());
         }
         return rows;
     }
@@ -156,7 +154,7 @@ public class ExamServiceImpl implements ExamService {
                 .eq(TbExamQuestion::getExamId, examId));
         // 删除竞赛主体记录
         int rows = examMapper.deleteById(examId);
-        TransactionUtils.afterCommit(() -> examCacheManager.removeExam(examId));
+        notifyExamChanged(examId);
         return rows;
     }
 
@@ -176,11 +174,7 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setExamId(examId);
         updateExam.setStatus(ExamStatus.PUBLISHED.getValue());
         int rows = examMapper.updateById(updateExam);
-        exam.setStatus(ExamStatus.PUBLISHED.getValue());
-        TransactionUtils.afterCommit(() -> {
-            examCacheManager.saveExamDetail(exam);
-            examCacheManager.refreshUnfinishList();
-        });
+        notifyExamChanged(examId);
         return rows;
     }
 
@@ -194,7 +188,7 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setExamId(examId);
         updateExam.setStatus(ExamStatus.UNPUBLISHED.getValue());
         int rows = examMapper.updateById(updateExam);
-        TransactionUtils.afterCommit(() -> examCacheManager.removeExam(examId));
+        notifyExamChanged(examId);
         return rows;
     }
 
@@ -241,6 +235,7 @@ public class ExamServiceImpl implements ExamService {
         }
         // 使用 MyBatis-Plus 工具类 Db.saveBatch 进行批量插入，避免循环单条写入
         Db.saveBatch(batchList);
+        notifyExamChanged(addDTO.getExamId());
         return batchList.size();
     }
 
@@ -275,9 +270,11 @@ public class ExamServiceImpl implements ExamService {
                 throw new ServiceException(ResultCode.FAILED_EXAM_NOT_ADD_QUESTION);
             }
         }
-        return examQuestionMapper.delete(new LambdaQueryWrapper<TbExamQuestion>()
+        int rows = examQuestionMapper.delete(new LambdaQueryWrapper<TbExamQuestion>()
                 .eq(TbExamQuestion::getExamId, examId)
                 .eq(TbExamQuestion::getQuestionId, questionId));
+        notifyExamChanged(examId);
+        return rows;
     }
 
     // 判断竞赛是否已发布
@@ -336,9 +333,12 @@ public class ExamServiceImpl implements ExamService {
         }
     }
 
-    // 同步预热所有已发布竞赛缓存
-    @Override
-    public void syncCache() {
-        examCacheManager.syncAllExamCache();
+    // 竞赛或其题目有变更时，事务提交后通知C端刷新缓存
+    private void notifyExamChanged(Long examId) {
+        TransactionUtils.afterCommit(() -> {
+            if (!friendExamClient.refreshExamCache(examId)) {
+                log.warn("竞赛已保存但C端缓存未刷新，将在定时任务下次执行后生效, examId = {}", examId);
+            }
+        });
     }
 }

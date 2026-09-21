@@ -42,7 +42,4 @@ public interface ExamService {
 
     // 从竞赛中移除指定题目
     int deleteQuestion(Long examId, Long questionId);
-
-    // 同步预热所有已发布竞赛缓存
-    void syncCache();
 }

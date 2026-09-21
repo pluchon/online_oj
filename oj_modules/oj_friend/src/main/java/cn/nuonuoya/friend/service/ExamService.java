@@ -34,6 +34,9 @@ public interface ExamService {
     // 分页查询竞赛选手得分与排名榜单
     TableDataResult<ExamRankVO> getExamRankList(Long examId, PageQuery pageQuery);
 
-    // 结算指定竞赛排名并发送战报通知
-    void settleExamRank(Long examId);
+    // 结算所有已结束且未结算的竞赛，返回本次结算场数
+    int settleFinishedExams();
+
+    // 刷新竞赛列表缓存；examId 非空时同时清除该竞赛的详情与题目顺序缓存
+    int refreshExamCache(Long examId);
 }

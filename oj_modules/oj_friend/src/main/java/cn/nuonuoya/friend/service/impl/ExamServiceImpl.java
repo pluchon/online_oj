@@ -6,6 +6,7 @@ import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.cache.ExamCacheManager;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
+import cn.nuonuoya.friend.cache.QuestionCacheManager;
 import cn.nuonuoya.friend.cache.UserCacheManager;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.friend.converter.ExamConverter;
@@ -19,6 +20,7 @@ import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.enums.ExamListTypeEnum;
 import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
+import cn.nuonuoya.friend.enums.ExamRankSettledEnum;
 import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
@@ -37,11 +39,14 @@ import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
 import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -90,6 +95,12 @@ public class ExamServiceImpl implements ExamService {
 
     @Autowired
     private MessageCacheManager messageCacheManager;
+
+    @Autowired
+    private QuestionCacheManager questionCacheManager;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     // 分页查询竞赛列表实现
     @Override
@@ -356,56 +367,52 @@ public class ExamServiceImpl implements ExamService {
         return TableDataResult.success(pageList, total);
     }
 
-    // 结算指定竞赛排名并发送战报通知
+    // 刷新竞赛缓存（供管理端变更竞赛与定时任务调用）
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void settleExamRank(Long examId) {
-        if (examId == null) {
-            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+    public int refreshExamCache(Long examId) {
+        if (examId != null) {
+            examCacheManager.evictExamDetail(examId);
+            questionCacheManager.evictListCache(examId);
         }
-        TbExam exam = examMapper.selectById(examId);
-        if (exam == null) {
-            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
+        return examCacheManager.rebuildListCaches();
+    }
+
+    // 结算所有已结束且未结算的竞赛（每场独立事务，单场失败不影响其他场次），返回成功结算场数
+    @Override
+    public int settleFinishedExams() {
+        List<TbExam> exams = examMapper.selectList(new LambdaQueryWrapper<TbExam>()
+                .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
+                .eq(TbExam::getRankSettled, ExamRankSettledEnum.UNSETTLED.getCode())
+                .le(TbExam::getEndTime, LocalDateTime.now()));
+        int settled = 0;
+        for (TbExam exam : exams) {
+            try {
+                if (Boolean.TRUE.equals(transactionTemplate.execute(status -> settleExam(exam)))) {
+                    settled++;
+                }
+            } catch (Exception e) {
+                log.error("竞赛结算失败, examId = {}", exam.getExamId(), e);
+            }
         }
-        // 竞赛结束前不允许结算
-        if (exam.getEndTime() == null || LocalDateTime.now().isBefore(exam.getEndTime())) {
-            throw new ServiceException(ResultCode.FAILED_EXAM_RANK_NOT_PUBLISHED);
+        return settled;
+    }
+
+    // 结算单场竞赛：先抢占结算标记保证只执行一次，再落库排名并发送战报
+    private boolean settleExam(TbExam exam) {
+        int claimed = examMapper.update(null, new LambdaUpdateWrapper<TbExam>()
+                .set(TbExam::getRankSettled, ExamRankSettledEnum.SETTLED.getCode())
+                .eq(TbExam::getExamId, exam.getExamId())
+                .eq(TbExam::getRankSettled, ExamRankSettledEnum.UNSETTLED.getCode()));
+        if (claimed == 0) {
+            return false;
         }
-
-        // 重新计算最新完整排名列表并同步数据库
-        List<ExamRankVO> fullRankList = calculateAndPersistRanks(exam);
-        if (CollUtil.isEmpty(fullRankList)) {
-            log.info("竞赛 {} 无参赛选手，无需发送战报通知", examId);
-            return;
+        List<ExamRankVO> rankList = calculateRanks(exam);
+        if (CollUtil.isNotEmpty(rankList)) {
+            persistRanks(exam.getExamId(), rankList);
+            sendRankNotices(exam, rankList);
         }
-
-        int totalParticipants = fullRankList.size();
-        log.info("开始为竞赛 {} 发送结算排名通知，共计 {} 名选手", examId, totalParticipants);
-
-        // 为每位参赛选手生成定制战报消息
-        for (ExamRankVO vo : fullRankList) {
-            TbMessageText text = new TbMessageText();
-            text.setMessageTitle("竞赛结果通知");
-            text.setMessageContent("您参与的竞赛：" + exam.getTitle() + "：本次共参赛" + totalParticipants + "人，您排名：第" + vo.getExamRank() + "名！");
-            text.setCreateBy(SYSTEM_SENDER_ID);
-            text.setCreateTime(LocalDateTime.now());
-            messageTextMapper.insert(text);
-
-            TbMessage message = new TbMessage();
-            message.setTextId(text.getTextId());
-            message.setSendId(SYSTEM_SENDER_ID);
-            message.setRecId(vo.getUserId());
-            message.setIsRead(MessageReadStatusEnum.UNREAD.getCode());
-            message.setCreateBy(SYSTEM_SENDER_ID);
-            message.setCreateTime(LocalDateTime.now());
-            messageMapper.insert(message);
-
-            // 同步写入 Redis 缓存与原子自增未读数
-            messageCacheManager.saveMessageTextCache(text);
-            messageCacheManager.pushUserMessage(vo.getUserId(), text.getTextId());
-        }
-
-        log.info("竞赛 {} 结算战报通知发送完成", examId);
+        log.info("竞赛结算完成, examId = {}, 参赛人数 = {}", exam.getExamId(), rankList.size());
+        return true;
     }
 
     // 批量装配竞赛列表的参赛人数与题目数量，避免 N+1
@@ -477,11 +484,11 @@ public class ExamServiceImpl implements ExamService {
             return Collections.emptyList();
         }
 
-        return calculateAndPersistRanks(exam);
+        return calculateRanks(exam);
     }
 
-    // 核心排名计算、排序、持久化与缓存方法
-    private List<ExamRankVO> calculateAndPersistRanks(TbExam exam) {
+    // 计算完整排名（总分、AC 数、最后提交时间、用户ID 依次排序）并写入缓存，不落库
+    private List<ExamRankVO> calculateRanks(TbExam exam) {
         Long examId = exam.getExamId();
         List<TbUserExam> userExams = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
                 .eq(TbUserExam::getExamId, examId));
@@ -566,37 +573,64 @@ public class ExamServiceImpl implements ExamService {
             }
         }
 
-        // 若竞赛已完赛，落库同步更新 tb_user_exam 中的得分与最终排名
-        LocalDateTime now = LocalDateTime.now();
-        boolean isFinished = exam.getEndTime() != null && exam.getEndTime().isBefore(now);
-
-        if (isFinished) {
-            Map<Long, ExamRankVO> rankMap = rankList.stream().collect(Collectors.toMap(ExamRankVO::getUserId, r -> r));
-            for (TbUserExam ue : userExams) {
-                ExamRankVO rankVO = rankMap.get(ue.getUserId());
-                if (rankVO != null) {
-                    boolean needUpdate = !Objects.equals(ue.getScore(), rankVO.getScore())
-                            || !Objects.equals(ue.getExamRank(), rankVO.getExamRank());
-                    if (needUpdate) {
-                        TbUserExam update = new TbUserExam();
-                        update.setUserExamId(ue.getUserExamId());
-                        update.setScore(rankVO.getScore());
-                        update.setExamRank(rankVO.getExamRank());
-                        update.setUpdateTime(now);
-                        userExamMapper.updateById(update);
-                    }
-                }
-            }
-        }
-
         // 写入 Redis 缓存（已完赛保留较久，进行中短暂缓存）
+        boolean isFinished = exam.getEndTime() != null && exam.getEndTime().isBefore(LocalDateTime.now());
         String rankCacheKey = FriendCacheConstants.EXAM_RANK_LIST_KEY + examId;
         if (isFinished) {
             redisService.setCacheObject(rankCacheKey, JSON.toJSONString(rankList), FriendCacheConstants.EXAM_RANK_FINISHED_TTL_HOURS, TimeUnit.HOURS);
         } else {
             redisService.setCacheObject(rankCacheKey, JSON.toJSONString(rankList), FriendCacheConstants.EXAM_RANK_ONGOING_TTL_MINUTES, TimeUnit.MINUTES);
         }
-
         return rankList;
+    }
+
+    // 将最终得分与名次写入报名记录（仅结算时调用）
+    private void persistRanks(Long examId, List<ExamRankVO> rankList) {
+        Map<Long, ExamRankVO> rankMap = rankList.stream().collect(Collectors.toMap(ExamRankVO::getUserId, r -> r));
+        List<TbUserExam> userExams = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
+                .eq(TbUserExam::getExamId, examId));
+        for (TbUserExam ue : userExams) {
+            ExamRankVO rankVO = rankMap.get(ue.getUserId());
+            if (rankVO == null) {
+                continue;
+            }
+            if (!Objects.equals(ue.getScore(), rankVO.getScore()) || !Objects.equals(ue.getExamRank(), rankVO.getExamRank())) {
+                TbUserExam update = new TbUserExam();
+                update.setUserExamId(ue.getUserExamId());
+                update.setScore(rankVO.getScore());
+                update.setExamRank(rankVO.getExamRank());
+                userExamMapper.updateById(update);
+            }
+        }
+    }
+
+    // 为每位参赛选手写入战报消息，缓存在事务提交后更新
+    private void sendRankNotices(TbExam exam, List<ExamRankVO> rankList) {
+        int totalParticipants = rankList.size();
+        List<TbMessageText> texts = new ArrayList<>(totalParticipants);
+        for (ExamRankVO vo : rankList) {
+            TbMessageText text = new TbMessageText();
+            text.setMessageTitle("竞赛结果通知");
+            text.setMessageContent("您参与的竞赛：" + exam.getTitle() + "：本次共参赛" + totalParticipants + "人，您排名：第" + vo.getExamRank() + "名！");
+            text.setCreateBy(SYSTEM_SENDER_ID);
+            text.setCreateTime(LocalDateTime.now());
+            messageTextMapper.insert(text);
+
+            TbMessage message = new TbMessage();
+            message.setTextId(text.getTextId());
+            message.setSendId(SYSTEM_SENDER_ID);
+            message.setRecId(vo.getUserId());
+            message.setIsRead(MessageReadStatusEnum.UNREAD.getCode());
+            message.setCreateBy(SYSTEM_SENDER_ID);
+            message.setCreateTime(LocalDateTime.now());
+            messageMapper.insert(message);
+            texts.add(text);
+        }
+        TransactionUtils.afterCommit(() -> {
+            for (int i = 0; i < texts.size(); i++) {
+                messageCacheManager.saveMessageTextCache(texts.get(i));
+                messageCacheManager.pushUserMessage(rankList.get(i).getUserId(), texts.get(i).getTextId());
+            }
+        });
     }
 }

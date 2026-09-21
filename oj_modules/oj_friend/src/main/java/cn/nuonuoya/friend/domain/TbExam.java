@@ -32,4 +32,7 @@ public class TbExam extends BaseEntity {
 
     // 是否发布 0: 未发布 1: 已发布
     private Integer status;
+
+    // 排名是否已结算（见 ExamRankSettledEnum）
+    private Integer rankSettled;
 }

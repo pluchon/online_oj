@@ -1,7 +1,6 @@
 package cn.nuonuoya.friend.cache;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.friend.converter.ExamConverter;
 import cn.nuonuoya.friend.domain.TbExam;
@@ -143,8 +142,18 @@ public class ExamCacheManager {
         return toPage(voList, pageNum, pageSize, total);
     }
 
-    // 从数据库重建指定类型的竞赛列表缓存
-    public synchronized void initCache(int type) {
+    // 重建未完赛与历史竞赛列表缓存，返回两类竞赛总数
+    public int rebuildListCaches() {
+        return initCache(ExamListTypeEnum.UNFINISHED.getCode()) + initCache(ExamListTypeEnum.HISTORY.getCode());
+    }
+
+    // 删除单场竞赛详情缓存
+    public void evictExamDetail(Long examId) {
+        redisService.deleteObject(FriendCacheConstants.EXAM_DETAIL_KEY + examId);
+    }
+
+    // 从数据库重建指定类型的竞赛列表缓存，返回该类竞赛数量
+    public synchronized int initCache(int type) {
         String listKey = getListKey(type);
         LocalDateTime now = LocalDateTime.now();
 
@@ -164,14 +173,15 @@ public class ExamCacheManager {
             List<Long> idList = list.stream().map(TbExam::getExamId).collect(Collectors.toList());
             redisService.rightPushAll(listKey, idList);
             for (TbExam exam : list) {
-                redisService.setCacheObject(CacheConstants.EXAM_DETAIL_KEY + exam.getExamId(), exam);
+                redisService.setCacheObject(FriendCacheConstants.EXAM_DETAIL_KEY + exam.getExamId(), exam);
             }
         }
+        return list.size();
     }
 
     // 根据分类获取对应的列表缓存键
     private String getListKey(int type) {
-        return type == ExamListTypeEnum.HISTORY.getCode() ? CacheConstants.EXAM_HISTORY_LIST_KEY : CacheConstants.EXAM_UNFINISH_LIST_KEY;
+        return type == ExamListTypeEnum.HISTORY.getCode() ? FriendCacheConstants.EXAM_HISTORY_LIST_KEY : FriendCacheConstants.EXAM_UNFINISH_LIST_KEY;
     }
 
     // 获取列表缓存总数
@@ -193,7 +203,7 @@ public class ExamCacheManager {
     // 批量读取已发布竞赛详情，缓存缺失时回源数据库并回填；结果按入参顺序排列，不存在或未发布的竞赛跳过
     private Map<Long, TbExam> loadExamDetails(List<Long> examIds) {
         List<String> detailKeys = examIds.stream()
-                .map(id -> CacheConstants.EXAM_DETAIL_KEY + id)
+                .map(id -> FriendCacheConstants.EXAM_DETAIL_KEY + id)
                 .collect(Collectors.toList());
         List<TbExam> cached = redisService.multiGetCacheObject(detailKeys, TbExam.class);
 
@@ -204,7 +214,7 @@ public class ExamCacheManager {
             if (exam == null) {
                 exam = examMapper.selectById(examId);
                 if (exam != null && ExamPublishStatusEnum.PUBLISHED.getCode().equals(exam.getStatus())) {
-                    redisService.setCacheObject(CacheConstants.EXAM_DETAIL_KEY + examId, exam);
+                    redisService.setCacheObject(FriendCacheConstants.EXAM_DETAIL_KEY + examId, exam);
                 }
             }
             if (exam != null && ExamPublishStatusEnum.PUBLISHED.getCode().equals(exam.getStatus())) {
