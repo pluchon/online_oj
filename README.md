@@ -256,9 +256,6 @@ mvn clean install -DskipTests
 * `POST /system/question/add` / `PUT /system/question/edit`：题目发布与用例配置
 * `GET  /system/exam/list` / `POST /system/exam/add`：官方竞赛创建与题目编排
 
-> [!TIP]
-> 仓库根目录下附带了完整可导入的 Postman 测试集：[`online_oj.postman_collection.json`](online_oj.postman_collection.json)，导入后即可一键执行全流程端到端接口联调。
-
 ---
 
 ## 🛡️ 代码规范与工程约束
