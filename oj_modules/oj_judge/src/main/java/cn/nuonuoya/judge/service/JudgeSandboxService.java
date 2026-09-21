@@ -106,6 +106,13 @@ public class JudgeSandboxService {
                 return resultVO;
             }
 
+            // 将评测文件拷入该容器的私有工作区（容器间不共享任何目录）
+            if (!dockerContainerPool.copyIntoContainer(containerName, workDir)) {
+                shouldEvict = true;
+                fillStatus(resultVO, JudgeStatusEnum.SE, "系统错误：沙箱执行失败");
+                return resultVO;
+            }
+
             // 步骤 3：编译
             ProcessResult compileResult = runDockerExecCommand(containerName, workDir.getName(), COMPILE_TIMEOUT_MS, "javac Solution.java");
             if (compileResult.isSystemError()) {
@@ -178,6 +185,10 @@ public class JudgeSandboxService {
             return resultVO;
         } finally {
             if (containerName != null) {
+                // 归还前清理残留进程与评测目录，避免下一次评测读取到本次代码；清理失败则直接淘汰容器
+                if (!shouldEvict && !dockerContainerPool.cleanWorkspace(containerName, workDir.getName())) {
+                    shouldEvict = true;
+                }
                 if (shouldEvict) {
                     dockerContainerPool.evictAndReplaceContainer(containerName);
                 } else {
@@ -278,7 +289,7 @@ public class JudgeSandboxService {
     private ProcessResult runDockerExecCommand(String containerName, String subFolderName, long timeoutMs, String innerCommand) {
         ProcessBuilder pb = new ProcessBuilder(
                 "docker", "exec",
-                "-w", "/sandbox/" + subFolderName,
+                "-w", DockerContainerPool.SANDBOX_ROOT + "/" + subFolderName,
                 containerName,
                 "sh", "-c", innerCommand
         );

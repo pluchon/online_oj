@@ -21,6 +21,9 @@ public class DockerContainerPool {
     // 沙箱容器名称前缀
     private static final String CONTAINER_PREFIX = "oj_worker_";
 
+    // 容器内评测工作区根目录（容器私有，不挂载宿主机目录）
+    public static final String SANDBOX_ROOT = "/sandbox";
+
     // 创建容器的等待时间（秒）
     private static final long CREATE_TIMEOUT_SECONDS = 10;
 
@@ -33,7 +36,7 @@ public class DockerContainerPool {
     // 递增计数器用于命名
     private final AtomicInteger counter = new AtomicInteger(1);
 
-    // 用户代码本地保存根目录（挂载到容器 /sandbox）
+    // 用户代码本地暂存根目录（评测时拷贝进容器）
     @Value("${oj.judge.code-dir:./user-code}")
     private String codeDir;
 
@@ -89,10 +92,46 @@ public class DockerContainerPool {
         }
     }
 
-    // 创建并启动一个常驻待命的无网络沙箱容器，失败返回 null
+    // 将本地评测目录拷贝到容器私有工作区 /sandbox/{目录名}，成功返回 true
+    public boolean copyIntoContainer(String containerName, File workDir) {
+        return runDockerCommand(CREATE_TIMEOUT_SECONDS,
+                "docker", "cp", workDir.getAbsolutePath(), containerName + ":" + SANDBOX_ROOT + "/");
+    }
+
+    // 清理容器工作区：结束所有残留进程并删除评测目录，成功返回 true（失败时调用方应淘汰该容器）
+    public boolean cleanWorkspace(String containerName, String folderName) {
+        return runDockerCommand(DESTROY_TIMEOUT_SECONDS,
+                "docker", "exec", containerName, "sh", "-c",
+                "rm -rf " + SANDBOX_ROOT + "/" + folderName + "; kill -9 -1 2>/dev/null; true");
+    }
+
+    // 执行一条 docker 命令，按时完成且退出码为 0 返回 true
+    private boolean runDockerCommand(long timeoutSeconds, String... command) {
+        try {
+            Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                log.warn("docker 命令执行超时: {}", String.join(" ", command));
+                return false;
+            }
+            if (process.exitValue() != 0) {
+                String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+                log.warn("docker 命令执行失败: exitCode = {}, output = {}", process.exitValue(), output);
+                return false;
+            }
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (Exception e) {
+            log.warn("docker 命令执行异常: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    // 创建并启动一个常驻待命的无网络沙箱容器（不挂载宿主机目录），失败返回 null
     public synchronized String createNewContainer() {
         String containerName = CONTAINER_PREFIX + counter.getAndIncrement() + "_" + (System.currentTimeMillis() % 100000);
-        String hostMountDir = new File(codeDir).getAbsolutePath().replace("\\", "/");
 
         try {
             ProcessBuilder pb = new ProcessBuilder(
@@ -104,9 +143,8 @@ public class DockerContainerPool {
                     "--memory", "256m",
                     "--memory-swap", "256m",
                     "--cpus", "1.0",
-                    "-v", hostMountDir + ":/sandbox",
                     dockerImage,
-                    "tail", "-f", "/dev/null"
+                    "sh", "-c", "mkdir -p " + SANDBOX_ROOT + " && exec tail -f /dev/null"
             );
             pb.redirectErrorStream(true);
             Process process = pb.start();
