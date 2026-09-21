@@ -8,6 +8,7 @@ import cn.nuonuoya.system.converter.ExamConverter;
 import cn.nuonuoya.system.domain.SysUser;
 import cn.nuonuoya.system.domain.TbExam;
 import cn.nuonuoya.system.domain.TbExamQuestion;
+import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.dto.ExamAddDTO;
 import cn.nuonuoya.system.dto.ExamDTO;
 import cn.nuonuoya.system.dto.ExamEditDTO;
@@ -16,8 +17,10 @@ import cn.nuonuoya.system.enums.ExamStatus;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.mapper.ExamMapper;
 import cn.nuonuoya.system.mapper.ExamQuestionMapper;
+import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.mapper.SysUserMapper;
 import cn.nuonuoya.system.service.ExamService;
+import cn.nuonuoya.system.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.ExamDetailVO;
 import cn.nuonuoya.system.vo.ExamVO;
 import cn.nuonuoya.system.vo.QuestionVO;
@@ -31,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -46,6 +50,9 @@ public class ExamServiceImpl implements ExamService {
 
     @Autowired
     private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private QuestionMapper questionMapper;
 
     @Autowired
     private ExamCacheManager examCacheManager;
@@ -123,11 +130,13 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setStartTime(editDTO.getStartTime());
         updateExam.setEndTime(editDTO.getEndTime());
         int rows = examMapper.updateById(updateExam);
-        // 若竞赛处于发布状态，同步更新缓存
-        if (exam.getStatus() != null && exam.getStatus().equals(ExamStatus.PUBLISHED.getValue())) {
-            TbExam updatedExam = examMapper.selectById(editDTO.getExamId());
-            examCacheManager.saveExamDetail(updatedExam);
-            examCacheManager.refreshUnfinishList();
+        // 已发布的竞赛在事务提交后同步更新缓存
+        if (isPublished(exam)) {
+            Long examId = editDTO.getExamId();
+            TransactionUtils.afterCommit(() -> {
+                examCacheManager.saveExamDetail(examMapper.selectById(examId));
+                examCacheManager.refreshUnfinishList();
+            });
         }
         return rows;
     }
@@ -139,7 +148,7 @@ public class ExamServiceImpl implements ExamService {
         // 校验竞赛存在性及未开赛状态
         TbExam exam = checkExamUnstarted(examId);
         // 校验发布状态：已发布的竞赛不允许直接删除，必须先撤销发布
-        if (exam.getStatus() != null && exam.getStatus().equals(ExamStatus.PUBLISHED.getValue())) {
+        if (isPublished(exam)) {
             throw new ServiceException(ResultCode.FAILED_EXAM_IS_PUBLISHED);
         }
         // 级联删除关联的题目关系记录
@@ -147,7 +156,7 @@ public class ExamServiceImpl implements ExamService {
                 .eq(TbExamQuestion::getExamId, examId));
         // 删除竞赛主体记录
         int rows = examMapper.deleteById(examId);
-        examCacheManager.removeExam(examId);
+        TransactionUtils.afterCommit(() -> examCacheManager.removeExam(examId));
         return rows;
     }
 
@@ -168,8 +177,10 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setStatus(ExamStatus.PUBLISHED.getValue());
         int rows = examMapper.updateById(updateExam);
         exam.setStatus(ExamStatus.PUBLISHED.getValue());
-        examCacheManager.saveExamDetail(exam);
-        examCacheManager.refreshUnfinishList();
+        TransactionUtils.afterCommit(() -> {
+            examCacheManager.saveExamDetail(exam);
+            examCacheManager.refreshUnfinishList();
+        });
         return rows;
     }
 
@@ -183,7 +194,7 @@ public class ExamServiceImpl implements ExamService {
         updateExam.setExamId(examId);
         updateExam.setStatus(ExamStatus.UNPUBLISHED.getValue());
         int rows = examMapper.updateById(updateExam);
-        examCacheManager.removeExam(examId);
+        TransactionUtils.afterCommit(() -> examCacheManager.removeExam(examId));
         return rows;
     }
 
@@ -210,6 +221,12 @@ public class ExamServiceImpl implements ExamService {
                 .collect(Collectors.toList());
         if (CollUtil.isEmpty(toAddIds)) {
             throw new ServiceException(ResultCode.FAILED_EXAM_QUESTION_EXISTS);
+        }
+        // 待绑定的题目必须全部存在
+        Long foundCount = questionMapper.selectCount(new LambdaQueryWrapper<TbQuestion>()
+                .in(TbQuestion::getQuestionId, toAddIds));
+        if (foundCount == null || foundCount != toAddIds.size()) {
+            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         // 获取当前最大排序号
         int currentOrder = existingList.isEmpty() ? 0 : (existingList.get(0).getQuestionOrder() == null ? 0 : existingList.get(0).getQuestionOrder());
@@ -251,7 +268,7 @@ public class ExamServiceImpl implements ExamService {
         // 校验竞赛存在性及未开赛状态
         TbExam exam = checkExamUnstarted(examId);
         // 业务规则校验：若竞赛已处于发布状态，移除题目后题目数量不能为0
-        if (exam.getStatus() != null && exam.getStatus().equals(ExamStatus.PUBLISHED.getValue())) {
+        if (isPublished(exam)) {
             Long count = examQuestionMapper.selectCount(new LambdaQueryWrapper<TbExamQuestion>()
                     .eq(TbExamQuestion::getExamId, examId));
             if (count != null && count <= 1) {
@@ -261,6 +278,11 @@ public class ExamServiceImpl implements ExamService {
         return examQuestionMapper.delete(new LambdaQueryWrapper<TbExamQuestion>()
                 .eq(TbExamQuestion::getExamId, examId)
                 .eq(TbExamQuestion::getQuestionId, questionId));
+    }
+
+    // 判断竞赛是否已发布
+    private boolean isPublished(TbExam exam) {
+        return Objects.equals(exam.getStatus(), ExamStatus.PUBLISHED.getValue());
     }
 
     // 根据ID查询竞赛实体并校验存在性

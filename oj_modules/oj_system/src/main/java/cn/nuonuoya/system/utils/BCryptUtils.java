@@ -2,17 +2,19 @@ package cn.nuonuoya.system.utils;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-//加密密文
+// 密码 BCrypt 加密与校验工具类
 public class BCryptUtils {
 
+    // BCrypt 编码器（线程安全，全局复用）
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER = new BCryptPasswordEncoder();
+
+    // 加密明文密码（每次生成随机盐）
     public static String encryptPassword(String password) {
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-        return passwordEncoder.encode(password);
+        return PASSWORD_ENCODER.encode(password);
     }
 
-    // 会根据数据库的密文提取出对应的盐值，对输入的密码进行加密，然后再进行比较
+    // 校验明文密码与密文是否匹配（从密文中提取盐值）
     public static boolean matchesPassword(String rawPassword, String encodedPassword) {
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-        return passwordEncoder.matches(rawPassword, encodedPassword);
+        return PASSWORD_ENCODER.matches(rawPassword, encodedPassword);
     }
 }

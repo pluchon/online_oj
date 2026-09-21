@@ -24,7 +24,7 @@
                 AND e.end_time &lt;= #{query.endTime}
             </if>
         </where>
-        ORDER BY e.create_time DESC
+        ORDER BY e.create_time DESC, e.exam_id DESC
     </select>
 
 </mapper>

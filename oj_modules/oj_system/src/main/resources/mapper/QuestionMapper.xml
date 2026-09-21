@@ -19,7 +19,7 @@
                 AND q.title LIKE CONCAT('%', #{query.title}, '%')
             </if>
         </where>
-        ORDER BY q.create_time DESC
+        ORDER BY q.create_time DESC, q.question_id DESC
     </select>
 
 </mapper>

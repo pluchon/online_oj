@@ -13,7 +13,7 @@
         INNER JOIN tb_question q ON eq.question_id = q.question_id
         LEFT JOIN tb_sys_user u ON q.create_by = u.user_id
         WHERE eq.exam_id = #{examId}
-        ORDER BY eq.question_order ASC, eq.create_time ASC
+        ORDER BY eq.question_order ASC, eq.create_time ASC, eq.question_id ASC
     </select>
 
 </mapper>

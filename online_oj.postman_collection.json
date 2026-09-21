@@ -67,7 +67,7 @@
           }
         ],
         "url": {
-          "raw": "http://127.0.0.1:19090/system/test/list",
+          "raw": "http://127.0.0.1:19090/system/sysUser/detail",
           "protocol": "http",
           "host": [
             "127",
@@ -78,8 +78,8 @@
           "port": "19090",
           "path": [
             "system",
-            "test",
-            "list"
+            "sysUser",
+            "detail"
           ]
         },
         "description": "带正常 Bearer Token 请求受保护接口，网关放行，拦截器处理续期，期望 code: 1000"
@@ -98,7 +98,7 @@
           }
         ],
         "url": {
-          "raw": "http://127.0.0.1:19090/system/test/list",
+          "raw": "http://127.0.0.1:19090/system/sysUser/detail",
           "protocol": "http",
           "host": [
             "127",
@@ -109,8 +109,8 @@
           "port": "19090",
           "path": [
             "system",
-            "test",
-            "list"
+            "sysUser",
+            "detail"
           ]
         },
         "description": "使用 'token' 字段传参（不带 Bearer 前缀），验证请求头兼容性，期望 code: 1000"
@@ -123,7 +123,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "http://127.0.0.1:19090/system/test/list",
+          "raw": "http://127.0.0.1:19090/system/sysUser/detail",
           "protocol": "http",
           "host": [
             "127",
@@ -134,8 +134,8 @@
           "port": "19090",
           "path": [
             "system",
-            "test",
-            "list"
+            "sysUser",
+            "detail"
           ]
         },
         "description": "不携带任何 Token 访问受保护接口，期望网关拦截并返回 code: 3001, msg: '令牌不能为空'"
@@ -154,7 +154,7 @@
           }
         ],
         "url": {
-          "raw": "http://127.0.0.1:19090/system/test/list",
+          "raw": "http://127.0.0.1:19090/system/sysUser/detail",
           "protocol": "http",
           "host": [
             "127",
@@ -165,8 +165,8 @@
           "port": "19090",
           "path": [
             "system",
-            "test",
-            "list"
+            "sysUser",
+            "detail"
           ]
         },
         "description": "携带非法签名的 Token，期望网关拦截并返回 code: 3001, msg: '令牌已过期或验证不正确！'"

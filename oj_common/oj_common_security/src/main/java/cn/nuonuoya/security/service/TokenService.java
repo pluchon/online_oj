@@ -72,18 +72,16 @@ public class TokenService {
         return claims != null ? JwtUtils.getUserKey(claims) : null;
     }
 
-    // 获取令牌对应的登录用户信息
-    public LoginUser getLoginUser(String token) {
-        String userKey = getUserKey(token);
+    // 获取会话对应的登录用户信息，会话不存在返回 null
+    public LoginUser getLoginUserByKey(String userKey) {
         if (StrUtil.isEmpty(userKey)) {
             return null;
         }
         return redisService.getCacheObject(getTokenKey(userKey), LoginUser.class);
     }
 
-    // 删除登录用户缓存（使令牌失效）
-    public void deleteLoginUser(String token) {
-        String userKey = getUserKey(token);
+    // 删除会话（使令牌失效）
+    public void deleteLoginUserByKey(String userKey) {
         if (StrUtil.isNotEmpty(userKey)) {
             redisService.deleteObject(getTokenKey(userKey));
         }

@@ -28,7 +28,7 @@
                 AND nick_name LIKE CONCAT('%', #{query.nickName}, '%')
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY create_time DESC, user_id DESC
     </select>
 
 </mapper>
