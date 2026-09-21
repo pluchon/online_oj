@@ -3,6 +3,7 @@ package cn.nuonuoya.friend.cache;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.friend.domain.TbMessage;
 import cn.nuonuoya.friend.domain.TbMessageText;
+import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.mapper.MessageMapper;
 import cn.nuonuoya.friend.mapper.MessageTextMapper;
 import cn.nuonuoya.redis.service.RedisService;
@@ -95,7 +96,7 @@ public class MessageCacheManager {
         // 缓存未命中，回查数据库实际未读数
         Long dbCount = messageMapper.selectCount(new LambdaQueryWrapper<TbMessage>()
                 .eq(TbMessage::getRecId, userId)
-                .eq(TbMessage::getIsRead, 0));
+                .eq(TbMessage::getIsRead, MessageReadStatusEnum.UNREAD.getCode()));
         int actualCount = dbCount != null ? dbCount.intValue() : 0;
         redisService.setCacheObject(unreadKey, actualCount, CACHE_TTL_DAYS, TimeUnit.DAYS);
         return actualCount;

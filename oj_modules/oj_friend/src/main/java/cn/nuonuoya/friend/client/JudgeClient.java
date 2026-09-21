@@ -1,6 +1,7 @@
 package cn.nuonuoya.friend.client;
 
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
+import cn.nuonuoya.api.judge.enums.JudgePassEnum;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,7 @@ public class JudgeClient {
         JudgeResultVO fallback = new JudgeResultVO();
         fallback.setStatus(JudgeStatusEnum.SE.getCode());
         fallback.setStatusDesc(JudgeStatusEnum.SE.getName());
-        fallback.setPass(0);
+        fallback.setPass(JudgePassEnum.NOT_PASS.getCode());
         fallback.setPassCount(0);
         fallback.setTotalCount(requestDTO.getCases() == null ? 0 : requestDTO.getCases().size());
         fallback.setExeMessage("判题服务暂不可用，请稍后重试");

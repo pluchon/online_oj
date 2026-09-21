@@ -6,6 +6,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.judge.constants.JudgeMqConstants;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
+import cn.nuonuoya.api.judge.enums.ProgramTypeEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.common.domain.TableDataResult;
@@ -24,6 +25,7 @@ import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.QuestionRunDTO;
 import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
 import cn.nuonuoya.friend.dto.UserSubmitDTO;
+import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
@@ -141,14 +143,14 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             validateExamSubmit(userId, submitDTO.getExamId(), question.getQuestionId());
         }
 
-        // 初始化提交记录（状态设为 2: 评测中）
+        // 初始化提交记录（状态为评测中）
         TbUserSubmit submit = new TbUserSubmit();
         submit.setUserId(userId);
         submit.setQuestionId(submitDTO.getQuestionId());
         submit.setExamId(submitDTO.getExamId());
         submit.setProgramType(submitDTO.getProgramType());
         submit.setUserCode(submitDTO.getUserCode());
-        submit.setPass(2);
+        submit.setPass(SubmitPassEnum.JUDGING.getCode());
         submit.setScore(0);
         submit.setPassCount(0);
         submit.setTotalCount(caseList.size());
@@ -175,7 +177,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
                     submit.getSubmitId(), question.getQuestionId());
         } catch (Exception e) {
             log.error("投递 RabbitMQ 判题消息失败, submitId = {}, error: {}", submit.getSubmitId(), e.getMessage(), e);
-            submit.setPass(0);
+            submit.setPass(SubmitPassEnum.NOT_PASS.getCode());
             submit.setJudgeStatus(JudgeStatusEnum.SE.getCode());
             submit.setExeMessage("系统异常：判题任务队列投递失败");
             userSubmitMapper.updateById(submit);
@@ -216,7 +218,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         }
 
         JudgeRequestDTO requestDTO = buildJudgeRequest(question, userId, runDTO.getUserCode(), sampleList);
-        requestDTO.setProgramType(0);
+        requestDTO.setProgramType(ProgramTypeEnum.JAVA.getCode());
         JudgeResultVO judgeResult = judgeClient.run(requestDTO);
 
         QuestionRunResultVO vo = new QuestionRunResultVO();

@@ -11,6 +11,7 @@ import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.domain.TbMessage;
 import cn.nuonuoya.friend.domain.TbMessageText;
+import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.mapper.MessageMapper;
 import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.MessageVO;
@@ -147,10 +148,10 @@ public class MessageServiceImpl implements MessageService {
         }
 
         // 若原状态为未读，执行更新并递减缓存计数
-        if (Integer.valueOf(0).equals(message.getIsRead())) {
+        if (MessageReadStatusEnum.UNREAD.getCode().equals(message.getIsRead())) {
             TbMessage updateEntity = new TbMessage();
             updateEntity.setMessageId(messageId);
-            updateEntity.setIsRead(1);
+            updateEntity.setIsRead(MessageReadStatusEnum.READ.getCode());
             updateEntity.setUpdateTime(LocalDateTime.now());
             messageMapper.updateById(updateEntity);
 
@@ -169,10 +170,10 @@ public class MessageServiceImpl implements MessageService {
 
         // 批量更新数据库中当前用户所有未读消息
         messageMapper.update(null, new LambdaUpdateWrapper<TbMessage>()
-                .set(TbMessage::getIsRead, 1)
+                .set(TbMessage::getIsRead, MessageReadStatusEnum.READ.getCode())
                 .set(TbMessage::getUpdateTime, LocalDateTime.now())
                 .eq(TbMessage::getRecId, userId)
-                .eq(TbMessage::getIsRead, 0));
+                .eq(TbMessage::getIsRead, MessageReadStatusEnum.UNREAD.getCode()));
 
         // 清空缓存中的未读计数
         messageCacheManager.clearUnreadCount(userId);

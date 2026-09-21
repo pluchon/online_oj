@@ -5,6 +5,7 @@ import cn.nuonuoya.api.judge.constants.JudgeMqConstants;
 import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
+import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -52,7 +53,7 @@ public class JudgeResultConsumer {
 
         TbUserSubmit submit = new TbUserSubmit();
         submit.setSubmitId(submitId);
-        submit.setPass(resultVO.getPass() != null ? resultVO.getPass() : 0);
+        submit.setPass(resultVO.getPass() != null ? resultVO.getPass() : SubmitPassEnum.NOT_PASS.getCode());
         submit.setScore(resultVO.getScore() != null ? resultVO.getScore() : 0);
         submit.setExeMessage(StrUtil.sub(StrUtil.nullToEmpty(resultVO.getExeMessage()), 0, MAX_TEXT_LENGTH));
         submit.setJudgeStatus(resultVO.getStatus());

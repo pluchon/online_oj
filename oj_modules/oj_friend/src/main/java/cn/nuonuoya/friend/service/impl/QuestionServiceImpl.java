@@ -14,6 +14,8 @@ import cn.nuonuoya.friend.converter.QuestionConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
+import cn.nuonuoya.friend.enums.QuestionDifficultyEnum;
+import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.enums.UserQuestionStatusEnum;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
@@ -59,9 +61,6 @@ import java.util.stream.Collectors;
 public class QuestionServiceImpl implements QuestionService {
 
     private static final Logger log = LoggerFactory.getLogger(QuestionServiceImpl.class);
-
-    // 判题通过状态标识（对应 tb_user_submit.pass=1）
-    private static final int SUBMIT_PASS = 1;
 
     // 注入ES持久层仓库
     @Autowired
@@ -217,7 +216,7 @@ public class QuestionServiceImpl implements QuestionService {
                     continue;
                 }
                 attemptedQuestionIds.add(qId);
-                if (Integer.valueOf(SUBMIT_PASS).equals(submit.getPass())) {
+                if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
                     solvedQuestionIds.add(qId);
                 }
             }
@@ -326,7 +325,7 @@ public class QuestionServiceImpl implements QuestionService {
                             continue;
                         }
                         Integer currentStatus = statusMap.get(qId);
-                        if (Integer.valueOf(SUBMIT_PASS).equals(submit.getPass())) {
+                        if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
                             statusMap.put(qId, UserQuestionStatusEnum.SOLVED.getCode());
                         } else if (currentStatus == null || !UserQuestionStatusEnum.SOLVED.getCode().equals(currentStatus)) {
                             statusMap.put(qId, UserQuestionStatusEnum.IN_PROGRESS.getCode());
@@ -364,7 +363,7 @@ public class QuestionServiceImpl implements QuestionService {
         );
         Integer status = UserQuestionStatusEnum.UNTOUCHED.getCode();
         if (CollUtil.isNotEmpty(submits)) {
-            boolean anyPass = submits.stream().anyMatch(s -> Integer.valueOf(SUBMIT_PASS).equals(s.getPass()));
+            boolean anyPass = submits.stream().anyMatch(s -> SubmitPassEnum.PASS.getCode().equals(s.getPass()));
             status = anyPass ? UserQuestionStatusEnum.SOLVED.getCode() : UserQuestionStatusEnum.IN_PROGRESS.getCode();
         }
         vo.setUserStatus(status);
@@ -412,11 +411,11 @@ public class QuestionServiceImpl implements QuestionService {
         }
 
         if (tags.isEmpty()) {
-            if (Integer.valueOf(1).equals(vo.getDifficulty())) {
+            if (QuestionDifficultyEnum.EASY.getCode().equals(vo.getDifficulty())) {
                 tags.add("基础算法");
-            } else if (Integer.valueOf(2).equals(vo.getDifficulty())) {
+            } else if (QuestionDifficultyEnum.MEDIUM.getCode().equals(vo.getDifficulty())) {
                 tags.add("进阶算法");
-            } else if (Integer.valueOf(3).equals(vo.getDifficulty())) {
+            } else if (QuestionDifficultyEnum.HARD.getCode().equals(vo.getDifficulty())) {
                 tags.add("高阶挑战");
             } else {
                 tags.add("算法精选");

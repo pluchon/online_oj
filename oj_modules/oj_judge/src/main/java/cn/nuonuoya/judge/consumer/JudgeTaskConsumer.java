@@ -2,6 +2,7 @@ package cn.nuonuoya.judge.consumer;
 
 import cn.nuonuoya.api.judge.constants.JudgeMqConstants;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
+import cn.nuonuoya.api.judge.enums.JudgePassEnum;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.judge.service.JudgeSandboxService;
@@ -46,7 +47,7 @@ public class JudgeTaskConsumer {
             resultVO.setSubmitId(submitId);
             resultVO.setStatus(JudgeStatusEnum.SE.getCode());
             resultVO.setStatusDesc(JudgeStatusEnum.SE.getName());
-            resultVO.setPass(0);
+            resultVO.setPass(JudgePassEnum.NOT_PASS.getCode());
             resultVO.setScore(0);
             resultVO.setExeMessage("系统评测异常: " + e.getMessage());
         }

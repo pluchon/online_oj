@@ -7,6 +7,8 @@ import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.converter.ExamConverter;
 import cn.nuonuoya.friend.domain.TbExam;
 import cn.nuonuoya.friend.domain.TbUserExam;
+import cn.nuonuoya.friend.enums.ExamListTypeEnum;
+import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.vo.ExamVO;
@@ -30,15 +32,6 @@ import java.util.stream.Collectors;
 // C端竞赛缓存管理组件
 @Component
 public class ExamCacheManager {
-
-    // 已发布状态常量
-    private static final int STATUS_PUBLISHED = 1;
-
-    // 未完赛类型标识
-    public static final int TYPE_UNFINISH = 0;
-
-    // 历史竞赛类型标识
-    public static final int TYPE_HISTORY = 1;
 
     @Autowired
     private RedisService redisService;
@@ -259,8 +252,8 @@ public class ExamCacheManager {
         LocalDateTime now = LocalDateTime.now();
 
         LambdaQueryWrapper<TbExam> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TbExam::getStatus, STATUS_PUBLISHED);
-        if (type == TYPE_UNFINISH) {
+        wrapper.eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode());
+        if (type == ExamListTypeEnum.UNFINISHED.getCode()) {
             wrapper.gt(TbExam::getEndTime, now);
             wrapper.orderByAsc(TbExam::getStartTime);
         } else {
@@ -281,6 +274,6 @@ public class ExamCacheManager {
 
     // 根据分类获取对应的Redis List Key
     private String getListKey(int type) {
-        return type == TYPE_HISTORY ? CacheConstants.EXAM_HISTORY_LIST_KEY : CacheConstants.EXAM_UNFINISH_LIST_KEY;
+        return type == ExamListTypeEnum.HISTORY.getCode() ? CacheConstants.EXAM_HISTORY_LIST_KEY : CacheConstants.EXAM_UNFINISH_LIST_KEY;
     }
 }

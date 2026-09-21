@@ -6,6 +6,7 @@ import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.cache.UserCacheManager;
+import cn.nuonuoya.friend.enums.UserStatusEnum;
 import cn.nuonuoya.friend.vo.UserVO;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.security.service.TokenService;
@@ -65,8 +66,7 @@ public class UserStatusCheckAspect {
             throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
-        // 状态判定：0: 拉黑/封禁, 1: 正常
-        if (Integer.valueOf(0).equals(user.getStatus())) {
+        if (UserStatusEnum.BANNED.getCode().equals(user.getStatus())) {
             log.warn("拦截被拉黑封禁用户操作: userId = {}, targetMethod = {}", userId, point.getSignature().getName());
             throw new ServiceException(ResultCode.FAILED_USER_BANNED);
         }

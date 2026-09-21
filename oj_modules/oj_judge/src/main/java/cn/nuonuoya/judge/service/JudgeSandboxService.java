@@ -4,9 +4,11 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.judge.dto.JudgeCaseDTO;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
+import cn.nuonuoya.api.judge.enums.JudgePassEnum;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
+import cn.nuonuoya.judge.enums.QuestionDifficultyScoreEnum;
 import cn.nuonuoya.judge.pool.DockerContainerPool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +58,7 @@ public class JudgeSandboxService {
         resultVO.setSubmitId(submitId);
         resultVO.setTotalCount(cases.size());
         resultVO.setPassCount(0);
-        resultVO.setPass(0);
+        resultVO.setPass(JudgePassEnum.NOT_PASS.getCode());
         resultVO.setScore(0);
         resultVO.setTimeCost(0L);
         resultVO.setMemoryCost(0L);
@@ -155,7 +157,7 @@ public class JudgeSandboxService {
 
             if (passCount == cases.size()) {
                 fillStatus(resultVO, JudgeStatusEnum.AC, null);
-                resultVO.setPass(1);
+                resultVO.setPass(JudgePassEnum.PASS.getCode());
             } else {
                 fillStatus(resultVO, JudgeStatusEnum.WA, null);
             }
@@ -331,14 +333,7 @@ public class JudgeSandboxService {
 
     // 根据题目难度与通过用例数计算实际得分
     private int calculateScore(Integer difficulty, int passCount, int totalCount) {
-        int baseScore = 100;
-        if (difficulty != null) {
-            if (difficulty == 2) {
-                baseScore = 200;
-            } else if (difficulty == 3) {
-                baseScore = 300;
-            }
-        }
+        int baseScore = QuestionDifficultyScoreEnum.getFullScore(difficulty);
         if (totalCount <= 0) {
             return 0;
         }

@@ -21,7 +21,11 @@ import cn.nuonuoya.friend.dto.UserLoginDTO;
 import cn.nuonuoya.friend.dto.UserOverviewQueryDTO;
 import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
 import cn.nuonuoya.friend.dto.UserSendCodeDTO;
+import cn.nuonuoya.friend.enums.QuestionDifficultyEnum;
+import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.enums.TimeRangeEnum;
+import cn.nuonuoya.friend.enums.UserSexEnum;
+import cn.nuonuoya.friend.enums.UserStatusEnum;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserMapper;
@@ -215,10 +219,8 @@ public class UserServiceImpl implements UserService {
         String phoneTail = phone.length() >= 4 ? phone.substring(phone.length() - 4) : phone;
         newUser.setNickName("用户_" + phoneTail + "_" + RandomUtil.randomString(4));
         newUser.setHeadImage("");
-        // 性别默认为 0（保密）
-        newUser.setSex(0);
-        // 初始状态为 1（正常）
-        newUser.setStatus(1);
+        newUser.setSex(UserSexEnum.SECRET.getCode());
+        newUser.setStatus(UserStatusEnum.NORMAL.getCode());
         userMapper.insert(newUser);
         return newUser;
     }
@@ -419,7 +421,7 @@ public class UserServiceImpl implements UserService {
 
         // 3. 统计提交与解题概况
         int submitCount = submits.size();
-        long passSubmits = submits.stream().filter(s -> Integer.valueOf(1).equals(s.getPass())).count();
+        long passSubmits = submits.stream().filter(s -> SubmitPassEnum.PASS.getCode().equals(s.getPass())).count();
         String passRate = Math.round((double) passSubmits * 100.0 / submitCount) + "%";
 
         Set<Long> solvedQuestionIds = new HashSet<>();
@@ -428,7 +430,7 @@ public class UserServiceImpl implements UserService {
             Long qId = submit.getQuestionId();
             if (qId != null) {
                 attemptedQuestionIds.add(qId);
-                if (Integer.valueOf(1).equals(submit.getPass())) {
+                if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
                     solvedQuestionIds.add(qId);
                 }
             }
@@ -494,9 +496,9 @@ public class UserServiceImpl implements UserService {
             }
 
             // 难度统计
-            if (Integer.valueOf(2).equals(q.getDifficulty())) {
+            if (QuestionDifficultyEnum.MEDIUM.getCode().equals(q.getDifficulty())) {
                 mediumCount++;
-            } else if (Integer.valueOf(3).equals(q.getDifficulty())) {
+            } else if (QuestionDifficultyEnum.HARD.getCode().equals(q.getDifficulty())) {
                 hardCount++;
             }
         }

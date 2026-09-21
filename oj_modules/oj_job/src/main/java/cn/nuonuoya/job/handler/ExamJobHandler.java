@@ -3,6 +3,7 @@ package cn.nuonuoya.job.handler;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.job.domain.TbExam;
+import cn.nuonuoya.job.enums.ExamPublishStatusEnum;
 import cn.nuonuoya.job.mapper.ExamMapper;
 import cn.nuonuoya.redis.service.RedisService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -23,9 +24,6 @@ import java.util.Map;
 @Slf4j
 public class ExamJobHandler {
 
-    // 已发布状态标识
-    private static final int STATUS_PUBLISHED = 1;
-
     @Autowired
     private ExamMapper examMapper;
 
@@ -44,7 +42,7 @@ public class ExamJobHandler {
             // 1. 查询未完赛竞赛：已发布且结束时间晚于当前时间，按开赛时间升序排列
             List<TbExam> unFinishList = examMapper.selectList(new LambdaQueryWrapper<TbExam>()
                     .select(TbExam::getExamId, TbExam::getTitle, TbExam::getStartTime, TbExam::getEndTime, TbExam::getStatus)
-                    .eq(TbExam::getStatus, STATUS_PUBLISHED)
+                    .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
                     .gt(TbExam::getEndTime, now)
                     .orderByAsc(TbExam::getStartTime));
 
@@ -55,7 +53,7 @@ public class ExamJobHandler {
             // 2. 查询历史竞赛：已发布且结束时间早于等于当前时间，按结束时间降序排列
             List<TbExam> historyList = examMapper.selectList(new LambdaQueryWrapper<TbExam>()
                     .select(TbExam::getExamId, TbExam::getTitle, TbExam::getStartTime, TbExam::getEndTime, TbExam::getStatus)
-                    .eq(TbExam::getStatus, STATUS_PUBLISHED)
+                    .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
                     .le(TbExam::getEndTime, now)
                     .orderByDesc(TbExam::getEndTime));
 

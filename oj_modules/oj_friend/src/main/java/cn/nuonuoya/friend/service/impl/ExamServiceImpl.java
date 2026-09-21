@@ -18,6 +18,10 @@ import cn.nuonuoya.friend.domain.TbUserExam;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
+import cn.nuonuoya.friend.enums.ExamListTypeEnum;
+import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
+import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
+import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
 import cn.nuonuoya.friend.mapper.MessageMapper;
@@ -55,14 +59,8 @@ import java.util.stream.Collectors;
 @Service
 public class ExamServiceImpl implements ExamService {
 
-    // 已发布状态常量
-    private static final int STATUS_PUBLISHED = 1;
-
-    // 未完赛分类标识
-    private static final int TYPE_UNFINISH = 0;
-
-    // 历史竞赛分类标识
-    private static final int TYPE_HISTORY = 1;
+    // 系统消息发送方标识
+    private static final Long SYSTEM_SENDER_ID = 0L;
 
     // 竞赛排名列表缓存键前缀
     private static final String EXAM_RANK_LIST_PREFIX = "exam:rank:";
@@ -107,7 +105,9 @@ public class ExamServiceImpl implements ExamService {
 
         // type 有值且无附加过滤条件时，走 Redis 缓存快速通道
         if (queryType != null && !hasExtraFilter) {
-            int targetType = queryType == TYPE_HISTORY ? TYPE_HISTORY : TYPE_UNFINISH;
+            int targetType = ExamListTypeEnum.HISTORY.getCode().equals(queryType)
+                    ? ExamListTypeEnum.HISTORY.getCode()
+                    : ExamListTypeEnum.UNFINISHED.getCode();
             List<ExamVO> voList = examCacheManager.getExamList(targetType, queryDTO.getPageNum(), queryDTO.getPageSize());
             populateExamCountFields(voList);
             return voList;
@@ -117,7 +117,7 @@ public class ExamServiceImpl implements ExamService {
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
 
         LambdaQueryWrapper<TbExam> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TbExam::getStatus, STATUS_PUBLISHED);
+        wrapper.eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode());
 
         // 标题模糊筛选
         if (StringUtils.hasText(queryDTO.getTitle())) {
@@ -135,7 +135,7 @@ public class ExamServiceImpl implements ExamService {
         // 完赛状态过滤：null=全部，0=未完赛，1=历史竞赛
         LocalDateTime now = LocalDateTime.now();
         if (queryType != null) {
-            if (queryType == TYPE_UNFINISH) {
+            if (ExamListTypeEnum.UNFINISHED.getCode().equals(queryType)) {
                 wrapper.gt(TbExam::getEndTime, now);
                 wrapper.orderByAsc(TbExam::getStartTime);
             } else {
@@ -158,14 +158,14 @@ public class ExamServiceImpl implements ExamService {
     // 分页查询未完赛竞赛列表实现
     @Override
     public List<ExamVO> getUnfinishList(ExamQueryDTO queryDTO) {
-        queryDTO.setType(TYPE_UNFINISH);
+        queryDTO.setType(ExamListTypeEnum.UNFINISHED.getCode());
         return list(queryDTO);
     }
 
     // 分页查询历史竞赛列表实现
     @Override
     public List<ExamVO> getHistoryList(ExamQueryDTO queryDTO) {
-        queryDTO.setType(TYPE_HISTORY);
+        queryDTO.setType(ExamListTypeEnum.HISTORY.getCode());
         return list(queryDTO);
     }
 
@@ -180,7 +180,7 @@ public class ExamServiceImpl implements ExamService {
 
         Long examId = enrollDTO.getExamId();
         TbExam exam = examMapper.selectById(examId);
-        if (exam == null || exam.getStatus() != STATUS_PUBLISHED) {
+        if (exam == null || !ExamPublishStatusEnum.PUBLISHED.getCode().equals(exam.getStatus())) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
 
@@ -243,7 +243,7 @@ public class ExamServiceImpl implements ExamService {
         // 2. 带过滤条件分页查询竞赛信息
         PageHelper.startPage(pageNum, pageSize);
         LambdaQueryWrapper<TbExam> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(TbExam::getStatus, STATUS_PUBLISHED);
+        wrapper.eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode());
         wrapper.in(TbExam::getExamId, enrolledExamIds);
 
         if (StringUtils.hasText(queryDTO.getTitle())) {
@@ -260,7 +260,7 @@ public class ExamServiceImpl implements ExamService {
         // 完赛状态过滤
         LocalDateTime now = LocalDateTime.now();
         if (queryDTO.getType() != null) {
-            if (queryDTO.getType() == TYPE_UNFINISH) {
+            if (ExamListTypeEnum.UNFINISHED.getCode().equals(queryDTO.getType())) {
                 wrapper.gt(TbExam::getEndTime, now);
                 wrapper.orderByAsc(TbExam::getStartTime);
             } else {
@@ -387,16 +387,16 @@ public class ExamServiceImpl implements ExamService {
             TbMessageText text = new TbMessageText();
             text.setMessageTitle("竞赛结果通知");
             text.setMessageContent("您参与的竞赛：" + exam.getTitle() + "：本次共参赛" + totalParticipants + "人，您排名：第" + vo.getExamRank() + "名！");
-            text.setCreateBy(0L);
+            text.setCreateBy(SYSTEM_SENDER_ID);
             text.setCreateTime(LocalDateTime.now());
             messageTextMapper.insert(text);
 
             TbMessage message = new TbMessage();
             message.setTextId(text.getTextId());
-            message.setSendId(0L);
+            message.setSendId(SYSTEM_SENDER_ID);
             message.setRecId(vo.getUserId());
-            message.setIsRead(0);
-            message.setCreateBy(0L);
+            message.setIsRead(MessageReadStatusEnum.UNREAD.getCode());
+            message.setCreateBy(SYSTEM_SENDER_ID);
             message.setCreateTime(LocalDateTime.now());
             messageMapper.insert(message);
 
@@ -535,7 +535,7 @@ public class ExamServiceImpl implements ExamService {
                 for (List<TbUserSubmit> qSubmits : qMap.values()) {
                     int maxScore = qSubmits.stream().mapToInt(s -> s.getScore() != null ? s.getScore() : 0).max().orElse(0);
                     totalScore += maxScore;
-                    boolean isAc = qSubmits.stream().anyMatch(s -> Integer.valueOf(1).equals(s.getPass()));
+                    boolean isAc = qSubmits.stream().anyMatch(s -> SubmitPassEnum.PASS.getCode().equals(s.getPass()));
                     if (isAc) {
                         acCount++;
                     }
