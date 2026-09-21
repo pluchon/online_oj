@@ -3,6 +3,7 @@ package cn.nuonuoya.friend.converter;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.friend.domain.TbExam;
 import cn.nuonuoya.friend.domain.TbUserExam;
+import cn.nuonuoya.friend.enums.ExamContestStatusEnum;
 import cn.nuonuoya.friend.vo.ExamVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
 
@@ -26,22 +27,10 @@ public class ExamConverter {
         vo.setEndTime(exam.getEndTime());
         vo.setStatus(exam.getStatus());
 
-        // 依据当前系统时间与起止时间动态判断竞赛状态
-        LocalDateTime now = LocalDateTime.now();
-        if (exam.getStartTime() != null && now.isBefore(exam.getStartTime())) {
-            vo.setContestStatus(0);
-            vo.setContestStatusDesc("未开赛");
-            vo.setBtnText("报名参赛");
-        } else if (exam.getEndTime() != null && !now.isAfter(exam.getEndTime())) {
-            vo.setContestStatus(1);
-            vo.setContestStatusDesc("进行中");
-            vo.setBtnText("进入竞赛");
-        } else {
-            vo.setContestStatus(2);
-            vo.setContestStatusDesc("已完赛");
-            vo.setBtnText("已完赛");
-        }
-
+        ExamContestStatusEnum contestStatus = resolveContestStatus(exam);
+        vo.setContestStatus(contestStatus.getCode());
+        vo.setContestStatusDesc(contestStatus.getDesc());
+        vo.setBtnText(contestStatus.getBtnText());
         return vo;
     }
 
@@ -73,18 +62,15 @@ public class ExamConverter {
             vo.setCreateTime(userExam.getCreateTime());
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        if (exam.getStartTime() != null && now.isBefore(exam.getStartTime())) {
-            vo.setContestStatus(0);
-            vo.setContestStatusDesc("未开赛");
-        } else if (exam.getEndTime() != null && !now.isAfter(exam.getEndTime())) {
-            vo.setContestStatus(1);
-            vo.setContestStatusDesc("进行中");
-        } else {
-            vo.setContestStatus(2);
-            vo.setContestStatusDesc("已完赛");
-        }
+        ExamContestStatusEnum contestStatus = resolveContestStatus(exam);
+        vo.setContestStatus(contestStatus.getCode());
+        vo.setContestStatusDesc(contestStatus.getDesc());
         vo.setIsEnter(true);
         return vo;
+    }
+
+    // 依据当前系统时间与起止时间计算竞赛状态
+    private static ExamContestStatusEnum resolveContestStatus(TbExam exam) {
+        return ExamContestStatusEnum.of(exam.getStartTime(), exam.getEndTime(), LocalDateTime.now());
     }
 }

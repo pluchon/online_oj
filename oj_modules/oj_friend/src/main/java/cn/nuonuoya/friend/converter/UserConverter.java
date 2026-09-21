@@ -1,6 +1,7 @@
 package cn.nuonuoya.friend.converter;
 
 import cn.nuonuoya.friend.domain.TbUser;
+import cn.nuonuoya.friend.enums.UserSexEnum;
 import cn.nuonuoya.friend.vo.UserVO;
 
 // 用户实体转换器
@@ -16,15 +17,7 @@ public class UserConverter {
         vo.setNickName(user.getNickName());
         vo.setHeadImage(user.getHeadImage());
         vo.setSex(user.getSex());
-
-        // 性别枚举转换
-        if (Integer.valueOf(1).equals(user.getSex())) {
-            vo.setSexDesc("男");
-        } else if (Integer.valueOf(2).equals(user.getSex())) {
-            vo.setSexDesc("女");
-        } else {
-            vo.setSexDesc("保密");
-        }
+        vo.setSexDesc(UserSexEnum.getDescByCode(user.getSex()));
 
         // 手机号掩码脱敏
         vo.setPhone(maskPhone(user.getPhone()));

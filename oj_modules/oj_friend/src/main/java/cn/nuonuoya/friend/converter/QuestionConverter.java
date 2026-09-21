@@ -1,8 +1,10 @@
 package cn.nuonuoya.friend.converter;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.friend.domain.TbQuestion;
+import cn.nuonuoya.friend.enums.QuestionDifficultyEnum;
 import cn.nuonuoya.friend.vo.QuestionVO;
 
 import java.util.ArrayList;
@@ -21,7 +23,7 @@ public class QuestionConverter {
         vo.setQuestionId(doc.getQuestionId());
         vo.setTitle(doc.getTitle());
         vo.setDifficulty(doc.getDifficulty());
-        vo.setDifficultyDesc(getDifficultyDesc(doc.getDifficulty()));
+        vo.setDifficultyDesc(QuestionDifficultyEnum.getDescByCode(doc.getDifficulty()));
         vo.setTimeLimit(doc.getTimeLimit());
         vo.setSpaceLimit(doc.getSpaceLimit());
         vo.setContent(doc.getContent());
@@ -42,23 +44,12 @@ public class QuestionConverter {
         return voList;
     }
 
-    // 将MySQL实体转换为ES题目文档
+    // 将MySQL实体转换为ES题目文档（字段同名同类型、无派生字段，直接拷贝）
     public static QuestionDoc toDoc(TbQuestion entity) {
         if (entity == null) {
             return null;
         }
-        QuestionDoc doc = new QuestionDoc();
-        doc.setQuestionId(entity.getQuestionId());
-        doc.setTitle(entity.getTitle());
-        doc.setDifficulty(entity.getDifficulty());
-        doc.setTimeLimit(entity.getTimeLimit());
-        doc.setSpaceLimit(entity.getSpaceLimit());
-        doc.setContent(entity.getContent());
-        doc.setQuestionCase(entity.getQuestionCase());
-        doc.setDefaultCode(entity.getDefaultCode());
-        doc.setMainFunc(entity.getMainFunc());
-        doc.setCreateTime(entity.getCreateTime());
-        return doc;
+        return BeanUtil.copyProperties(entity, QuestionDoc.class);
     }
 
     // 批量将MySQL实体转换为ES题目文档列表
@@ -82,25 +73,12 @@ public class QuestionConverter {
         vo.setQuestionId(entity.getQuestionId());
         vo.setTitle(entity.getTitle());
         vo.setDifficulty(entity.getDifficulty());
-        vo.setDifficultyDesc(getDifficultyDesc(entity.getDifficulty()));
+        vo.setDifficultyDesc(QuestionDifficultyEnum.getDescByCode(entity.getDifficulty()));
         vo.setTimeLimit(entity.getTimeLimit());
         vo.setSpaceLimit(entity.getSpaceLimit());
         vo.setContent(entity.getContent());
         vo.setDefaultCode(entity.getDefaultCode());
         vo.setCreateTime(entity.getCreateTime());
         return vo;
-    }
-
-    // 解析难度描述
-    private static String getDifficultyDesc(Integer difficulty) {
-        if (difficulty == null) {
-            return "未知";
-        }
-        return switch (difficulty) {
-            case 1 -> "简单";
-            case 2 -> "中等";
-            case 3 -> "困难";
-            default -> "未知";
-        };
     }
 }

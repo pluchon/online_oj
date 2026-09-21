@@ -1,11 +1,11 @@
 package cn.nuonuoya.system.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.exception.ServiceException;
+import cn.nuonuoya.system.converter.QuestionConverter;
 import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.dto.QuestionAddDTO;
 import cn.nuonuoya.system.dto.QuestionDTO;
@@ -62,9 +62,7 @@ public class QuestionServiceImpl implements QuestionService {
         if (count != null && count > 0) {
             throw new ServiceException(ResultCode.FAILED_ALREADY_EXISTS);
         }
-        // 使用 Hutool BeanUtil 进行 DTO 到实体的属性拷贝
-        TbQuestion question = new TbQuestion();
-        BeanUtil.copyProperties(addDTO, question);
+        TbQuestion question = QuestionConverter.toEntity(addDTO);
         int rows = questionMapper.insert(question);
         if (rows > 0 && redisService != null) {
             redisService.deleteObject(CacheConstants.QUESTION_LIST_KEY);
@@ -83,19 +81,7 @@ public class QuestionServiceImpl implements QuestionService {
         if (question == null) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
-        // 组装视图对象
-        QuestionDetailVO vo = new QuestionDetailVO();
-        BeanUtil.copyProperties(question, vo);
-        // 补充业务枚举难度描述
-        vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(question.getDifficulty()));
-        // 代码块防空处理，避免前端代码编辑器因 null 抛出异常
-        if (vo.getDefaultCode() == null) {
-            vo.setDefaultCode("");
-        }
-        if (vo.getMainFunc() == null) {
-            vo.setMainFunc("");
-        }
-        return vo;
+        return QuestionConverter.toDetailVO(question);
     }
 
     // 修改题目实现
@@ -117,9 +103,8 @@ public class QuestionServiceImpl implements QuestionService {
         if (count != null && count > 0) {
             throw new ServiceException(ResultCode.FAILED_ALREADY_EXISTS);
         }
-        // 拷贝更新字段并入库
-        TbQuestion question = new TbQuestion();
-        BeanUtil.copyProperties(editDTO, question);
+        // 转换更新字段并入库
+        TbQuestion question = QuestionConverter.toEntity(editDTO);
         return questionMapper.updateById(question);
     }
 
