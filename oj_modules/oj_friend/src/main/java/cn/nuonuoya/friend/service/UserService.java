@@ -1,6 +1,5 @@
 package cn.nuonuoya.friend.service;
 
-import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.friend.dto.UserLoginDTO;
 import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
 import cn.nuonuoya.friend.dto.UserSendCodeDTO;
@@ -15,25 +14,25 @@ import org.springframework.web.multipart.MultipartFile;
 public interface UserService {
 
     // 发送短信验证码
-    OJResult<Void> sendCode(UserSendCodeDTO sendCodeDTO);
+    void sendCode(UserSendCodeDTO sendCodeDTO);
 
     // 用户短信验证码登录与注册
-    OJResult<String> login(UserLoginDTO loginDTO);
+    String login(UserLoginDTO loginDTO);
 
     // 获取当前登录用户个人资料
-    OJResult<UserVO> getUserProfile();
+    UserVO getUserProfile();
 
     // 更新当前登录用户个人资料
-    OJResult<Void> updateUserProfile(UserProfileUpdateDTO updateDTO);
+    void updateUserProfile(UserProfileUpdateDTO updateDTO);
 
     // 上传当前登录用户头像至OSS并更新资料
-    OJResult<String> uploadAvatar(MultipartFile file);
+    String uploadAvatar(MultipartFile file);
 
     // 获取当前登录用户数据总览统计（支持时间范围筛选）
-    OJResult<UserOverviewVO> getUserOverview(UserOverviewQueryDTO queryDTO);
+    UserOverviewVO getUserOverview(UserOverviewQueryDTO queryDTO);
 
     // 获取当前登录用户解题日历按年份统计
-    OJResult<UserCalendarVO> getUserCalendar(UserCalendarQueryDTO queryDTO);
+    UserCalendarVO getUserCalendar(UserCalendarQueryDTO queryDTO);
 
     // 清除指定用户的详情缓存（供管理端修改用户状态后调用）
     void evictUserCache(Long userId);

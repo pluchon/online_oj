@@ -80,6 +80,17 @@ public class TokenService {
         return redisService.getCacheObject(getTokenKey(userKey), LoginUser.class);
     }
 
+    // 更新会话中的登录用户信息（保留剩余有效期）
+    public void updateLoginUser(String userKey, LoginUser loginUser) {
+        if (StrUtil.isEmpty(userKey) || loginUser == null) {
+            return;
+        }
+        String key = getTokenKey(userKey);
+        Long expire = redisService.getExpire(key, TimeUnit.MINUTES);
+        long ttl = expire != null && expire > 0 ? expire : CacheConstants.EXPIRATION;
+        redisService.setCacheObject(key, loginUser, ttl, TimeUnit.MINUTES);
+    }
+
     // 删除会话（使令牌失效）
     public void deleteLoginUserByKey(String userKey) {
         if (StrUtil.isNotEmpty(userKey)) {

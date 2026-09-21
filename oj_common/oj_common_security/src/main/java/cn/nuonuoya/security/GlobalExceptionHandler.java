@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ServiceException.class)
     public OJResult<Void> handleServiceException(ServiceException e, HttpServletRequest request) {
         log.warn("请求地址'{}'业务异常: {}", request.getRequestURI(), e.getMessage());
-        return OJResult.fail(e.getResultCode());
+        return OJResult.fail(e.getResultCode().getCode(), e.getMessage());
     }
 
     // 请求体或表单参数校验失败

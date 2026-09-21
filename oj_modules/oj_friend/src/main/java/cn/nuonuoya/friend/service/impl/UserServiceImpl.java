@@ -3,10 +3,8 @@ package cn.nuonuoya.friend.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.common.constants.CacheConstants;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.domain.LoginUser;
-import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.common.enums.UserIdentity;
 import cn.nuonuoya.friend.cache.UserCacheManager;
@@ -103,11 +101,11 @@ public class UserServiceImpl implements UserService {
 
     // 发送短信验证码具体实现
     @Override
-    public OJResult<Void> sendCode(UserSendCodeDTO sendCodeDTO) {
+    public void sendCode(UserSendCodeDTO sendCodeDTO) {
         String phone = sendCodeDTO.getPhone();
         // 1. 手机号防守校验
         if (!StringUtils.hasText(phone) || !phone.matches("^1[3-9]\\d{9}$")) {
-            return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE);
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
         String intervalKey = FriendCacheConstants.SMS_CODE_INTERVAL_KEY + phone;
@@ -118,14 +116,14 @@ public class UserServiceImpl implements UserService {
         if (Boolean.TRUE.equals(redisService.hasKey(intervalKey))) {
             Long expire = redisService.getExpire(intervalKey, TimeUnit.SECONDS);
             long seconds = (expire != null && expire > 0) ? expire : 60;
-            return OJResult.fail(ResultCode.FAILED_FREQUENT.getCode(), "操作过于频繁，请在 " + seconds + " 秒后再试");
+            throw new ServiceException(ResultCode.FAILED_FREQUENT, "操作过于频繁，请在 " + seconds + " 秒后再试");
         }
 
         // 3. 校验单手机号单日累计发送上限
         int maxDailyCount = smsProperties.getMaxDailyCount() != null ? smsProperties.getMaxDailyCount() : 10;
         Integer currentCount = redisService.getCacheObject(countKey, Integer.class);
         if (currentCount != null && currentCount >= maxDailyCount) {
-            return OJResult.fail(ResultCode.FAILED_SEND_SMS_EXCEED);
+            throw new ServiceException(ResultCode.FAILED_SEND_SMS_EXCEED);
         }
 
         // 4. 生成 6 位随机数字验证码
@@ -141,12 +139,12 @@ public class UserServiceImpl implements UserService {
             sendSuccess = smsService.sendCode(phone, code, expireMin);
         } else {
             // 模拟发码模式：跳过远程调用，只打印日志，方便本地/测试环境零资费调试
-            log.info("【模拟短信发码模式已启用(isConfirm=false)】向手机号 {} 模拟发码成功，验证码: {}", phone, code);
+            log.info("[模拟发码] 验证码已写入 Redis（键 {}），未真实发送短信, 手机号: {}", codeKey, maskPhone(phone));
             sendSuccess = true;
         }
 
         if (!sendSuccess) {
-            return OJResult.fail(ResultCode.FAILED_SEND_SMS);
+            throw new ServiceException(ResultCode.FAILED_SEND_SMS);
         }
 
         // 6. 短信发送成功后设置过期时间的时机
@@ -168,26 +166,25 @@ public class UserServiceImpl implements UserService {
             redisService.increment(countKey);
         }
 
-        return OJResult.ok();
     }
 
     // 用户短信验证码登录与自动注册实现
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public OJResult<String> login(UserLoginDTO loginDTO) {
+    public String login(UserLoginDTO loginDTO) {
         String phone = loginDTO.getPhone();
         String code = loginDTO.getCode();
 
         // 1. 参数防御校验
         if (!StringUtils.hasText(phone) || !StringUtils.hasText(code)) {
-            return OJResult.fail(ResultCode.FAILED_PARAMS_VALIDATE);
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
         // 2. 校验短信验证码（比对 Redis 中缓存的验证码）
         String codeKey = FriendCacheConstants.SMS_CODE_KEY + phone;
         String cachedCode = redisService.getCacheObject(codeKey, String.class);
         if (!StringUtils.hasText(cachedCode) || !cachedCode.equals(code.trim())) {
-            return OJResult.fail(ResultCode.FAILED_CODE_ERROR);
+            throw new ServiceException(ResultCode.FAILED_CODE_ERROR);
         }
 
         // 验证通过后立即物理删除 Redis 中的验证码，杜绝重放攻击
@@ -206,7 +203,7 @@ public class UserServiceImpl implements UserService {
 
         // 5. 组装用户信息生成 JWT Token 并存入 Redis 会话
         String token = generateUserToken(user);
-        return OJResult.ok(token);
+        return token;
     }
 
     // 自动注册新用户
@@ -233,33 +230,32 @@ public class UserServiceImpl implements UserService {
 
     // 获取当前登录用户个人资料
     @Override
-    public OJResult<UserVO> getUserProfile() {
+    public UserVO getUserProfile() {
         Long userId = SecurityUtils.getUserId();
-        log.info("[个人中心] 获取当前用户, userId: {}", userId);
         if (userId == null) {
             log.warn("[个人中心] 当前上下文 userId 为空");
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
         UserVO vo = userCacheManager.getUserById(userId);
         if (vo == null) {
             log.warn("[个人中心] 数据库未查到用户记录, userId: {}", userId);
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
-        return OJResult.ok(vo);
+        return vo;
     }
 
     // 更新当前登录用户个人资料
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public OJResult<Void> updateUserProfile(UserProfileUpdateDTO updateDTO) {
+    public void updateUserProfile(UserProfileUpdateDTO updateDTO) {
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
         TbUser existingUser = userMapper.selectById(userId);
         if (existingUser == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
         // 构造更新实体
@@ -283,35 +279,26 @@ public class UserServiceImpl implements UserService {
 
         // 若用户昵称发生变更，同步刷新Redis会话中的登录用户信息
         String userKey = SecurityUtils.getUserKey();
-        if (StringUtils.hasText(userKey)) {
-            String tokenKey = CacheConstants.LOGIN_TOKEN_KEY + userKey;
-            LoginUser loginUser = redisService.getCacheObject(tokenKey, LoginUser.class);
-            if (loginUser != null) {
-                loginUser.setNickName(updateDTO.getNickName().trim());
-                Long expire = redisService.getExpire(tokenKey, TimeUnit.MINUTES);
-                if (expire != null && expire > 0) {
-                    redisService.setCacheObject(tokenKey, loginUser, expire, TimeUnit.MINUTES);
-                } else {
-                    redisService.setCacheObject(tokenKey, loginUser, CacheConstants.EXPIRATION, TimeUnit.MINUTES);
-                }
-            }
+        LoginUser loginUser = tokenService.getLoginUserByKey(userKey);
+        if (loginUser != null) {
+            loginUser.setNickName(updateDTO.getNickName().trim());
+            tokenService.updateLoginUser(userKey, loginUser);
         }
 
-        return OJResult.ok();
     }
 
     // 上传当前登录用户头像至OSS并更新资料
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public OJResult<String> uploadAvatar(MultipartFile file) {
+    public String uploadAvatar(MultipartFile file) {
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
         TbUser existingUser = userMapper.selectById(userId);
         if (existingUser == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
         // 调用OSS上传服务存储至指定目录
@@ -326,15 +313,15 @@ public class UserServiceImpl implements UserService {
         // 主动剔除用户详情缓存
         userCacheManager.deleteUserCache(userId);
 
-        return OJResult.ok(avatarUrl);
+        return avatarUrl;
     }
 
     // 获取当前登录用户数据总览统计（支持时间范围筛选）
     @Override
-    public OJResult<UserOverviewVO> getUserOverview(UserOverviewQueryDTO queryDTO) {
+    public UserOverviewVO getUserOverview(UserOverviewQueryDTO queryDTO) {
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
         // 1. 解析时间范围起点
@@ -372,7 +359,7 @@ public class UserServiceImpl implements UserService {
             emptyRadar.setCompetition(0);
             overviewVO.setRadarScores(emptyRadar);
             overviewVO.setAbilityRadar(emptyRadar);
-            return OJResult.ok(overviewVO);
+            return overviewVO;
         }
 
         // 3. 统计提交与解题概况
@@ -404,7 +391,7 @@ public class UserServiceImpl implements UserService {
         overviewVO.setRadarScores(radarVO);
         overviewVO.setAbilityRadar(radarVO);
 
-        return OJResult.ok(overviewVO);
+        return overviewVO;
     }
 
     // 评估学员五维能力模型雷达图得分（分值 0~100）
@@ -502,10 +489,10 @@ public class UserServiceImpl implements UserService {
 
     // 获取当前登录用户解题日历按年份统计
     @Override
-    public OJResult<UserCalendarVO> getUserCalendar(UserCalendarQueryDTO queryDTO) {
+    public UserCalendarVO getUserCalendar(UserCalendarQueryDTO queryDTO) {
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
-            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
         // 1. 确定目标年份，选填默认为当前自然年
@@ -552,7 +539,7 @@ public class UserServiceImpl implements UserService {
         calendarVO.setTotalSubmissions(submits != null ? submits.size() : 0);
         calendarVO.setCalendarData(calendarData);
 
-        return OJResult.ok(calendarVO);
+        return calendarVO;
     }
 
     // 清除指定用户的详情缓存
@@ -563,6 +550,12 @@ public class UserServiceImpl implements UserService {
         }
         userCacheManager.deleteUserCache(userId);
     }
+
+    // 手机号脱敏（保留前3后4）
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) {
+            return "****";
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
 }
-
-

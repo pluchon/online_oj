@@ -39,21 +39,22 @@ public class UserController extends BaseController {
     @PostMapping("/send-code")
     @Operation(summary = "发送短信验证码", description = "向指定手机号发送短信验证码")
     public OJResult<Void> sendCode(@Validated @RequestBody UserSendCodeDTO sendCodeDTO) {
-        return userService.sendCode(sendCodeDTO);
+        userService.sendCode(sendCodeDTO);
+        return OJResult.ok();
     }
 
     /** 用户短信验证码登录与注册 */
     @PostMapping("/login")
     @Operation(summary = "用户短信登录/注册", description = "通过手机号与短信验证码登录，新用户自动注册")
     public OJResult<String> login(@Validated @RequestBody UserLoginDTO loginDTO) {
-        return userService.login(loginDTO);
+        return OJResult.ok(userService.login(loginDTO));
     }
 
     /** 获取当前登录用户个人资料 */
     @GetMapping("/profile")
     @Operation(summary = "获取当前登录用户个人资料", description = "基于当前登录态查询用户个人详细资料")
     public OJResult<UserVO> getUserProfile() {
-        return userService.getUserProfile();
+        return OJResult.ok(userService.getUserProfile());
     }
 
     /** 更新当前登录用户个人资料 */
@@ -61,7 +62,8 @@ public class UserController extends BaseController {
     @PutMapping("/profile")
     @Operation(summary = "更新当前登录用户个人资料", description = "修改用户昵称、性别、邮箱、微信、学校、专业、个人介绍等")
     public OJResult<Void> updateUserProfile(@Validated @RequestBody UserProfileUpdateDTO updateDTO) {
-        return userService.updateUserProfile(updateDTO);
+        userService.updateUserProfile(updateDTO);
+        return OJResult.ok();
     }
 
     /** 上传当前登录用户头像 */
@@ -69,21 +71,21 @@ public class UserController extends BaseController {
     @PostMapping("/avatar")
     @Operation(summary = "上传当前登录用户头像", description = "上传头像图片至阿里云OSS并更新用户头像")
     public OJResult<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
-        return userService.uploadAvatar(file);
+        return OJResult.ok(userService.uploadAvatar(file));
     }
 
     /** 获取当前登录学员数据总览统计 */
-    @GetMapping({"/profile/overview", "/overview"})
+    @GetMapping("/profile/overview")
     @Operation(summary = "学员数据总览统计", description = "获取当前学员做题统计与五维能力模型雷达图数据，支持时间范围筛选")
     public OJResult<UserOverviewVO> getUserOverview(@Validated UserOverviewQueryDTO queryDTO) {
-        return userService.getUserOverview(queryDTO);
+        return OJResult.ok(userService.getUserOverview(queryDTO));
     }
 
     /** 获取当前登录学员解题日历统计 */
     @GetMapping("/profile/calendar")
     @Operation(summary = "学员解题日历统计", description = "按年份查询当前学员在自然年内的每日提交次数列表")
     public OJResult<UserCalendarVO> getUserCalendar(@Validated UserCalendarQueryDTO queryDTO) {
-        return userService.getUserCalendar(queryDTO);
+        return OJResult.ok(userService.getUserCalendar(queryDTO));
     }
 }
 
