@@ -7,6 +7,7 @@ import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.cache.ExamCacheManager;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.cache.UserCacheManager;
+import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.friend.converter.ExamConverter;
 import cn.nuonuoya.friend.domain.TbExam;
 import cn.nuonuoya.friend.domain.TbExamQuestion;
@@ -46,7 +47,6 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,9 +60,6 @@ public class ExamServiceImpl implements ExamService {
 
     // 系统消息发送方标识
     private static final Long SYSTEM_SENDER_ID = 0L;
-
-    // 竞赛排名列表缓存键前缀
-    private static final String EXAM_RANK_LIST_PREFIX = "exam:rank:";
 
     @Autowired
     private ExamMapper examMapper;
@@ -136,14 +133,14 @@ public class ExamServiceImpl implements ExamService {
         if (queryType != null) {
             if (ExamListTypeEnum.UNFINISHED.getCode().equals(queryType)) {
                 wrapper.gt(TbExam::getEndTime, now);
-                wrapper.orderByAsc(TbExam::getStartTime);
+                wrapper.orderByAsc(TbExam::getStartTime, TbExam::getExamId);
             } else {
                 wrapper.le(TbExam::getEndTime, now);
-                wrapper.orderByDesc(TbExam::getEndTime);
+                wrapper.orderByDesc(TbExam::getEndTime, TbExam::getExamId);
             }
         } else {
             // 全部竞赛按开赛时间倒序
-            wrapper.orderByDesc(TbExam::getStartTime);
+            wrapper.orderByDesc(TbExam::getStartTime, TbExam::getExamId);
         }
 
         List<TbExam> examList = examMapper.selectList(wrapper);
@@ -261,13 +258,13 @@ public class ExamServiceImpl implements ExamService {
         if (queryDTO.getType() != null) {
             if (ExamListTypeEnum.UNFINISHED.getCode().equals(queryDTO.getType())) {
                 wrapper.gt(TbExam::getEndTime, now);
-                wrapper.orderByAsc(TbExam::getStartTime);
+                wrapper.orderByAsc(TbExam::getStartTime, TbExam::getExamId);
             } else {
                 wrapper.le(TbExam::getEndTime, now);
-                wrapper.orderByDesc(TbExam::getEndTime);
+                wrapper.orderByDesc(TbExam::getEndTime, TbExam::getExamId);
             }
         } else {
-            wrapper.orderByDesc(TbExam::getStartTime);
+            wrapper.orderByDesc(TbExam::getStartTime, TbExam::getExamId);
         }
 
         List<TbExam> examList = examMapper.selectList(wrapper);
@@ -300,7 +297,7 @@ public class ExamServiceImpl implements ExamService {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
         TbExam exam = examMapper.selectById(examId);
-        if (exam == null) {
+        if (exam == null || !ExamPublishStatusEnum.PUBLISHED.getCode().equals(exam.getStatus())) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         ExamVO vo = ExamConverter.toVO(exam);
@@ -416,36 +413,10 @@ public class ExamServiceImpl implements ExamService {
         if (CollUtil.isEmpty(voList)) {
             return;
         }
-        List<Long> examIds = voList.stream().map(ExamVO::getExamId).collect(Collectors.toList());
-
-        // 批量统计参赛人数：按 examId 分组 count tb_user_exam
-        List<TbUserExam> userExamRecords = userExamMapper.selectList(
-                new LambdaQueryWrapper<TbUserExam>()
-                        .select(TbUserExam::getExamId)
-                        .in(TbUserExam::getExamId, examIds));
-        Map<Long, Integer> enterCountMap = new HashMap<>();
-        if (CollUtil.isNotEmpty(userExamRecords)) {
-            userExamRecords.stream()
-                    .collect(Collectors.groupingBy(TbUserExam::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
-                    .forEach(enterCountMap::put);
-        }
-
-        // 批量统计题目数量：按 examId 分组 count tb_exam_question
-        List<TbExamQuestion> examQuestions = examQuestionMapper.selectList(
-                new LambdaQueryWrapper<TbExamQuestion>()
-                        .select(TbExamQuestion::getExamId)
-                        .in(TbExamQuestion::getExamId, examIds));
-        Map<Long, Integer> questionCountMap = new HashMap<>();
-        if (CollUtil.isNotEmpty(examQuestions)) {
-            examQuestions.stream()
-                    .collect(Collectors.groupingBy(TbExamQuestion::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
-                    .forEach(questionCountMap::put);
-        }
-
-        // 将统计结果装配到 VO
+        ExamCounts counts = countByExamIds(voList.stream().map(ExamVO::getExamId).collect(Collectors.toList()));
         for (ExamVO vo : voList) {
-            vo.setEnterCount(enterCountMap.getOrDefault(vo.getExamId(), 0));
-            vo.setQuestionCount(questionCountMap.getOrDefault(vo.getExamId(), 0));
+            vo.setEnterCount(counts.enterCount(vo.getExamId()));
+            vo.setQuestionCount(counts.questionCount(vo.getExamId()));
         }
     }
 
@@ -454,41 +425,45 @@ public class ExamServiceImpl implements ExamService {
         if (CollUtil.isEmpty(voList)) {
             return;
         }
-        List<Long> examIds = voList.stream().map(UserExamVO::getExamId).collect(Collectors.toList());
-
-        // 批量统计参赛人数
-        List<TbUserExam> userExamRecords = userExamMapper.selectList(
-                new LambdaQueryWrapper<TbUserExam>()
-                        .select(TbUserExam::getExamId)
-                        .in(TbUserExam::getExamId, examIds));
-        Map<Long, Integer> enterCountMap = new HashMap<>();
-        if (CollUtil.isNotEmpty(userExamRecords)) {
-            userExamRecords.stream()
-                    .collect(Collectors.groupingBy(TbUserExam::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
-                    .forEach(enterCountMap::put);
-        }
-
-        // 批量统计题目数量
-        List<TbExamQuestion> examQuestions = examQuestionMapper.selectList(
-                new LambdaQueryWrapper<TbExamQuestion>()
-                        .select(TbExamQuestion::getExamId)
-                        .in(TbExamQuestion::getExamId, examIds));
-        Map<Long, Integer> questionCountMap = new HashMap<>();
-        if (CollUtil.isNotEmpty(examQuestions)) {
-            examQuestions.stream()
-                    .collect(Collectors.groupingBy(TbExamQuestion::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
-                    .forEach(questionCountMap::put);
-        }
-
+        ExamCounts counts = countByExamIds(voList.stream().map(UserExamVO::getExamId).collect(Collectors.toList()));
         for (UserExamVO vo : voList) {
-            vo.setEnterCount(enterCountMap.getOrDefault(vo.getExamId(), 0));
-            vo.setQuestionCount(questionCountMap.getOrDefault(vo.getExamId(), 0));
+            vo.setEnterCount(counts.enterCount(vo.getExamId()));
+            vo.setQuestionCount(counts.questionCount(vo.getExamId()));
+        }
+    }
+
+    // 按竞赛ID批量统计参赛人数与题目数量
+    private ExamCounts countByExamIds(List<Long> examIds) {
+        Map<Long, Long> enterCountMap = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
+                        .select(TbUserExam::getExamId)
+                        .in(TbUserExam::getExamId, examIds))
+                .stream()
+                .collect(Collectors.groupingBy(TbUserExam::getExamId, Collectors.counting()));
+        Map<Long, Long> questionCountMap = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
+                        .select(TbExamQuestion::getExamId)
+                        .in(TbExamQuestion::getExamId, examIds))
+                .stream()
+                .collect(Collectors.groupingBy(TbExamQuestion::getExamId, Collectors.counting()));
+        return new ExamCounts(enterCountMap, questionCountMap);
+    }
+
+    // 竞赛参赛人数与题目数量统计结果
+    private record ExamCounts(Map<Long, Long> enterCountMap, Map<Long, Long> questionCountMap) {
+
+        // 指定竞赛的参赛人数
+        int enterCount(Long examId) {
+            return enterCountMap.getOrDefault(examId, 0L).intValue();
+        }
+
+        // 指定竞赛的题目数量
+        int questionCount(Long examId) {
+            return questionCountMap.getOrDefault(examId, 0L).intValue();
         }
     }
 
     // 获取或实时计算完整排名列表（优先走 Redis 缓存）
     private List<ExamRankVO> getOrCalculateFullRankList(Long examId) {
-        String rankCacheKey = EXAM_RANK_LIST_PREFIX + examId;
+        String rankCacheKey = FriendCacheConstants.EXAM_RANK_LIST_KEY + examId;
         String json = redisService.getCacheObject(rankCacheKey, String.class);
         if (StringUtils.hasText(json)) {
             List<ExamRankVO> cachedList = JSON.parseArray(json, ExamRankVO.class);
@@ -614,9 +589,13 @@ public class ExamServiceImpl implements ExamService {
             }
         }
 
-        // 写入 Redis 缓存（已完赛保留 24 小时，进行中保留 3 分钟）
-        String rankCacheKey = EXAM_RANK_LIST_PREFIX + examId;
-        redisService.setCacheObject(rankCacheKey, JSON.toJSONString(rankList), isFinished ? 24L : 3L, isFinished ? TimeUnit.HOURS : TimeUnit.MINUTES);
+        // 写入 Redis 缓存（已完赛保留较久，进行中短暂缓存）
+        String rankCacheKey = FriendCacheConstants.EXAM_RANK_LIST_KEY + examId;
+        if (isFinished) {
+            redisService.setCacheObject(rankCacheKey, JSON.toJSONString(rankList), FriendCacheConstants.EXAM_RANK_FINISHED_TTL_HOURS, TimeUnit.HOURS);
+        } else {
+            redisService.setCacheObject(rankCacheKey, JSON.toJSONString(rankList), FriendCacheConstants.EXAM_RANK_ONGOING_TTL_MINUTES, TimeUnit.MINUTES);
+        }
 
         return rankList;
     }
