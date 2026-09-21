@@ -22,6 +22,7 @@ import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.QuestionRunDTO;
 import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
 import cn.nuonuoya.friend.dto.UserSubmitDTO;
+import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
@@ -123,7 +124,8 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         submit.setUserId(userId);
         submit.setQuestionId(submitDTO.getQuestionId());
         submit.setExamId(submitDTO.getExamId());
-        submit.setProgramType(submitDTO.getProgramType());
+        // 目前只支持 Java，不采信客户端传入的语言类型
+        submit.setProgramType(ProgramTypeEnum.JAVA.getCode());
         submit.setUserCode(submitDTO.getUserCode());
         submit.setPass(SubmitPassEnum.JUDGING.getCode());
         submit.setScore(0);
@@ -173,13 +175,9 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
 
-        // 按用户限流，避免高频占用沙箱容器
+        // 按用户限流（原子写入带过期时间的标记），避免高频占用沙箱容器
         String limitKey = FriendCacheConstants.QUESTION_RUN_LIMIT_KEY + userId;
-        Long runCount = redisService.increment(limitKey);
-        if (runCount != null && runCount == 1L) {
-            redisService.expire(limitKey, RUN_LIMIT_SECONDS, TimeUnit.SECONDS);
-        }
-        if (runCount != null && runCount > 1L) {
+        if (!redisService.setIfAbsent(limitKey, 1, RUN_LIMIT_SECONDS, TimeUnit.SECONDS)) {
             throw new ServiceException(ResultCode.FAILED_FREQUENT);
         }
 
@@ -259,7 +257,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
     // 校验竞赛提交资格（赛后练习不带竞赛ID提交，不影响排名）
     private void validateExamSubmit(Long userId, Long examId, Long questionId) {
         TbExam exam = examMapper.selectById(examId);
-        if (exam == null) {
+        if (exam == null || !ExamPublishStatusEnum.PUBLISHED.getCode().equals(exam.getStatus())) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         LocalDateTime now = LocalDateTime.now();
@@ -290,8 +288,9 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         requestDTO.setQuestionId(question.getQuestionId());
         requestDTO.setUserCode(userCode);
         requestDTO.setCompleteCode(buildCompleteCode(userCode, question.getMainFunc()));
-        requestDTO.setTimeLimit(question.getTimeLimit() != null ? question.getTimeLimit() : 1000);
-        requestDTO.setSpaceLimit(question.getSpaceLimit() != null ? question.getSpaceLimit() : 128);
+        // 时空限制为空时由判题服务使用默认值
+        requestDTO.setTimeLimit(question.getTimeLimit());
+        requestDTO.setSpaceLimit(question.getSpaceLimit());
         requestDTO.setDifficulty(question.getDifficulty());
         requestDTO.setCases(QuestionCaseConverter.toJudgeCaseList(caseList));
         return requestDTO;

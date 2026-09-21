@@ -66,6 +66,11 @@ public class RedisService {
         redisTemplate.opsForValue().set(key, value, timeout, timeUnit);
     }
 
+    // 键不存在时写入并设置有效时间（原子操作），写入成功返回 true
+    public <T> boolean setIfAbsent(final String key, final T value, final long timeout, final TimeUnit timeUnit) {
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, timeout, timeUnit));
+    }
+
     // 批量缓存对象（单次往返写入）
     public <T> void multiSet(final Map<String, T> map) {
         if (CollectionUtils.isEmpty(map)) {
