@@ -4,6 +4,7 @@ import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.system.dto.UserDTO;
+import cn.nuonuoya.system.dto.UserEditDTO;
 import cn.nuonuoya.system.dto.UserStatusDTO;
 import cn.nuonuoya.system.service.UserService;
 import cn.nuonuoya.system.vo.UserVO;
@@ -36,6 +37,14 @@ public class UserController extends BaseController {
     public TableDataResult<UserVO> list(@Validated UserDTO queryDTO) {
         List<UserVO> list = userService.list(queryDTO);
         return getTableData(list);
+    }
+
+    /** 编辑用户资料 */
+    @PutMapping("/{userId}")
+    @Operation(summary = "编辑用户资料", description = "修改用户昵称、性别、手机号、邮箱、学校等资料，手机号需唯一")
+    public OJResult<Void> edit(@PathVariable("userId") Long userId, @Validated @RequestBody UserEditDTO editDTO) {
+        editDTO.setUserId(userId);
+        return toResult(userService.edit(editDTO));
     }
 
     /** 修改用户状态（拉黑 / 解禁） */

@@ -1,6 +1,7 @@
 package cn.nuonuoya.system.converter;
 
 import cn.nuonuoya.system.domain.TbUser;
+import cn.nuonuoya.system.dto.UserEditDTO;
 import cn.nuonuoya.system.enums.UserSex;
 import cn.nuonuoya.system.enums.UserStatus;
 import cn.nuonuoya.system.vo.UserVO;
@@ -34,6 +35,26 @@ public class UserConverter {
         vo.setStatusDesc(UserStatus.getDescByValue(user.getStatus()));
         vo.setCreateTime(user.getCreateTime());
         return vo;
+    }
+
+    // 编辑请求转换为更新实体（去除首尾空白，邮箱统一小写，空值写为空串）
+    public static TbUser toEditEntity(UserEditDTO editDTO) {
+        TbUser user = new TbUser();
+        user.setUserId(editDTO.getUserId());
+        user.setNickName(editDTO.getNickName().trim());
+        user.setSex(editDTO.getSex());
+        user.setPhone(editDTO.getPhone().trim());
+        user.setEmail(trimToEmpty(editDTO.getEmail()).toLowerCase());
+        user.setWechat(trimToEmpty(editDTO.getWechat()));
+        user.setSchoolName(trimToEmpty(editDTO.getSchoolName()));
+        user.setMajorName(trimToEmpty(editDTO.getMajorName()));
+        user.setIntroduce(trimToEmpty(editDTO.getIntroduce()));
+        return user;
+    }
+
+    // 去除首尾空白，null 转为空串
+    private static String trimToEmpty(String value) {
+        return value == null ? "" : value.trim();
     }
 
     // 将用户实体列表批量转换为VO列表

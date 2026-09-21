@@ -262,7 +262,7 @@ mvn clean install -DskipTests
 * `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排
-* `GET  /system/user`、`PUT /system/user/{userId}/status`：C端用户列表与拉黑解禁
+* `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
 * `POST /judge/internal/run`：friend 同步运行示例

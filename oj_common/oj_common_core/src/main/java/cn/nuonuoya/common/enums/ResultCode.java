@@ -28,6 +28,7 @@ public enum ResultCode {
     FAILED_SEND_SMS (3107, "短信发送失败，请稍后重试"),
     FAILED_CODE_ERROR (3108, "验证码错误或已失效"),
     FAILED_SYS_USER_DELETE_SELF (3109, "不能删除当前登录的管理员账号"),
+    FAILED_PHONE_EXISTS (3110, "该手机号已被其他用户使用"),
 
     // 竞赛业务错误码（32xx）
     FAILED_EXAM_EXISTS (3201, "竞赛已存在"),

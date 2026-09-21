@@ -6,12 +6,14 @@ import cn.nuonuoya.system.client.FriendUserClient;
 import cn.nuonuoya.system.converter.UserConverter;
 import cn.nuonuoya.system.domain.TbUser;
 import cn.nuonuoya.system.dto.UserDTO;
+import cn.nuonuoya.system.dto.UserEditDTO;
 import cn.nuonuoya.system.dto.UserStatusDTO;
 import cn.nuonuoya.system.enums.UserStatus;
 import cn.nuonuoya.system.mapper.UserMapper;
 import cn.nuonuoya.system.service.UserService;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.UserVO;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +48,25 @@ public class UserServiceImpl implements UserService {
         return UserConverter.toVOList(list);
     }
 
+    // 编辑用户资料实现（手机号为C端登录凭据，需全局唯一）
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int edit(UserEditDTO editDTO) {
+        if (userMapper.selectById(editDTO.getUserId()) == null) {
+            throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
+        }
+        TbUser updateEntity = UserConverter.toEditEntity(editDTO);
+        Long phoneUsed = userMapper.selectCount(new LambdaQueryWrapper<TbUser>()
+                .eq(TbUser::getPhone, updateEntity.getPhone())
+                .ne(TbUser::getUserId, editDTO.getUserId()));
+        if (phoneUsed != null && phoneUsed > 0) {
+            throw new ServiceException(ResultCode.FAILED_PHONE_EXISTS);
+        }
+        int rows = userMapper.updateById(updateEntity);
+        evictUserCacheAfterCommit(editDTO.getUserId());
+        return rows;
+    }
+
     // 修改用户状态（拉黑 / 解禁）实现
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -72,13 +93,16 @@ public class UserServiceImpl implements UserService {
         updateEntity.setStatus(statusDTO.getStatus());
         int rows = userMapper.updateById(updateEntity);
 
-        // 事务提交后再通知C端清除用户缓存，避免提交前被旧状态重新回填
-        Long userId = statusDTO.getUserId();
+        evictUserCacheAfterCommit(statusDTO.getUserId());
+        return rows;
+    }
+
+    // 事务提交后通知C端清除用户缓存，避免提交前被旧数据重新回填
+    private void evictUserCacheAfterCommit(Long userId) {
         TransactionUtils.afterCommit(() -> {
             if (!friendUserClient.evictUserCache(userId)) {
-                log.warn("用户状态已更新但C端缓存未清除，将在缓存过期后生效, userId = {}", userId);
+                log.warn("用户数据已更新但C端缓存未清除，将在缓存过期后生效, userId = {}", userId);
             }
         });
-        return rows;
     }
 }
