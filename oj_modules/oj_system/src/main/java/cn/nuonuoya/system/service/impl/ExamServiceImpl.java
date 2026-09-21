@@ -53,6 +53,9 @@ public class ExamServiceImpl implements ExamService {
     // 分页查询竞赛列表实现
     @Override
     public List<ExamVO> list(ExamDTO queryDTO) {
+        if (queryDTO == null) {
+            queryDTO = new ExamDTO();
+        }
         // 开启 PageHelper 物理分页
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         // 执行联表查询，PageHelper 会自动拦截生成 COUNT 语句与物理 LIMIT 分页

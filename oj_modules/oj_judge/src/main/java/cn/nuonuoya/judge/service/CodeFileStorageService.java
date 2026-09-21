@@ -17,6 +17,9 @@ public class CodeFileStorageService {
     // 默认源码文件名称
     public static final String SOLUTION_FILE_NAME = "Solution.java";
 
+    // 用例标准输入文件名称
+    public static final String INPUT_FILE_NAME = "input.txt";
+
     // 时间格式化器（年月日时分秒）
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -54,6 +57,13 @@ public class CodeFileStorageService {
         FileUtil.writeString(completeCode, solutionFile, StandardCharsets.UTF_8);
 
         return solutionFile;
+    }
+
+    // 将用例标准输入写入评测目录
+    public File saveInputFile(File folder, String stdinContent) {
+        File inputFile = new File(folder, INPUT_FILE_NAME);
+        FileUtil.writeString(stdinContent, inputFile, StandardCharsets.UTF_8);
+        return inputFile;
     }
 
     // 清理指定评测临时目录

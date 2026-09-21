@@ -671,11 +671,25 @@
           "query": [
             {
               "key": "pageNum",
-              "value": "1"
+              "value": "1",
+              "description": "当前页码（默认 1）"
             },
             {
               "key": "pageSize",
-              "value": "10"
+              "value": "10",
+              "description": "每页条数（默认固定 10，上限 50）"
+            },
+            {
+              "key": "userId",
+              "value": "",
+              "description": "用户ID精确筛选（可选）",
+              "disabled": true
+            },
+            {
+              "key": "nickName",
+              "value": "",
+              "description": "用户昵称模糊筛选（可选）",
+              "disabled": true
             }
           ]
         },
@@ -719,6 +733,318 @@
           ]
         },
         "description": "修改普通用户状态（0: 拉黑，1: 正常）"
+      },
+      "response": []
+    },
+    {
+      "name": "21. C端题目列表检索（含做题状态与标签）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/question/list?pageNum=1&pageSize=10",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "question",
+            "list"
+          ],
+          "query": [
+            {
+              "key": "pageNum",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "分页检索题目列表，自动解析当前用户答题状态（userStatus/passStatus）与标签（tags）"
+      },
+      "response": []
+    },
+    {
+      "name": "22. C端题库解题统计（总题数与学员答题概况）",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/question/stats",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "question",
+            "stats"
+          ]
+        },
+        "description": "获取题库总题数以及当前登录用户的已攻克、尝试中题目数量统计"
+      },
+      "response": []
+    },
+    {
+      "name": "23-C端用户-获取个人资料(带QQ)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/user/profile",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "user",
+            "profile"
+          ]
+        },
+        "description": "基于当前登录态查询用户个人详细资料，包含qq字段"
+      },
+      "response": []
+    },
+    {
+      "name": "24-C端用户-更新个人资料(支持QQ)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nickName\": \"编程达人\",\n  \"headImage\": \"https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png\",\n  \"sex\": 1,\n  \"email\": \"coder@oj.com\",\n  \"wechat\": \"wx_coder123\",\n  \"qq\": \"123456789\",\n  \"schoolName\": \"清华大学\",\n  \"majorName\": \"计算机科学与技术\",\n  \"introduce\": \"Talk is cheap. Show me the code.\"\n}"
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/user/profile",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "user",
+            "profile"
+          ]
+        },
+        "description": "更新用户个人资料，支持绑定/修改/置空qq字段"
+      },
+      "response": []
+    },
+    {
+      "name": "25-C端用户-数据总览统计(时间筛选&五维能力雷达)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/user/profile/overview?timeRange=all",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "user",
+            "profile",
+            "overview"
+          ],
+          "query": [
+            {
+              "key": "timeRange",
+              "value": "all",
+              "description": "all:全部时间, year:近一年, month:近一月, week:本周"
+            }
+          ]
+        },
+        "description": "获取当前学员做题统计与五维能力模型雷达图数据，支持时间范围筛选（同时兼容 /friend/user/overview 与 /friend/user/profile/overview）"
+      },
+      "response": []
+    },
+    {
+      "name": "26-C端用户-解题日历按年份统计(热力图)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/user/profile/calendar?year=2026",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "user",
+            "profile",
+            "calendar"
+          ],
+          "query": [
+            {
+              "key": "year",
+              "value": "2026",
+              "description": "选填，默认当前自然年"
+            }
+          ]
+        },
+        "description": "按年份查询当前学员在自然年内的每日提交次数列表，供前端日历热力图渲染"
+      },
+      "response": []
+    },
+    {
+      "name": "27-C端做题-运行示例用例",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"questionId\": 1794900876543210003,\n  \"userCode\": \"public boolean isValid(String s) {\\n    Deque<Character> st = new ArrayDeque<>();\\n    for (char c : s.toCharArray()) {\\n        if (c == '(') st.push(')');\\n        else if (c == '[') st.push(']');\\n        else if (c == '{') st.push('}');\\n        else if (st.isEmpty() || st.pop() != c) return false;\\n    }\\n    return st.isEmpty();\\n}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/question/run",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "question",
+            "run"
+          ]
+        },
+        "description": "同步运行题目公开示例（需登录，同一用户 2 秒内限 1 次）；返回 status/passCount/totalCount/timeCost/exeMessage/caseResults"
+      },
+      "response": []
+    },
+    {
+      "name": "28-C端做题-本题提交记录",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "token",
+            "value": "{{token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://127.0.0.1:19090/friend/question/submit/history?questionId=1794900876543210003&pageNum=1&pageSize=6",
+          "protocol": "http",
+          "host": [
+            "127",
+            "0",
+            "0",
+            "1"
+          ],
+          "port": "19090",
+          "path": [
+            "friend",
+            "question",
+            "submit",
+            "history"
+          ],
+          "query": [
+            {
+              "key": "questionId",
+              "value": "1794900876543210003"
+            },
+            {
+              "key": "pageNum",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "6"
+            }
+          ]
+        },
+        "description": "当前用户本题提交记录（需登录），按提交时间倒序分页，返回 rows/total，含 userCode 供载回编辑器"
       },
       "response": []
     }

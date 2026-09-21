@@ -46,6 +46,30 @@ public class UserSubmitResultVO {
     @Schema(description = "得分")
     private Integer score;
 
+    // 判题状态（1:AC 2:WA 3:TLE 4:MLE 5:CE 6:RE 8:SE，评测中为空）
+    @Schema(description = "判题状态 1:AC 2:WA 3:TLE 4:MLE 5:CE 6:RE 8:SE")
+    private Integer status;
+
+    // 通过用例数
+    @Schema(description = "通过用例数")
+    private Integer passCount;
+
+    // 总用例数
+    @Schema(description = "总用例数")
+    private Integer totalCount;
+
+    // 执行耗时（毫秒）
+    @Schema(description = "执行耗时(ms)")
+    private Integer timeCost;
+
+    // 首个未通过用例
+    @Schema(description = "首个未通过用例")
+    private CaseResultVO failCase;
+
+    // 逐用例状态（按用例顺序，1: 通过 0: 未通过 -: 未执行）
+    @Schema(description = "逐用例状态 1:通过 0:未通过 -:未执行")
+    private String caseStates;
+
     // 提交时间
     @Schema(description = "提交时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

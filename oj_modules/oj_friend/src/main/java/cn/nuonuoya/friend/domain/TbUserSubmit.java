@@ -42,4 +42,25 @@ public class TbUserSubmit extends BaseEntity {
 
     // 得分
     private Integer score;
+
+    // 判题状态（见 JudgeStatusEnum）
+    private Integer judgeStatus;
+
+    // 通过用例数
+    private Integer passCount;
+
+    // 总用例数
+    private Integer totalCount;
+
+    // 执行耗时（毫秒）
+    private Integer timeCost;
+
+    // 首个未通过用例ID
+    private Long failCaseId;
+
+    // 首个未通过用例的实际输出
+    private String failOutput;
+
+    // 逐用例状态（按用例顺序，1: 通过 0: 未通过 -: 未执行）
+    private String caseStates;
 }

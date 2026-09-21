@@ -33,6 +33,9 @@ public class UserController extends BaseController {
     @GetMapping("/list")
     @Operation(summary = "用户列表", description = "支持按用户ID与昵称模糊筛选的分页查询")
     public TableDataResult<UserVO> list(@Validated UserDTO queryDTO) {
+        if (queryDTO == null) {
+            queryDTO = new UserDTO();
+        }
         List<UserVO> list = userService.list(queryDTO);
         return getTableDataInfo(list);
     }

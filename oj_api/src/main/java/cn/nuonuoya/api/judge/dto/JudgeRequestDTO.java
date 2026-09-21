@@ -6,6 +6,7 @@ import lombok.ToString;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
 // 判题服务执行请求数据传输对象
 @Getter
@@ -42,4 +43,7 @@ public class JudgeRequestDTO implements Serializable {
 
     // 题目难度（1:简单 2:中等 3:困难）
     private Integer difficulty;
+
+    // 待执行的测试用例（按顺序喂入标准输入）
+    private List<JudgeCaseDTO> cases;
 }

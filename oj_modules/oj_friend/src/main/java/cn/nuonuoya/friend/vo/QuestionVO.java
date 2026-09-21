@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 // 题目视图对象
 @Getter
@@ -48,13 +49,24 @@ public class QuestionVO {
     @Schema(description = "默认代码模板")
     private String defaultCode;
 
-    // 题目测试用例JSON
-    @Schema(description = "题目测试用例JSON")
-    private String questionCase;
+    // 公开示例（仅题目详情返回，隐藏用例不对外）
+    @Schema(description = "公开示例")
+    private List<QuestionCaseVO> sampleCases;
 
     // 创建时间
     @Schema(description = "创建时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
+    // 学员做题状态（0:未尝试 1:已攻克 2:尝试中）
+    @Schema(description = "学员做题状态（0:未尝试 1:已攻克 2:尝试中）")
+    private Integer userStatus;
+
+    // 答题通过状态兼容字段（同userStatus，0:未尝试 1:已攻克 2:尝试中）
+    @Schema(description = "答题通过状态兼容字段")
+    private Integer passStatus;
+
+    // 题目标签列表
+    @Schema(description = "题目标签列表")
+    private List<String> tags;
 }

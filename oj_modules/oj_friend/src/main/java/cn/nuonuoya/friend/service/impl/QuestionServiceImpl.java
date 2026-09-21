@@ -1,21 +1,32 @@
 package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.domain.TableDataResult;
+import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.elastic.repository.QuestionRepository;
 import cn.nuonuoya.friend.cache.QuestionCacheManager;
+import cn.nuonuoya.friend.converter.QuestionCaseConverter;
 import cn.nuonuoya.friend.converter.QuestionConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
+import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
+import cn.nuonuoya.friend.enums.UserQuestionStatusEnum;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
+import cn.nuonuoya.friend.mapper.UserSubmitMapper;
+import cn.nuonuoya.friend.service.QuestionCaseService;
 import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
+import cn.nuonuoya.friend.vo.QuestionStatsVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
+import cn.nuonuoya.security.service.TokenService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,10 +40,18 @@ import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 // 题目业务服务实现类
@@ -40,6 +59,9 @@ import java.util.stream.Collectors;
 public class QuestionServiceImpl implements QuestionService {
 
     private static final Logger log = LoggerFactory.getLogger(QuestionServiceImpl.class);
+
+    // 判题通过状态标识（对应 tb_user_submit.pass=1）
+    private static final int SUBMIT_PASS = 1;
 
     // 注入ES持久层仓库
     @Autowired
@@ -49,6 +71,10 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private QuestionMapper questionMapper;
 
+    // 注入用户代码提交记录Mapper
+    @Autowired
+    private UserSubmitMapper userSubmitMapper;
+
     // 注入ES操作模板
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
@@ -56,6 +82,13 @@ public class QuestionServiceImpl implements QuestionService {
     // 注入题目缓存管理器
     @Autowired
     private QuestionCacheManager questionCacheManager;
+
+    // 注入安全凭证Token解析服务
+    @Autowired
+    private TokenService tokenService;
+
+    @Autowired
+    private QuestionCaseService questionCaseService;
 
     // 分页全文检索题目列表
     @Override
@@ -111,6 +144,8 @@ public class QuestionServiceImpl implements QuestionService {
                     .collect(Collectors.toList());
 
             List<QuestionVO> voList = QuestionConverter.toVOListFromDoc(docList);
+            // 批量装配用户做题状态与标签
+            populateUserStatusAndTags(voList);
             return TableDataResult.success(voList, total);
 
         } catch (Exception e) {
@@ -127,19 +162,69 @@ public class QuestionServiceImpl implements QuestionService {
             return null;
         }
 
+        QuestionVO vo = null;
         // 优先从ES读取
         try {
             Optional<QuestionDoc> docOpt = questionRepository.findById(questionId);
             if (docOpt.isPresent()) {
-                return QuestionConverter.toVO(docOpt.get());
+                vo = QuestionConverter.toVO(docOpt.get());
             }
         } catch (Exception e) {
             log.warn("从ES读取题目详情失败，降级查库: {}", e.getMessage());
         }
 
         // 兜底查MySQL
-        TbQuestion entity = questionMapper.selectById(questionId);
-        return QuestionConverter.toVO(entity);
+        if (vo == null) {
+            TbQuestion entity = questionMapper.selectById(questionId);
+            if (entity != null) {
+                vo = QuestionConverter.toVO(entity);
+            }
+        }
+
+        if (vo != null) {
+            populateSingleUserStatusAndTags(vo);
+            vo.setSampleCases(QuestionCaseConverter.toSampleVOList(questionCaseService.listSamples(questionId)));
+        }
+        return vo;
+    }
+
+    // 获取题库总题数与当前学员解题统计信息
+    @Override
+    public QuestionStatsVO getStats() {
+        QuestionStatsVO statsVO = new QuestionStatsVO();
+        long totalCount = questionMapper.selectCount(null);
+        statsVO.setTotalCount(totalCount);
+
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            statsVO.setSolvedCount(0L);
+            statsVO.setInProgressCount(0L);
+            return statsVO;
+        }
+
+        List<TbUserSubmit> userSubmits = userSubmitMapper.selectList(
+                new LambdaQueryWrapper<TbUserSubmit>()
+                        .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
+                        .eq(TbUserSubmit::getUserId, userId)
+        );
+
+        Set<Long> solvedQuestionIds = new HashSet<>();
+        Set<Long> attemptedQuestionIds = new HashSet<>();
+        if (CollUtil.isNotEmpty(userSubmits)) {
+            for (TbUserSubmit submit : userSubmits) {
+                Long qId = submit.getQuestionId();
+                if (qId == null) {
+                    continue;
+                }
+                attemptedQuestionIds.add(qId);
+                if (Integer.valueOf(SUBMIT_PASS).equals(submit.getPass())) {
+                    solvedQuestionIds.add(qId);
+                }
+            }
+        }
+        statsVO.setSolvedCount((long) solvedQuestionIds.size());
+        statsVO.setInProgressCount((long) (attemptedQuestionIds.size() - solvedQuestionIds.size()));
+        return statsVO;
     }
 
     // 全量同步MySQL题目数据至ES索引
@@ -177,6 +262,8 @@ public class QuestionServiceImpl implements QuestionService {
         List<QuestionVO> voList = list.stream()
                 .map(QuestionConverter::toVO)
                 .collect(Collectors.toList());
+        // 批量装配用户做题状态与标签
+        populateUserStatusAndTags(voList);
         return TableDataResult.success(voList, total);
     }
 
@@ -191,5 +278,150 @@ public class QuestionServiceImpl implements QuestionService {
     public Long getFirstQuestionId(Long examId) {
         return questionCacheManager.getFirstQuestionId(examId);
     }
-}
 
+    // 从请求上下文获取当前登录用户ID
+    private Long getCurrentUserId() {
+        Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
+        if (userId != null) {
+            return userId;
+        }
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            HttpServletRequest request = attributes.getRequest();
+            String headerUserId = request.getHeader(HttpConstants.USER_ID);
+            if (StrUtil.isNotBlank(headerUserId)) {
+                return Convert.toLong(headerUserId);
+            }
+            String token = request.getHeader(HttpConstants.AUTHENTICATION);
+            if (StrUtil.isNotBlank(token)) {
+                return tokenService.getUserId(tokenService.cleanToken(token));
+            }
+        }
+        return null;
+    }
+
+    // 批量装配题目标签与当前用户做题状态
+    private void populateUserStatusAndTags(List<QuestionVO> voList) {
+        if (CollUtil.isEmpty(voList)) {
+            return;
+        }
+        Long userId = getCurrentUserId();
+        Map<Long, Integer> statusMap = new HashMap<>();
+        if (userId != null) {
+            List<Long> questionIds = voList.stream()
+                    .map(QuestionVO::getQuestionId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            if (CollUtil.isNotEmpty(questionIds)) {
+                List<TbUserSubmit> submits = userSubmitMapper.selectList(
+                        new LambdaQueryWrapper<TbUserSubmit>()
+                                .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
+                                .eq(TbUserSubmit::getUserId, userId)
+                                .in(TbUserSubmit::getQuestionId, questionIds)
+                );
+                if (CollUtil.isNotEmpty(submits)) {
+                    for (TbUserSubmit submit : submits) {
+                        Long qId = submit.getQuestionId();
+                        if (qId == null) {
+                            continue;
+                        }
+                        Integer currentStatus = statusMap.get(qId);
+                        if (Integer.valueOf(SUBMIT_PASS).equals(submit.getPass())) {
+                            statusMap.put(qId, UserQuestionStatusEnum.SOLVED.getCode());
+                        } else if (currentStatus == null || !UserQuestionStatusEnum.SOLVED.getCode().equals(currentStatus)) {
+                            statusMap.put(qId, UserQuestionStatusEnum.IN_PROGRESS.getCode());
+                        }
+                    }
+                }
+            }
+        }
+
+        for (QuestionVO vo : voList) {
+            Integer status = statusMap.getOrDefault(vo.getQuestionId(), UserQuestionStatusEnum.UNTOUCHED.getCode());
+            vo.setUserStatus(status);
+            vo.setPassStatus(status);
+            vo.setTags(resolveQuestionTags(vo));
+        }
+    }
+
+    // 单题装配题目标签与当前用户做题状态
+    private void populateSingleUserStatusAndTags(QuestionVO vo) {
+        if (vo == null) {
+            return;
+        }
+        vo.setTags(resolveQuestionTags(vo));
+        Long userId = getCurrentUserId();
+        if (userId == null || vo.getQuestionId() == null) {
+            vo.setUserStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());
+            vo.setPassStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());
+            return;
+        }
+        List<TbUserSubmit> submits = userSubmitMapper.selectList(
+                new LambdaQueryWrapper<TbUserSubmit>()
+                        .select(TbUserSubmit::getPass)
+                        .eq(TbUserSubmit::getUserId, userId)
+                        .eq(TbUserSubmit::getQuestionId, vo.getQuestionId())
+        );
+        Integer status = UserQuestionStatusEnum.UNTOUCHED.getCode();
+        if (CollUtil.isNotEmpty(submits)) {
+            boolean anyPass = submits.stream().anyMatch(s -> Integer.valueOf(SUBMIT_PASS).equals(s.getPass()));
+            status = anyPass ? UserQuestionStatusEnum.SOLVED.getCode() : UserQuestionStatusEnum.IN_PROGRESS.getCode();
+        }
+        vo.setUserStatus(status);
+        vo.setPassStatus(status);
+    }
+
+    // 启发式解析题目特征算法分类标签
+    private List<String> resolveQuestionTags(QuestionVO vo) {
+        if (vo == null) {
+            return Collections.emptyList();
+        }
+        String title = StrUtil.nullToEmpty(vo.getTitle());
+        String content = StrUtil.nullToEmpty(vo.getContent());
+        String combined = title + " " + content;
+
+        List<String> tags = new ArrayList<>();
+        if (title.contains("两数之和") || (combined.contains("目标值") && combined.contains("数组下标"))) {
+            tags.add("数组");
+            tags.add("哈希表");
+        } else if (title.contains("括号") || combined.contains("有效括号")) {
+            tags.add("栈");
+            tags.add("字符串");
+        } else if (title.contains("回文") || combined.contains("回文数") || combined.contains("回文字符串")) {
+            tags.add("数学");
+            tags.add("双指针");
+        } else {
+            if (combined.contains("链表")) {
+                tags.add("链表");
+            }
+            if (combined.contains("二叉树") || combined.contains("树节点")) {
+                tags.add("树");
+            }
+            if (combined.contains("动态规划") || combined.contains("最优子结构")) {
+                tags.add("动态规划");
+            }
+            if (combined.contains("二分查找") || combined.contains("有序数组")) {
+                tags.add("二分查找");
+            }
+            if (combined.contains("贪心")) {
+                tags.add("贪心");
+            }
+            if (combined.contains("图") || combined.contains("拓扑排序")) {
+                tags.add("图论");
+            }
+        }
+
+        if (tags.isEmpty()) {
+            if (Integer.valueOf(1).equals(vo.getDifficulty())) {
+                tags.add("基础算法");
+            } else if (Integer.valueOf(2).equals(vo.getDifficulty())) {
+                tags.add("进阶算法");
+            } else if (Integer.valueOf(3).equals(vo.getDifficulty())) {
+                tags.add("高阶挑战");
+            } else {
+                tags.add("算法精选");
+            }
+        }
+        return tags;
+    }
+}

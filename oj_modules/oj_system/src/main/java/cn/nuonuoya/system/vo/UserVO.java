@@ -50,6 +50,10 @@ public class UserVO {
     @Schema(description = "微信号")
     private String wechat;
 
+    // QQ号
+    @Schema(description = "QQ号")
+    private String qq;
+
     // 学校
     @Schema(description = "学校")
     private String schoolName;

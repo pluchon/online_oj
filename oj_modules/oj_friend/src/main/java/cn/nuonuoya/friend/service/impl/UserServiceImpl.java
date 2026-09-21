@@ -1,41 +1,67 @@
 package cn.nuonuoya.friend.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.common.constants.CacheConstants;
+import cn.nuonuoya.common.constants.HttpConstants;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.common.enums.UserIdentity;
+import cn.nuonuoya.common.utils.ThreadLocalUtil;
 import cn.nuonuoya.friend.cache.UserCacheManager;
+import cn.nuonuoya.friend.converter.UserConverter;
+import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.domain.TbUser;
+import cn.nuonuoya.friend.domain.TbUserExam;
+import cn.nuonuoya.friend.domain.TbUserSubmit;
+import cn.nuonuoya.friend.dto.UserCalendarQueryDTO;
 import cn.nuonuoya.friend.dto.UserLoginDTO;
+import cn.nuonuoya.friend.dto.UserOverviewQueryDTO;
+import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
 import cn.nuonuoya.friend.dto.UserSendCodeDTO;
+import cn.nuonuoya.friend.enums.TimeRangeEnum;
+import cn.nuonuoya.friend.mapper.QuestionMapper;
+import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserMapper;
+import cn.nuonuoya.friend.mapper.UserSubmitMapper;
+import cn.nuonuoya.friend.service.OssService;
 import cn.nuonuoya.friend.service.UserService;
+import cn.nuonuoya.friend.vo.UserAbilityRadarVO;
+import cn.nuonuoya.friend.vo.UserCalendarItemVO;
+import cn.nuonuoya.friend.vo.UserCalendarVO;
+import cn.nuonuoya.friend.vo.UserOverviewVO;
+import cn.nuonuoya.friend.vo.UserVO;
 import cn.nuonuoya.message.sms.config.SmsProperties;
 import cn.nuonuoya.message.sms.service.SmsService;
 import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.service.TokenService;
-import cn.nuonuoya.common.constants.HttpConstants;
-import cn.nuonuoya.common.utils.ThreadLocalUtil;
-import cn.nuonuoya.friend.converter.UserConverter;
-import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
-import cn.nuonuoya.friend.service.OssService;
-import cn.nuonuoya.friend.vo.UserVO;
-import org.springframework.web.multipart.MultipartFile;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 // C端用户业务实现类
@@ -45,6 +71,15 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private UserSubmitMapper userSubmitMapper;
+
+    @Autowired
+    private QuestionMapper questionMapper;
+
+    @Autowired
+    private UserExamMapper userExamMapper;
 
     @Autowired
     private SmsService smsService;
@@ -237,6 +272,7 @@ public class UserServiceImpl implements UserService {
         updateEntity.setSex(updateDTO.getSex());
         updateEntity.setEmail(updateDTO.getEmail() != null ? updateDTO.getEmail().trim() : "");
         updateEntity.setWechat(updateDTO.getWechat() != null ? updateDTO.getWechat().trim() : "");
+        updateEntity.setQq(updateDTO.getQq() != null ? updateDTO.getQq().trim() : "");
         updateEntity.setSchoolName(updateDTO.getSchoolName() != null ? updateDTO.getSchoolName().trim() : "");
         updateEntity.setMajorName(updateDTO.getMajorName() != null ? updateDTO.getMajorName().trim() : "");
         updateEntity.setIntroduce(updateDTO.getIntroduce() != null ? updateDTO.getIntroduce().trim() : "");
@@ -334,4 +370,232 @@ public class UserServiceImpl implements UserService {
         }
         return null;
     }
+
+    // 获取当前登录用户数据总览统计（支持时间范围筛选）
+    @Override
+    public OJResult<UserOverviewVO> getUserOverview(UserOverviewQueryDTO queryDTO) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+        }
+
+        // 1. 解析时间范围起点
+        String rangeCode = queryDTO != null ? queryDTO.getTimeRange() : "all";
+        TimeRangeEnum rangeEnum = TimeRangeEnum.of(rangeCode);
+        LocalDateTime startTime = null;
+        LocalDateTime now = LocalDateTime.now();
+
+        switch (rangeEnum) {
+            case WEEK -> startTime = now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).with(LocalTime.MIN);
+            case MONTH -> startTime = now.minusMonths(1);
+            case YEAR -> startTime = now.minusYears(1);
+            case ALL -> startTime = null;
+        }
+
+        // 2. 查询用户在时间范围内的代码提交记录
+        LambdaQueryWrapper<TbUserSubmit> submitWrapper = new LambdaQueryWrapper<TbUserSubmit>()
+                .eq(TbUserSubmit::getUserId, userId);
+        if (startTime != null) {
+            submitWrapper.ge(TbUserSubmit::getCreateTime, startTime);
+        }
+        List<TbUserSubmit> submits = userSubmitMapper.selectList(submitWrapper);
+
+        UserOverviewVO overviewVO = new UserOverviewVO();
+        if (CollUtil.isEmpty(submits)) {
+            overviewVO.setSolvedCount(0);
+            overviewVO.setTryingCount(0);
+            overviewVO.setSubmitCount(0);
+            overviewVO.setPassRate("0%");
+            UserAbilityRadarVO emptyRadar = new UserAbilityRadarVO();
+            emptyRadar.setDataStructure(0);
+            emptyRadar.setAlgorithm(0);
+            emptyRadar.setImplementation(0);
+            emptyRadar.setMath(0);
+            emptyRadar.setCompetition(0);
+            overviewVO.setRadarScores(emptyRadar);
+            overviewVO.setAbilityRadar(emptyRadar);
+            return OJResult.ok(overviewVO);
+        }
+
+        // 3. 统计提交与解题概况
+        int submitCount = submits.size();
+        long passSubmits = submits.stream().filter(s -> Integer.valueOf(1).equals(s.getPass())).count();
+        String passRate = Math.round((double) passSubmits * 100.0 / submitCount) + "%";
+
+        Set<Long> solvedQuestionIds = new HashSet<>();
+        Set<Long> attemptedQuestionIds = new HashSet<>();
+        for (TbUserSubmit submit : submits) {
+            Long qId = submit.getQuestionId();
+            if (qId != null) {
+                attemptedQuestionIds.add(qId);
+                if (Integer.valueOf(1).equals(submit.getPass())) {
+                    solvedQuestionIds.add(qId);
+                }
+            }
+        }
+        int solvedCount = solvedQuestionIds.size();
+        int tryingCount = Math.max(0, attemptedQuestionIds.size() - solvedCount);
+
+        overviewVO.setSolvedCount(solvedCount);
+        overviewVO.setTryingCount(tryingCount);
+        overviewVO.setSubmitCount(submitCount);
+        overviewVO.setPassRate(passRate);
+
+        // 4. 计算学员五维能力模型雷达图得分
+        UserAbilityRadarVO radarVO = calculateAbilityRadar(userId, startTime, submits, solvedQuestionIds, passSubmits);
+        overviewVO.setRadarScores(radarVO);
+        overviewVO.setAbilityRadar(radarVO);
+
+        return OJResult.ok(overviewVO);
+    }
+
+    // 评估学员五维能力模型雷达图得分（分值 0~100）
+    private UserAbilityRadarVO calculateAbilityRadar(Long userId, LocalDateTime startTime, List<TbUserSubmit> submits, Set<Long> solvedQuestionIds, long passSubmits) {
+        UserAbilityRadarVO radar = new UserAbilityRadarVO();
+        int submitCount = submits.size();
+        int solvedCount = solvedQuestionIds.size();
+        double passRatio = submitCount > 0 ? (double) passSubmits / submitCount : 0.0;
+
+        // 批量获取通过题目的详情以解析题目分类与难度
+        List<TbQuestion> solvedQuestions = CollUtil.isNotEmpty(solvedQuestionIds)
+                ? questionMapper.selectBatchIds(solvedQuestionIds)
+                : Collections.emptyList();
+
+        int dsCount = 0;
+        int algoCount = 0;
+        int mathCount = 0;
+        int mediumCount = 0;
+        int hardCount = 0;
+
+        for (TbQuestion q : solvedQuestions) {
+            String title = StrUtil.nullToEmpty(q.getTitle());
+            String content = StrUtil.nullToEmpty(q.getContent());
+            String text = title + " " + content;
+
+            // 数据结构特征识别：数组、哈希表、栈、队列、链表、树、二叉树、图、堆等
+            if (text.contains("数组") || text.contains("哈希") || text.contains("栈")
+                    || text.contains("队列") || text.contains("链表") || text.contains("树")
+                    || text.contains("图") || text.contains("堆") || text.contains("二叉")) {
+                dsCount++;
+            }
+
+            // 算法思维特征识别：动态规划、dp、贪心、回溯、二分、搜索、双指针、递归、排序等
+            if (text.contains("动态规划") || text.contains("贪心") || text.contains("回溯")
+                    || text.contains("二分") || text.contains("双指针") || text.contains("递归")
+                    || text.contains("深度优先") || text.contains("广度优先") || text.contains("滑动窗口")) {
+                algoCount++;
+            }
+
+            // 数学逻辑特征识别：数学、位运算、质数、公约数、矩阵、几何、概率、异或等
+            if (text.contains("数学") || text.contains("位运算") || text.contains("质数")
+                    || text.contains("进制") || text.contains("异或") || text.contains("倍数")
+                    || text.contains("整除") || text.contains("几何")) {
+                mathCount++;
+            }
+
+            // 难度统计
+            if (Integer.valueOf(2).equals(q.getDifficulty())) {
+                mediumCount++;
+            } else if (Integer.valueOf(3).equals(q.getDifficulty())) {
+                hardCount++;
+            }
+        }
+
+        // 1. 数据结构能力评分 (0~100)
+        int dsScore = 20 + Math.min(30, solvedCount * 5) + Math.min(35, dsCount * 8) + (int) (passRatio * 15);
+        radar.setDataStructure(Math.min(100, Math.max(0, dsScore)));
+
+        // 2. 算法思维能力评分 (0~100)
+        int algoScore = 20 + Math.min(30, algoCount * 8) + Math.min(30, mediumCount * 6 + hardCount * 12) + Math.min(20, solvedCount * 3);
+        radar.setAlgorithm(Math.min(100, Math.max(0, algoScore)));
+
+        // 3. 工程实现能力评分 (0~100)
+        int implScore = (int) (passRatio * 40) + Math.min(35, solvedCount * 5) + Math.min(25, submitCount * 2);
+        radar.setImplementation(Math.min(100, Math.max(0, implScore)));
+
+        // 4. 数学逻辑能力评分 (0~100)
+        int mathScore = 20 + Math.min(40, mathCount * 10) + (int) (passRatio * 20) + Math.min(20, solvedCount * 3);
+        radar.setMath(Math.min(100, Math.max(0, mathScore)));
+
+        // 5. 竞赛实战能力评分 (0~100)
+        LambdaQueryWrapper<TbUserExam> examWrapper = new LambdaQueryWrapper<TbUserExam>()
+                .eq(TbUserExam::getUserId, userId);
+        if (startTime != null) {
+            examWrapper.ge(TbUserExam::getCreateTime, startTime);
+        }
+        List<TbUserExam> userExams = userExamMapper.selectList(examWrapper);
+        int compScore;
+        if (CollUtil.isNotEmpty(userExams)) {
+            int examCount = userExams.size();
+            int maxExamScore = userExams.stream().mapToInt(e -> e.getScore() != null ? e.getScore() : 0).max().orElse(0);
+            compScore = 30 + Math.min(30, examCount * 15) + (int) (maxExamScore * 0.4);
+        } else {
+            long examSubmits = submits.stream().filter(s -> s.getExamId() != null).count();
+            if (examSubmits > 0) {
+                compScore = 25 + Math.min(35, (int) examSubmits * 8);
+            } else {
+                compScore = Math.min(40, 15 + solvedCount * 3);
+            }
+        }
+        radar.setCompetition(Math.min(100, Math.max(0, compScore)));
+
+        return radar;
+    }
+
+    // 获取当前登录用户解题日历按年份统计
+    @Override
+    public OJResult<UserCalendarVO> getUserCalendar(UserCalendarQueryDTO queryDTO) {
+        Long userId = getCurrentUserId();
+        if (userId == null) {
+            return OJResult.fail(ResultCode.FAILED_USER_NOT_EXISTS);
+        }
+
+        // 1. 确定目标年份，选填默认为当前自然年
+        int currentYear = LocalDate.now().getYear();
+        int targetYear = (queryDTO != null && queryDTO.getYear() != null && queryDTO.getYear() >= 2000 && queryDTO.getYear() <= 2100)
+                ? queryDTO.getYear()
+                : currentYear;
+
+        // 2. 计算目标自然年起止时间
+        LocalDateTime yearStart = LocalDateTime.of(targetYear, 1, 1, 0, 0, 0);
+        LocalDateTime yearEnd = LocalDateTime.of(targetYear, 12, 31, 23, 59, 59);
+
+        // 3. 统计该用户在目标自然年内的全部提交记录
+        LambdaQueryWrapper<TbUserSubmit> wrapper = new LambdaQueryWrapper<TbUserSubmit>()
+                .select(TbUserSubmit::getCreateTime)
+                .eq(TbUserSubmit::getUserId, userId)
+                .ge(TbUserSubmit::getCreateTime, yearStart)
+                .le(TbUserSubmit::getCreateTime, yearEnd);
+        List<TbUserSubmit> submits = userSubmitMapper.selectList(wrapper);
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        Map<String, Integer> dayCountMap = new HashMap<>();
+        if (CollUtil.isNotEmpty(submits)) {
+            for (TbUserSubmit submit : submits) {
+                if (submit.getCreateTime() != null) {
+                    String dateStr = submit.getCreateTime().format(formatter);
+                    dayCountMap.merge(dateStr, 1, Integer::sum);
+                }
+            }
+        }
+
+        // 4. 构建自然年内的连续每日打卡统计列表
+        LocalDate currDate = LocalDate.of(targetYear, 1, 1);
+        LocalDate lastDate = LocalDate.of(targetYear, 12, 31);
+        List<UserCalendarItemVO> calendarData = new ArrayList<>();
+        while (!currDate.isAfter(lastDate)) {
+            String dateStr = currDate.format(formatter);
+            calendarData.add(new UserCalendarItemVO(dateStr, dayCountMap.getOrDefault(dateStr, 0)));
+            currDate = currDate.plusDays(1);
+        }
+
+        UserCalendarVO calendarVO = new UserCalendarVO();
+        calendarVO.setYear(targetYear);
+        calendarVO.setTotalSubmissions(submits != null ? submits.size() : 0);
+        calendarVO.setCalendarData(calendarData);
+
+        return OJResult.ok(calendarVO);
+    }
 }
+
+

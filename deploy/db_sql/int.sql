@@ -101,6 +101,7 @@ CREATE TABLE `tb_user` (
     `phone` char(11) NOT NULL COMMENT '手机号',
     `email` varchar(50) DEFAULT NULL COMMENT '邮箱',
     `wechat` varchar(32) DEFAULT NULL COMMENT '微信号',
+    `qq` varchar(20) DEFAULT NULL COMMENT 'QQ号',
     `school_name` varchar(50) DEFAULT NULL COMMENT '学校',
     `major_name` varchar(50) DEFAULT NULL COMMENT '专业',
     `introduce` varchar(255) DEFAULT NULL COMMENT '个人介绍',

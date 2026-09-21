@@ -1,8 +1,11 @@
 package cn.nuonuoya.judge.service;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.api.judge.dto.JudgeCaseDTO;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
+import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.judge.pool.DockerContainerPool;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +17,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-// Docker 沙箱判题核心执行引擎服务（基于常驻容器池）
+// Docker 沙箱判题核心执行引擎服务（基于常驻容器池，单次 JVM 批量执行全部用例）
 @Slf4j
 @Service
 public class JudgeSandboxService {
@@ -45,25 +50,31 @@ public class JudgeSandboxService {
         Integer timeLimit = requestDTO.getTimeLimit() != null ? requestDTO.getTimeLimit() : 1000;
         Integer spaceLimit = requestDTO.getSpaceLimit() != null ? requestDTO.getSpaceLimit() : 128;
         Integer difficulty = requestDTO.getDifficulty();
+        List<JudgeCaseDTO> cases = requestDTO.getCases() != null ? requestDTO.getCases() : new ArrayList<>();
 
         JudgeResultVO resultVO = new JudgeResultVO();
         resultVO.setSubmitId(submitId);
-        resultVO.setTotalCount(1);
+        resultVO.setTotalCount(cases.size());
         resultVO.setPassCount(0);
         resultVO.setPass(0);
         resultVO.setScore(0);
         resultVO.setTimeCost(0L);
         resultVO.setMemoryCost(0L);
+        resultVO.setCaseResults(buildEmptyCaseResults(cases));
 
-        // 步骤 1：用户代码持久化落盘至 user-code/{userId}_{timestamp}/Solution.java
+        if (CollUtil.isEmpty(cases)) {
+            fillStatus(resultVO, JudgeStatusEnum.SE, "题目尚未配置测试用例");
+            return resultVO;
+        }
+
+        // 步骤 1：用户代码与用例输入持久化落盘至 user-code/{userId}_{timestamp}/
         File solutionFile;
         try {
             solutionFile = codeFileStorageService.saveSolutionFile(userId, submitId, requestDTO.getCompleteCode());
+            codeFileStorageService.saveInputFile(solutionFile.getParentFile(), buildStdin(cases));
         } catch (Exception e) {
             log.error("用户代码持久化保存失败, submitId: {}, error: {}", submitId, e.getMessage(), e);
-            resultVO.setStatus(JudgeStatusEnum.SE.getCode());
-            resultVO.setStatusDesc(JudgeStatusEnum.SE.getName());
-            resultVO.setExeMessage("系统错误：代码落盘失败");
+            fillStatus(resultVO, JudgeStatusEnum.SE, "系统错误：代码落盘失败");
             return resultVO;
         }
 
@@ -77,9 +88,7 @@ public class JudgeSandboxService {
             containerName = dockerContainerPool.borrowContainer(5000);
             if (containerName == null) {
                 log.warn("沙箱容器池暂无可用容器, submitId: {}", submitId);
-                resultVO.setStatus(JudgeStatusEnum.SE.getCode());
-                resultVO.setStatusDesc(JudgeStatusEnum.SE.getName());
-                resultVO.setExeMessage("系统繁忙：沙箱评测队列排队超时，请稍后重试");
+                fillStatus(resultVO, JudgeStatusEnum.SE, "系统繁忙：评测队列排队超时，请稍后重试");
                 return resultVO;
             }
 
@@ -93,22 +102,19 @@ public class JudgeSandboxService {
 
             if (compileResult.isTimeout()) {
                 shouldEvict = true;
-                resultVO.setStatus(JudgeStatusEnum.CE.getCode());
-                resultVO.setStatusDesc(JudgeStatusEnum.CE.getName());
-                resultVO.setExeMessage("编译错误 (Compile Error)：javac 编译超时（超过5秒）");
+                fillStatus(resultVO, JudgeStatusEnum.CE, "编译超时（超过 5 秒）");
                 return resultVO;
             }
 
             if (compileResult.getExitCode() != 0) {
-                resultVO.setStatus(JudgeStatusEnum.CE.getCode());
-                resultVO.setStatusDesc(JudgeStatusEnum.CE.getName());
-                resultVO.setExeMessage("编译错误 (Compile Error)：\n" + compileResult.getOutput());
+                fillStatus(resultVO, JudgeStatusEnum.CE, compileResult.getOutput());
                 return resultVO;
             }
 
-            // 步骤 4：第二阶段 - 在沙箱容器内执行 java 运行
+            // 步骤 4：第二阶段 - 在沙箱容器内执行 java 运行，全部用例经标准输入一次性喂入
             int runTimeoutMs = timeLimit + timeoutBufferMs;
-            String runCmd = String.format("java -Xmx%dm -Xss256k Solution", spaceLimit);
+            String runCmd = String.format("java -Xmx%dm -Xss256k Solution < %s",
+                    spaceLimit, CodeFileStorageService.INPUT_FILE_NAME);
 
             ProcessResult runResult = runDockerExecCommand(
                     containerName,
@@ -123,53 +129,42 @@ public class JudgeSandboxService {
             // 处理死循环超时（TLE）：必须淘汰并强杀该容器，防止后台死循环进程残留
             if (runResult.isTimeout()) {
                 shouldEvict = true;
-                resultVO.setStatus(JudgeStatusEnum.TLE.getCode());
-                resultVO.setStatusDesc(JudgeStatusEnum.TLE.getName());
-                resultVO.setExeMessage("运行超时 (Time Limit Exceeded)：程序执行时间超过限制 (" + timeLimit + " ms)");
+                fillStatus(resultVO, JudgeStatusEnum.TLE, "程序执行时间超过限制（" + timeLimit + " ms）");
                 return resultVO;
             }
 
+            // 步骤 5：逐行比对输出（每个用例对应一行）
+            List<String> outputLines = splitLines(runResult.getOutput());
+            boolean exitedNormally = runResult.getExitCode() == 0;
+            // 异常退出时只有连续匹配的前缀行视为用例输出，其后均为错误信息
+            int validLineCount = exitedNormally ? outputLines.size() : countLeadingMatches(cases, outputLines);
+            int passCount = compareCases(cases, outputLines.subList(0, validLineCount), resultVO);
+            resultVO.setPassCount(passCount);
+
             // 处理非零退出异常（RE 运行时异常 / MLE 内存溢出）
-            if (runResult.getExitCode() != 0) {
+            if (!exitedNormally) {
                 String output = runResult.getOutput();
                 if (output.contains("OutOfMemoryError")) {
                     shouldEvict = true;
-                    resultVO.setStatus(JudgeStatusEnum.MLE.getCode());
-                    resultVO.setStatusDesc(JudgeStatusEnum.MLE.getName());
-                    resultVO.setExeMessage("内存超限 (Memory Limit Exceeded)：程序占用内存超出限制 (" + spaceLimit + " MB)");
+                    fillStatus(resultVO, JudgeStatusEnum.MLE, "程序占用内存超出限制（" + spaceLimit + " MB）");
                 } else {
-                    resultVO.setStatus(JudgeStatusEnum.RE.getCode());
-                    resultVO.setStatusDesc(JudgeStatusEnum.RE.getName());
-                    resultVO.setExeMessage("运行异常 (Runtime Error)：\n" + output);
+                    fillStatus(resultVO, JudgeStatusEnum.RE, extractErrorOutput(outputLines, validLineCount));
                 }
                 return resultVO;
             }
 
-            // 步骤 5：对比输出结果并计算得分
-            String stdout = runResult.getOutput().trim();
-            if (stdout.contains("OK")) {
-                resultVO.setStatus(JudgeStatusEnum.AC.getCode());
-                resultVO.setStatusDesc(JudgeStatusEnum.AC.getName());
+            if (passCount == cases.size()) {
+                fillStatus(resultVO, JudgeStatusEnum.AC, null);
                 resultVO.setPass(1);
-                resultVO.setPassCount(1);
-                resultVO.setScore(calculateScore(difficulty, 1, 1));
-                resultVO.setExeMessage("运行通过 (Accepted) - 执行耗时: " + runResult.getDurationMs() + "ms");
             } else {
-                resultVO.setStatus(JudgeStatusEnum.WA.getCode());
-                resultVO.setStatusDesc(JudgeStatusEnum.WA.getName());
-                resultVO.setPass(0);
-                resultVO.setPassCount(0);
-                resultVO.setScore(0);
-                resultVO.setExeMessage("答案错误 (Wrong Answer)：\n" + stdout);
+                fillStatus(resultVO, JudgeStatusEnum.WA, null);
             }
-
+            resultVO.setScore(calculateScore(difficulty, passCount, cases.size()));
             return resultVO;
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            resultVO.setStatus(JudgeStatusEnum.SE.getCode());
-            resultVO.setStatusDesc(JudgeStatusEnum.SE.getName());
-            resultVO.setExeMessage("系统中断异常");
+            fillStatus(resultVO, JudgeStatusEnum.SE, "系统中断异常");
             return resultVO;
         } finally {
             // 归还或淘汰自愈
@@ -181,6 +176,91 @@ public class JudgeSandboxService {
                 }
             }
         }
+    }
+
+    // 填充判题状态与回显信息
+    private void fillStatus(JudgeResultVO resultVO, JudgeStatusEnum status, String exeMessage) {
+        resultVO.setStatus(status.getCode());
+        resultVO.setStatusDesc(status.getName());
+        resultVO.setExeMessage(exeMessage);
+    }
+
+    // 组装标准输入：首行用例数，其后依次为各用例输入
+    private String buildStdin(List<JudgeCaseDTO> cases) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(cases.size()).append('\n');
+        for (JudgeCaseDTO judgeCase : cases) {
+            String input = judgeCase.getInput() == null ? "" : judgeCase.getInput().replace("\r", "");
+            sb.append(input).append('\n');
+        }
+        return sb.toString();
+    }
+
+    // 初始化逐用例结果（默认未通过、无输出）
+    private List<JudgeCaseResultVO> buildEmptyCaseResults(List<JudgeCaseDTO> cases) {
+        List<JudgeCaseResultVO> caseResults = new ArrayList<>(cases.size());
+        for (JudgeCaseDTO judgeCase : cases) {
+            JudgeCaseResultVO caseResult = new JudgeCaseResultVO();
+            caseResult.setCaseId(judgeCase.getCaseId());
+            caseResult.setPass(false);
+            caseResults.add(caseResult);
+        }
+        return caseResults;
+    }
+
+    // 按行拆分程序输出并去除行尾空白
+    private List<String> splitLines(String output) {
+        List<String> lines = new ArrayList<>();
+        if (StrUtil.isEmpty(output)) {
+            return lines;
+        }
+        for (String line : output.replace("\r", "").split("\n", -1)) {
+            lines.add(StrUtil.trimEnd(line));
+        }
+        // 去掉末尾换行产生的空行
+        while (!lines.isEmpty() && lines.get(lines.size() - 1).isEmpty()) {
+            lines.remove(lines.size() - 1);
+        }
+        return lines;
+    }
+
+    // 统计从首行起连续与预期一致的输出行数
+    private int countLeadingMatches(List<JudgeCaseDTO> cases, List<String> outputLines) {
+        int count = 0;
+        while (count < cases.size() && count < outputLines.size()
+                && outputLines.get(count).trim().equals(StrUtil.trim(cases.get(count).getExpectedOutput()))) {
+            count++;
+        }
+        return count;
+    }
+
+    // 逐用例比对输出，回填逐用例结果与首个未通过用例，返回通过数
+    private int compareCases(List<JudgeCaseDTO> cases, List<String> outputLines, JudgeResultVO resultVO) {
+        int passCount = 0;
+        List<JudgeCaseResultVO> caseResults = resultVO.getCaseResults();
+        for (int i = 0; i < cases.size(); i++) {
+            String expected = StrUtil.trim(cases.get(i).getExpectedOutput());
+            String actual = i < outputLines.size() ? outputLines.get(i) : null;
+            boolean pass = actual != null && actual.trim().equals(expected);
+            JudgeCaseResultVO caseResult = caseResults.get(i);
+            caseResult.setActualOutput(actual);
+            caseResult.setPass(pass);
+            if (pass) {
+                passCount++;
+            } else if (resultVO.getFailCaseId() == null) {
+                resultVO.setFailCaseId(cases.get(i).getCaseId());
+                resultVO.setFailOutput(actual);
+            }
+        }
+        return passCount;
+    }
+
+    // 提取运行异常时的错误输出（跳过已通过用例的正常输出行）
+    private String extractErrorOutput(List<String> outputLines, int validLineCount) {
+        if (outputLines.size() <= validLineCount) {
+            return "程序异常退出";
+        }
+        return String.join("\n", outputLines.subList(validLineCount, outputLines.size()));
     }
 
     // 在常驻就绪容器内极速执行命令（避免重新启动容器）

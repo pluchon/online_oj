@@ -7,6 +7,10 @@ import cn.nuonuoya.friend.dto.UserLoginDTO;
 import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
 import cn.nuonuoya.friend.dto.UserSendCodeDTO;
 import cn.nuonuoya.friend.service.UserService;
+import cn.nuonuoya.friend.dto.UserCalendarQueryDTO;
+import cn.nuonuoya.friend.dto.UserOverviewQueryDTO;
+import cn.nuonuoya.friend.vo.UserCalendarVO;
+import cn.nuonuoya.friend.vo.UserOverviewVO;
 import cn.nuonuoya.friend.vo.UserVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -67,4 +71,19 @@ public class UserController extends BaseController {
     public OJResult<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
         return userService.uploadAvatar(file);
     }
+
+    /** 获取当前登录学员数据总览统计 */
+    @GetMapping({"/profile/overview", "/overview"})
+    @Operation(summary = "学员数据总览统计", description = "获取当前学员做题统计与五维能力模型雷达图数据，支持时间范围筛选")
+    public OJResult<UserOverviewVO> getUserOverview(@Validated UserOverviewQueryDTO queryDTO) {
+        return userService.getUserOverview(queryDTO);
+    }
+
+    /** 获取当前登录学员解题日历统计 */
+    @GetMapping("/profile/calendar")
+    @Operation(summary = "学员解题日历统计", description = "按年份查询当前学员在自然年内的每日提交次数列表")
+    public OJResult<UserCalendarVO> getUserCalendar(@Validated UserCalendarQueryDTO queryDTO) {
+        return userService.getUserCalendar(queryDTO);
+    }
 }
+

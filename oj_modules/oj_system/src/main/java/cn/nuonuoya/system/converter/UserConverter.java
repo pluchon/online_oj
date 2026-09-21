@@ -26,6 +26,7 @@ public class UserConverter {
         vo.setPhone(user.getPhone());
         vo.setEmail(user.getEmail());
         vo.setWechat(user.getWechat());
+        vo.setQq(user.getQq());
         vo.setSchoolName(user.getSchoolName());
         vo.setMajorName(user.getMajorName());
         vo.setIntroduce(user.getIntroduce());

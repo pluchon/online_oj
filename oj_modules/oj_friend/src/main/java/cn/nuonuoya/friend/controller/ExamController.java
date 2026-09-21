@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -69,16 +70,16 @@ public class ExamController extends BaseController {
     @CheckUserStatus
     @PostMapping("/enroll")
     @Operation(summary = "竞赛报名", description = "当前登录用户报名参加指定竞赛")
-    public OJResult<Void> enroll(@Validated ExamEnrollDTO enrollDTO) {
+    public OJResult<Void> enroll(@RequestBody @Validated ExamEnrollDTO enrollDTO) {
         examService.enroll(enrollDTO);
         return OJResult.ok();
     }
 
     /** 分页查询我的竞赛列表 */
     @GetMapping("/my/list")
-    @Operation(summary = "我的竞赛列表", description = "分页查询当前登录用户报名的竞赛列表")
-    public TableDataResult<UserExamVO> myExamList(PageQuery pageQuery) {
-        List<UserExamVO> list = examService.getMyExamList(pageQuery);
+    @Operation(summary = "我的竞赛列表", description = "分页查询当前登录用户报名的竞赛列表，支持类型、名称与时间区间筛选")
+    public TableDataResult<UserExamVO> myExamList(@Validated ExamQueryDTO queryDTO) {
+        List<UserExamVO> list = examService.getMyExamList(queryDTO);
         return getTableData(list);
     }
 
@@ -87,14 +88,6 @@ public class ExamController extends BaseController {
     @Operation(summary = "竞赛排名列表", description = "分页查询指定竞赛的选手得分与排名榜单")
     public TableDataResult<ExamRankVO> rankList(@RequestParam("examId") Long examId, PageQuery pageQuery) {
         return examService.getExamRankList(examId, pageQuery);
-    }
-
-    /** 获取当前登录用户在指定竞赛中的成绩与排名 */
-    @GetMapping("/rank/my")
-    @Operation(summary = "我的竞赛成绩", description = "获取当前登录用户在指定竞赛中的得分、排名与提交统计")
-    public OJResult<ExamRankVO> myRank(@RequestParam("examId") Long examId) {
-        ExamRankVO myRank = examService.getMyExamRank(examId);
-        return OJResult.ok(myRank);
     }
 
     /** 结算指定竞赛排名并发送战报通知 */

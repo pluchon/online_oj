@@ -5,11 +5,16 @@ import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.aspect.CheckUserStatus;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
+import cn.nuonuoya.friend.dto.QuestionRunDTO;
+import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
 import cn.nuonuoya.friend.dto.UserSubmitDTO;
 import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.service.UserSubmitService;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
+import cn.nuonuoya.friend.vo.QuestionRunResultVO;
+import cn.nuonuoya.friend.vo.QuestionStatsVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
+import cn.nuonuoya.friend.vo.SubmitHistoryVO;
 import cn.nuonuoya.friend.vo.UserSubmitResultVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,6 +57,14 @@ public class QuestionController extends BaseController {
         return OJResult.ok(vo);
     }
 
+    /** 获取题库做题统计信息 */
+    @GetMapping("/stats")
+    @Operation(summary = "题目统计信息", description = "获取题库总题数及当前用户的已攻克、尝试中题目统计")
+    public OJResult<QuestionStatsVO> stats() {
+        QuestionStatsVO vo = questionService.getStats();
+        return OJResult.ok(vo);
+    }
+
     /** 手动同步MySQL题目至ES索引 */
     @PostMapping("/sync")
     @Operation(summary = "同步题目至ES", description = "手动触发将MySQL题目全量写入ES索引")
@@ -85,6 +98,22 @@ public class QuestionController extends BaseController {
     public OJResult<UserSubmitResultVO> submit(@RequestBody @Validated UserSubmitDTO submitDTO) {
         UserSubmitResultVO vo = userSubmitService.submit(submitDTO);
         return OJResult.ok(vo);
+    }
+
+    /** 运行公开示例用例 */
+    @CheckUserStatus
+    @PostMapping("/run")
+    @Operation(summary = "运行示例用例", description = "同步执行题目公开示例，不落库、不计分")
+    public OJResult<QuestionRunResultVO> run(@RequestBody @Validated QuestionRunDTO runDTO) {
+        QuestionRunResultVO vo = userSubmitService.run(runDTO);
+        return OJResult.ok(vo);
+    }
+
+    /** 分页查询本人本题提交记录 */
+    @GetMapping("/submit/history")
+    @Operation(summary = "本题提交记录", description = "按提交时间倒序分页返回当前用户本题的提交记录")
+    public TableDataResult<SubmitHistoryVO> submitHistory(@Validated SubmitHistoryQueryDTO queryDTO) {
+        return userSubmitService.listHistory(queryDTO);
     }
 
     /** 查询用户代码评测结果 */

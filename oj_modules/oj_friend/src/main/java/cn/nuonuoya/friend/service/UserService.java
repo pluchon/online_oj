@@ -4,6 +4,10 @@ import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.friend.dto.UserLoginDTO;
 import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
 import cn.nuonuoya.friend.dto.UserSendCodeDTO;
+import cn.nuonuoya.friend.dto.UserCalendarQueryDTO;
+import cn.nuonuoya.friend.dto.UserOverviewQueryDTO;
+import cn.nuonuoya.friend.vo.UserCalendarVO;
+import cn.nuonuoya.friend.vo.UserOverviewVO;
 import cn.nuonuoya.friend.vo.UserVO;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -24,4 +28,12 @@ public interface UserService {
 
     // 上传当前登录用户头像至OSS并更新资料
     OJResult<String> uploadAvatar(MultipartFile file);
+
+    // 获取当前登录用户数据总览统计（支持时间范围筛选）
+    OJResult<UserOverviewVO> getUserOverview(UserOverviewQueryDTO queryDTO);
+
+    // 获取当前登录用户解题日历按年份统计
+    OJResult<UserCalendarVO> getUserCalendar(UserCalendarQueryDTO queryDTO);
 }
+
+

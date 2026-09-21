@@ -37,6 +37,9 @@ public class TbUser extends BaseEntity {
     // 微信号
     private String wechat;
 
+    // QQ号
+    private String qq;
+
     // 学校
     private String schoolName;
 

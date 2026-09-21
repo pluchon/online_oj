@@ -54,6 +54,9 @@ public class CacheConstants {
     // 题目顺序列表缓存键（q:l）
     public final static String QUESTION_LIST_KEY = "q:l";
 
+    // 运行示例用例限流键前缀（q:run:limit:{userId}）
+    public final static String QUESTION_RUN_LIMIT_KEY = "q:run:limit:";
+
     // 竞赛题目顺序列表缓存键前缀（exam:q:l:{examId}）
     public final static String EXAM_QUESTION_LIST_KEY = "exam:q:l:";
 

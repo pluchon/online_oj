@@ -38,7 +38,14 @@ public enum ResultCode {
     FAILED_EXAM_IS_PUBLISHED (3207, "已发布的竞赛不允许直接删除，请先撤销发布"),
     FAILED_EXAM_IS_FINISHED (3208, "竞赛已结束，不允许操作"),
     FAILED_USER_EXAM_EXISTS (3209, "您已报名该竞赛，请勿重复报名"),
-    FAILED_EXAM_STARTED_OR_FINISHED (3210, "竞赛已开赛或已结束，无法报名");
+    FAILED_EXAM_STARTED_OR_FINISHED (3210, "竞赛已开赛或已结束，无法报名"),
+    FAILED_EXAM_NOT_ENROLLED (3211, "您未报名该竞赛"),
+    FAILED_EXAM_NOT_STARTED (3212, "竞赛尚未开始"),
+    FAILED_EXAM_QUESTION_NOT_IN (3213, "该题目不属于此竞赛"),
+    FAILED_EXAM_RANK_NOT_PUBLISHED (3214, "竞赛结束后公布排名"),
+
+    // 判题相关
+    FAILED_QUESTION_NO_CASE (3301, "题目尚未配置测试用例");
 
     private final int code;
     private final String msg;

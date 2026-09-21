@@ -3,6 +3,7 @@ package cn.nuonuoya.friend.service;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
+import cn.nuonuoya.friend.vo.QuestionStatsVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
 
 // 题目业务服务接口
@@ -13,6 +14,9 @@ public interface QuestionService {
 
     // 查询题目详情
     QuestionVO getDetail(Long questionId);
+
+    // 获取题库总题数与当前学员解题统计信息
+    QuestionStatsVO getStats();
 
     // 全量同步MySQL题目数据至ES索引
     int syncAllQuestionsToEs();

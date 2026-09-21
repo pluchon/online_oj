@@ -6,6 +6,7 @@ import lombok.ToString;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.util.List;
 
 // 判题服务执行结果响应值对象
 @Getter
@@ -43,6 +44,15 @@ public class JudgeResultVO implements Serializable {
     // 实际内存占用（MB）
     private Long memoryCost;
 
-    // 执行回显详细信息
+    // 执行回显详细信息（编译错误、运行异常等原始输出）
     private String exeMessage;
+
+    // 首个未通过用例ID
+    private Long failCaseId;
+
+    // 首个未通过用例的实际输出
+    private String failOutput;
+
+    // 逐用例执行结果（与请求用例顺序一致）
+    private List<JudgeCaseResultVO> caseResults;
 }

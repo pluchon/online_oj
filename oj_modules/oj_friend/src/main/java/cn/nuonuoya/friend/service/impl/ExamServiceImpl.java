@@ -11,6 +11,7 @@ import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.cache.UserCacheManager;
 import cn.nuonuoya.friend.converter.ExamConverter;
 import cn.nuonuoya.friend.domain.TbExam;
+import cn.nuonuoya.friend.domain.TbExamQuestion;
 import cn.nuonuoya.friend.domain.TbMessage;
 import cn.nuonuoya.friend.domain.TbMessageText;
 import cn.nuonuoya.friend.domain.TbUserExam;
@@ -18,6 +19,7 @@ import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.ExamEnrollDTO;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.mapper.ExamMapper;
+import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
 import cn.nuonuoya.friend.mapper.MessageMapper;
 import cn.nuonuoya.friend.mapper.MessageTextMapper;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
@@ -41,6 +43,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,6 +80,9 @@ public class ExamServiceImpl implements ExamService {
     private UserSubmitMapper userSubmitMapper;
 
     @Autowired
+    private ExamQuestionMapper examQuestionMapper;
+
+    @Autowired
     private UserCacheManager userCacheManager;
 
     @Autowired
@@ -94,18 +100,20 @@ public class ExamServiceImpl implements ExamService {
     // 分页查询竞赛列表实现
     @Override
     public List<ExamVO> list(ExamQueryDTO queryDTO) {
-        int targetType = queryDTO.getType() != null && queryDTO.getType() == TYPE_HISTORY ? TYPE_HISTORY : TYPE_UNFINISH;
-
-        // 若无附加搜索条件，走 Redis 缓存快速通道
-        boolean hasFilter = StringUtils.hasText(queryDTO.getTitle())
+        Integer queryType = queryDTO.getType();
+        boolean hasExtraFilter = StringUtils.hasText(queryDTO.getTitle())
                 || StringUtils.hasText(queryDTO.getStartTime())
                 || StringUtils.hasText(queryDTO.getEndTime());
 
-        if (!hasFilter) {
-            return examCacheManager.getExamList(targetType, queryDTO.getPageNum(), queryDTO.getPageSize());
+        // type 有值且无附加过滤条件时，走 Redis 缓存快速通道
+        if (queryType != null && !hasExtraFilter) {
+            int targetType = queryType == TYPE_HISTORY ? TYPE_HISTORY : TYPE_UNFINISH;
+            List<ExamVO> voList = examCacheManager.getExamList(targetType, queryDTO.getPageNum(), queryDTO.getPageSize());
+            populateExamCountFields(voList);
+            return voList;
         }
 
-        // 带有标题或时间区间检索时走数据库查询
+        // type=null（全部竞赛）或带附加过滤条件时走数据库查询
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
 
         LambdaQueryWrapper<TbExam> wrapper = new LambdaQueryWrapper<>();
@@ -116,27 +124,34 @@ public class ExamServiceImpl implements ExamService {
             wrapper.like(TbExam::getTitle, queryDTO.getTitle().trim());
         }
 
-        // 时间区间筛选
+        // 时间区间按开赛时间过滤（前端约定：start_time >= startTime AND start_time <= endTime）
         if (StringUtils.hasText(queryDTO.getStartTime())) {
             wrapper.ge(TbExam::getStartTime, queryDTO.getStartTime());
         }
         if (StringUtils.hasText(queryDTO.getEndTime())) {
-            wrapper.le(TbExam::getEndTime, queryDTO.getEndTime());
+            wrapper.le(TbExam::getStartTime, queryDTO.getEndTime());
         }
 
+        // 完赛状态过滤：null=全部，0=未完赛，1=历史竞赛
         LocalDateTime now = LocalDateTime.now();
-        if (targetType == TYPE_UNFINISH) {
-            wrapper.gt(TbExam::getEndTime, now);
-            wrapper.orderByAsc(TbExam::getStartTime);
+        if (queryType != null) {
+            if (queryType == TYPE_UNFINISH) {
+                wrapper.gt(TbExam::getEndTime, now);
+                wrapper.orderByAsc(TbExam::getStartTime);
+            } else {
+                wrapper.le(TbExam::getEndTime, now);
+                wrapper.orderByDesc(TbExam::getEndTime);
+            }
         } else {
-            wrapper.le(TbExam::getEndTime, now);
-            wrapper.orderByDesc(TbExam::getEndTime);
+            // 全部竞赛按开赛时间倒序
+            wrapper.orderByDesc(TbExam::getStartTime);
         }
 
         List<TbExam> examList = examMapper.selectList(wrapper);
         List<ExamVO> voList = ExamConverter.toVOList(examList);
         Long currentUserId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
         examCacheManager.populateIsEnter(voList, currentUserId);
+        populateExamCountFields(voList);
         return voList;
     }
 
@@ -195,14 +210,88 @@ public class ExamServiceImpl implements ExamService {
 
     // 分页查询当前用户已报名的竞赛列表
     @Override
-    public List<UserExamVO> getMyExamList(PageQuery pageQuery) {
+    public List<UserExamVO> getMyExamList(ExamQueryDTO queryDTO) {
         Long userId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
-        int pageNum = pageQuery != null && pageQuery.getPageNum() != null ? pageQuery.getPageNum() : 1;
-        int pageSize = pageQuery != null && pageQuery.getPageSize() != null ? pageQuery.getPageSize() : 10;
-        return examCacheManager.getMyExamList(userId, pageNum, pageSize);
+        int pageNum = queryDTO != null && queryDTO.getPageNum() != null ? queryDTO.getPageNum() : 1;
+        int pageSize = queryDTO != null ? queryDTO.getPageSize() : 8;
+
+        // 无过滤条件时走 Redis 缓存快速通道
+        boolean hasFilter = queryDTO != null && (
+                queryDTO.getType() != null
+                || StringUtils.hasText(queryDTO.getTitle())
+                || StringUtils.hasText(queryDTO.getStartTime())
+                || StringUtils.hasText(queryDTO.getEndTime()));
+        if (!hasFilter) {
+            List<UserExamVO> cachedList = examCacheManager.getMyExamList(userId, pageNum, pageSize);
+            populateUserExamCountFields(cachedList);
+            return cachedList;
+        }
+
+        // 带过滤条件时走 DB 查询
+        // 1. 获取该用户报名的所有竞赛ID
+        List<TbUserExam> allUserExams = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
+                .select(TbUserExam::getExamId)
+                .eq(TbUserExam::getUserId, userId));
+        if (CollUtil.isEmpty(allUserExams)) {
+            return Collections.emptyList();
+        }
+        List<Long> enrolledExamIds = allUserExams.stream().map(TbUserExam::getExamId).collect(Collectors.toList());
+
+        // 2. 带过滤条件分页查询竞赛信息
+        PageHelper.startPage(pageNum, pageSize);
+        LambdaQueryWrapper<TbExam> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TbExam::getStatus, STATUS_PUBLISHED);
+        wrapper.in(TbExam::getExamId, enrolledExamIds);
+
+        if (StringUtils.hasText(queryDTO.getTitle())) {
+            wrapper.like(TbExam::getTitle, queryDTO.getTitle().trim());
+        }
+        // 时间区间按开赛时间过滤
+        if (StringUtils.hasText(queryDTO.getStartTime())) {
+            wrapper.ge(TbExam::getStartTime, queryDTO.getStartTime());
+        }
+        if (StringUtils.hasText(queryDTO.getEndTime())) {
+            wrapper.le(TbExam::getStartTime, queryDTO.getEndTime());
+        }
+
+        // 完赛状态过滤
+        LocalDateTime now = LocalDateTime.now();
+        if (queryDTO.getType() != null) {
+            if (queryDTO.getType() == TYPE_UNFINISH) {
+                wrapper.gt(TbExam::getEndTime, now);
+                wrapper.orderByAsc(TbExam::getStartTime);
+            } else {
+                wrapper.le(TbExam::getEndTime, now);
+                wrapper.orderByDesc(TbExam::getEndTime);
+            }
+        } else {
+            wrapper.orderByDesc(TbExam::getStartTime);
+        }
+
+        List<TbExam> examList = examMapper.selectList(wrapper);
+        if (CollUtil.isEmpty(examList)) {
+            return Collections.emptyList();
+        }
+
+        // 3. 批量获取用户竞赛得分与排名记录
+        List<Long> pageExamIds = examList.stream().map(TbExam::getExamId).collect(Collectors.toList());
+        List<TbUserExam> records = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
+                .eq(TbUserExam::getUserId, userId)
+                .in(TbUserExam::getExamId, pageExamIds));
+        Map<Long, TbUserExam> recordMap = CollUtil.isNotEmpty(records)
+                ? records.stream().collect(Collectors.toMap(TbUserExam::getExamId, u -> u, (k1, k2) -> k1))
+                : Collections.emptyMap();
+
+        List<UserExamVO> voList = new ArrayList<>();
+        for (TbExam exam : examList) {
+            TbUserExam ue = recordMap.get(exam.getExamId());
+            voList.add(ExamConverter.toUserExamVO(exam, ue));
+        }
+        populateUserExamCountFields(voList);
+        return voList;
     }
 
     // 获取指定竞赛详情
@@ -235,6 +324,15 @@ public class ExamServiceImpl implements ExamService {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
 
+        // 排名在竞赛结束后才公布
+        TbExam exam = examMapper.selectById(examId);
+        if (exam == null) {
+            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
+        }
+        if (exam.getEndTime() == null || LocalDateTime.now().isBefore(exam.getEndTime())) {
+            throw new ServiceException(ResultCode.FAILED_EXAM_RANK_NOT_PUBLISHED);
+        }
+
         List<ExamRankVO> fullRankList = getOrCalculateFullRankList(examId);
         if (CollUtil.isEmpty(fullRankList)) {
             return TableDataResult.empty();
@@ -260,40 +358,6 @@ public class ExamServiceImpl implements ExamService {
         }
 
         return TableDataResult.success(pageList, total);
-    }
-
-    // 获取当前登录用户在指定竞赛中的成绩与排名
-    @Override
-    public ExamRankVO getMyExamRank(Long examId) {
-        if (examId == null) {
-            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
-        }
-        Long currentUserId = ThreadLocalUtil.get(HttpConstants.USER_ID, Long.class);
-        if (currentUserId == null) {
-            return null;
-        }
-
-        List<ExamRankVO> fullRankList = getOrCalculateFullRankList(examId);
-        if (CollUtil.isEmpty(fullRankList)) {
-            return null;
-        }
-
-        for (ExamRankVO vo : fullRankList) {
-            if (Objects.equals(vo.getUserId(), currentUserId)) {
-                ExamRankVO myVO = new ExamRankVO();
-                myVO.setExamRank(vo.getExamRank());
-                myVO.setUserId(vo.getUserId());
-                myVO.setNickName(vo.getNickName());
-                myVO.setHeadImage(vo.getHeadImage());
-                myVO.setScore(vo.getScore());
-                myVO.setAcceptCount(vo.getAcceptCount());
-                myVO.setSubmitCount(vo.getSubmitCount());
-                myVO.setLastSubmitTime(vo.getLastSubmitTime());
-                myVO.setIsCurrentUser(true);
-                return myVO;
-            }
-        }
-        return null;
     }
 
     // 结算指定竞赛排名并发送战报通知
@@ -342,6 +406,81 @@ public class ExamServiceImpl implements ExamService {
         }
 
         log.info("竞赛 {} 结算战报通知发送完成", examId);
+    }
+
+    // 批量装配竞赛列表的参赛人数与题目数量，避免 N+1
+    private void populateExamCountFields(List<ExamVO> voList) {
+        if (CollUtil.isEmpty(voList)) {
+            return;
+        }
+        List<Long> examIds = voList.stream().map(ExamVO::getExamId).collect(Collectors.toList());
+
+        // 批量统计参赛人数：按 examId 分组 count tb_user_exam
+        List<TbUserExam> userExamRecords = userExamMapper.selectList(
+                new LambdaQueryWrapper<TbUserExam>()
+                        .select(TbUserExam::getExamId)
+                        .in(TbUserExam::getExamId, examIds));
+        Map<Long, Integer> enterCountMap = new HashMap<>();
+        if (CollUtil.isNotEmpty(userExamRecords)) {
+            userExamRecords.stream()
+                    .collect(Collectors.groupingBy(TbUserExam::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
+                    .forEach(enterCountMap::put);
+        }
+
+        // 批量统计题目数量：按 examId 分组 count tb_exam_question
+        List<TbExamQuestion> examQuestions = examQuestionMapper.selectList(
+                new LambdaQueryWrapper<TbExamQuestion>()
+                        .select(TbExamQuestion::getExamId)
+                        .in(TbExamQuestion::getExamId, examIds));
+        Map<Long, Integer> questionCountMap = new HashMap<>();
+        if (CollUtil.isNotEmpty(examQuestions)) {
+            examQuestions.stream()
+                    .collect(Collectors.groupingBy(TbExamQuestion::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
+                    .forEach(questionCountMap::put);
+        }
+
+        // 将统计结果装配到 VO
+        for (ExamVO vo : voList) {
+            vo.setEnterCount(enterCountMap.getOrDefault(vo.getExamId(), 0));
+            vo.setQuestionCount(questionCountMap.getOrDefault(vo.getExamId(), 0));
+        }
+    }
+
+    // 批量装配我的竞赛列表的参赛人数与题目数量，避免 N+1
+    private void populateUserExamCountFields(List<UserExamVO> voList) {
+        if (CollUtil.isEmpty(voList)) {
+            return;
+        }
+        List<Long> examIds = voList.stream().map(UserExamVO::getExamId).collect(Collectors.toList());
+
+        // 批量统计参赛人数
+        List<TbUserExam> userExamRecords = userExamMapper.selectList(
+                new LambdaQueryWrapper<TbUserExam>()
+                        .select(TbUserExam::getExamId)
+                        .in(TbUserExam::getExamId, examIds));
+        Map<Long, Integer> enterCountMap = new HashMap<>();
+        if (CollUtil.isNotEmpty(userExamRecords)) {
+            userExamRecords.stream()
+                    .collect(Collectors.groupingBy(TbUserExam::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
+                    .forEach(enterCountMap::put);
+        }
+
+        // 批量统计题目数量
+        List<TbExamQuestion> examQuestions = examQuestionMapper.selectList(
+                new LambdaQueryWrapper<TbExamQuestion>()
+                        .select(TbExamQuestion::getExamId)
+                        .in(TbExamQuestion::getExamId, examIds));
+        Map<Long, Integer> questionCountMap = new HashMap<>();
+        if (CollUtil.isNotEmpty(examQuestions)) {
+            examQuestions.stream()
+                    .collect(Collectors.groupingBy(TbExamQuestion::getExamId, Collectors.collectingAndThen(Collectors.counting(), Long::intValue)))
+                    .forEach(questionCountMap::put);
+        }
+
+        for (UserExamVO vo : voList) {
+            vo.setEnterCount(enterCountMap.getOrDefault(vo.getExamId(), 0));
+            vo.setQuestionCount(questionCountMap.getOrDefault(vo.getExamId(), 0));
+        }
     }
 
     // 获取或实时计算完整排名列表（优先走 Redis 缓存）

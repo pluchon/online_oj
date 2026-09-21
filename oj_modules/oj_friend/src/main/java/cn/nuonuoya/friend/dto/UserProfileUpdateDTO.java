@@ -42,6 +42,11 @@ public class UserProfileUpdateDTO {
     @Size(max = 50, message = "微信号不能超过50个字符")
     private String wechat;
 
+    // QQ号
+    @Schema(description = "QQ号")
+    @Size(max = 20, message = "QQ号不能超过20个字符")
+    private String qq;
+
     // 学校名称
     @Schema(description = "学校名称")
     @Size(max = 100, message = "学校名称不能超过100个字符")

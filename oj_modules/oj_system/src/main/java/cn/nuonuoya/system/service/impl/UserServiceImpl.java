@@ -32,6 +32,12 @@ public class UserServiceImpl implements UserService {
     // 分页多条件查询用户列表实现
     @Override
     public List<UserVO> list(UserDTO queryDTO) {
+        if (queryDTO == null) {
+            queryDTO = new UserDTO();
+        }
+        if (queryDTO.getNickName() != null) {
+            queryDTO.setNickName(queryDTO.getNickName().trim());
+        }
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<TbUser> list = userMapper.selectUserList(queryDTO);
         return UserConverter.toVOList(list);

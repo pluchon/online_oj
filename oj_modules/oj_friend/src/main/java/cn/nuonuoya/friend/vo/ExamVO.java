@@ -52,4 +52,12 @@ public class ExamVO {
     // 当前登录用户是否已报名该竞赛
     @Schema(description = "当前登录用户是否已报名该竞赛")
     private Boolean isEnter;
+
+    // 参赛人数
+    @Schema(description = "参赛人数")
+    private Integer enterCount;
+
+    // 题目数量（未配置时前端默认显示4道）
+    @Schema(description = "题目数量")
+    private Integer questionCount;
 }

@@ -26,16 +26,13 @@ public interface ExamService {
     void enroll(ExamEnrollDTO enrollDTO);
 
     // 分页查询当前用户已报名的竞赛列表
-    List<UserExamVO> getMyExamList(PageQuery pageQuery);
+    List<UserExamVO> getMyExamList(ExamQueryDTO queryDTO);
 
     // 获取指定竞赛详情
     ExamVO getExamDetail(Long examId);
 
     // 分页查询竞赛选手得分与排名榜单
     TableDataResult<ExamRankVO> getExamRankList(Long examId, PageQuery pageQuery);
-
-    // 获取当前登录用户在指定竞赛中的成绩与排名
-    ExamRankVO getMyExamRank(Long examId);
 
     // 结算指定竞赛排名并发送战报通知
     void settleExamRank(Long examId);

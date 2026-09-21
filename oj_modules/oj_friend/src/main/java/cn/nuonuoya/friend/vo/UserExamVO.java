@@ -57,4 +57,12 @@ public class UserExamVO {
     // 是否已报名（在我的竞赛中恒为true）
     @Schema(description = "是否已报名")
     private Boolean isEnter = true;
+
+    // 参赛人数
+    @Schema(description = "参赛人数")
+    private Integer enterCount;
+
+    // 题目数量（未配置时前端默认显示4道）
+    @Schema(description = "题目数量")
+    private Integer questionCount;
 }
