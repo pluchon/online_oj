@@ -19,6 +19,9 @@ public interface UserService {
     // 用户短信验证码登录与注册
     String login(UserLoginDTO loginDTO);
 
+    // 当前用户退出登录（销毁服务端会话）
+    void logout();
+
     // 获取当前登录用户个人资料
     UserVO getUserProfile();
 

@@ -236,7 +236,7 @@ mvn clean install -DskipTests
 通过统一网关（`http://127.0.0.1:19090`）访问各微服务，主要功能路由如下：
 
 ### 1. C端用户与竞赛接口 (`/friend/**`)
-* `POST /friend/user/send-code`、`POST /friend/user/login`：短信验证码登录（新用户自动注册）
+* `POST /friend/user/send-code`、`POST /friend/user/login`、`DELETE /friend/user/logout`：短信验证码登录（新用户自动注册）与退出登录
 * `GET|PUT /friend/user/profile`、`POST /friend/user/avatar`：个人资料与头像
 * `GET  /friend/user/profile/overview`、`GET /friend/user/profile/calendar`：做题统计、能力雷达与解题日历
 * `GET  /friend/question`：题库分页检索（关键字、难度）

@@ -228,6 +228,12 @@ public class UserServiceImpl implements UserService {
         return tokenService.createToken(user.getUserId(), loginUser);
     }
 
+    // 当前用户退出登录（销毁服务端会话）
+    @Override
+    public void logout() {
+        tokenService.deleteLoginUserByKey(SecurityUtils.getUserKey());
+    }
+
     // 获取当前登录用户个人资料
     @Override
     public UserVO getUserProfile() {

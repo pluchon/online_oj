@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -48,6 +49,14 @@ public class UserController extends BaseController {
     @Operation(summary = "用户短信登录/注册", description = "通过手机号与短信验证码登录，新用户自动注册")
     public OJResult<String> login(@Validated @RequestBody UserLoginDTO loginDTO) {
         return OJResult.ok(userService.login(loginDTO));
+    }
+
+    /** 当前用户退出登录 */
+    @DeleteMapping("/logout")
+    @Operation(summary = "退出登录", description = "销毁当前用户会话")
+    public OJResult<Void> logout() {
+        userService.logout();
+        return OJResult.ok();
     }
 
     /** 获取当前登录用户个人资料 */
