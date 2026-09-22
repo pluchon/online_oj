@@ -14,7 +14,9 @@ services:
     command: ["--default-time-zone=+08:00", "--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     volumes:
       - oj_mysql_data:/var/lib/mysql
-      - ./db_sql:/docker-entrypoint-initdb.d:ro
+      # 首次创建数据卷时按文件名顺序执行：业务库与 XXL-JOB 库，再是 Nacos 配置库
+      - ./db_sql/oj_init.sql:/docker-entrypoint-initdb.d/01_oj_init.sql:ro
+      - ./nacos/nacos_v3_init.sql:/docker-entrypoint-initdb.d/02_nacos_v3_init.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-123456789}"]
       interval: 5s

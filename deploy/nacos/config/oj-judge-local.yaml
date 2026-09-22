@@ -1,0 +1,44 @@
+# Data ID: oj-judge-local.yaml  Group: DEFAULT_GROUP  格式: YAML
+# 密钥一律引用 OJ_ 前缀的环境变量，不要把真实值提交到仓库
+server:
+  port: 9204
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3308/bitoj_dev?useUnicode=true&characterEncoding=utf8&useSSL=true&serverTimezone=GMT%2B8
+    username: ${OJ_MYSQL_USERNAME:root}
+    password: ${OJ_MYSQL_PASSWORD:123456789}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 30000
+      connection-timeout: 30000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${OJ_REDIS_PASSWORD:123456}
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: ${OJ_RABBITMQ_USERNAME:admin}
+    password: ${OJ_RABBITMQ_PASSWORD:123456}
+    virtual-host: /
+    listener:
+      simple:
+        acknowledge-mode: auto
+        concurrency: 1
+        max-concurrency: 3
+        prefetch: 1
+
+jwt:
+  secret: ${OJ_JWT_SECRET}
+
+oj:
+  judge:
+    code-dir: ./user-code
+    docker:
+      image: maven:3.9-eclipse-temurin-17-alpine
+      pool-size: 3
+      timeout-buffer-ms: 500
+      max-output-length: 8192

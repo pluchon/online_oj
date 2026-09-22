@@ -1,5 +1,5 @@
 -- Nacos 3.2.4 配置库初始化（取自 nacos 3.2.4 官方 mysql-schema.sql）
--- 用法：新环境首次部署前执行一次；已有 2.x 配置库时再执行 migrate_2x_to_v3.sql 迁移配置
+-- 用法：docker compose 首次创建 MySQL 数据卷时自动执行（在业务库脚本之后）；也可手动执行，已存在的表不会重建
 SET NAMES utf8mb4;
 CREATE DATABASE IF NOT EXISTS bitoj_nacos_v3 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE bitoj_nacos_v3;

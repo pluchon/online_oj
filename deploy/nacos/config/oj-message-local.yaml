@@ -1,0 +1,13 @@
+# Data ID: oj-message-local.yaml  Group: DEFAULT_GROUP  格式: YAML
+# 密钥一律引用 OJ_ 前缀的环境变量，不要把真实值提交到仓库
+sms:
+  access-key-id: ${OJ_SMS_ACCESS_KEY_ID:}
+  access-key-secret: ${OJ_SMS_ACCESS_KEY_SECRET:}
+  sign-name: "速通互联验证码"
+  template-code: 100001
+  endpoint: dypnsapi.aliyuncs.com
+  expire-min: 5
+  interval-seconds: 60
+  max-daily-count: 10
+  # false 为模拟发码：不调用短信服务，验证码输出到 oj-friend 控制台，便于本地调试
+  is-confirm: false

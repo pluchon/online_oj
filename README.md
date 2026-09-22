@@ -8,7 +8,7 @@
 
 **墨衡 OJ** 是一套微服务架构的在线判题平台：C 端提供题库检索、在线编码运行与提交、竞赛报名与排名、站内消息；B 端提供题目与测试用例管理、竞赛编排、用户管控。
 
-判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，提供 B 端 AI 辅助出题、C 端 AI 做题辅导、题目语义检索与相似题推荐、用户资料内容审核，设计见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
+判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，提供 B 端 AI 辅助出题与 AI 帮建竞赛、C 端 AI 做题辅导、题目语义检索与相似题推荐、用户资料内容审核，设计见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
 
 ---
 
@@ -93,8 +93,9 @@ online_oj/
 ├── deploy/                          # 本地编排与初始化脚本
 │   ├── docker-compose.yml           # MySQL、Redis、Nacos、RabbitMQ、ES、Kibana、XXL-JOB Admin
 │   ├── .env.example                 # compose 所需密钥模板（复制为 .env，不入库）
-│   ├── db_sql/                      # 业务库基线与增量脚本（MySQL 容器首次启动按文件名顺序执行）
-│   ├── nacos_sql/                   # Nacos 3.x 配置库初始化与 2.x 配置迁移脚本
+│   ├── db_sql/oj_init.sql           # 业务库表结构 + 测试数据 + XXL-JOB 库（MySQL 首次启动自动执行，可重复执行）
+│   ├── nacos/nacos_v3_init.sql      # Nacos 3.x 配置库表结构（在业务库脚本之后自动执行）
+│   ├── nacos/config/                # 各服务的 Nacos 配置模板（密钥引用 OJ_ 环境变量，不含真实值）
 │   ├── docs/                        # 模型价格等参考资料
 │   └── dev/                         # ES（IK 插件与自定义词典）、Kibana 配置
 ├── oj_api/                          # 跨服务契约：内部接口、DTO / VO、MQ 常量、契约枚举
@@ -142,7 +143,12 @@ online_oj/
 - 题目向量随索引同步生成，文本未变化的题目复用已有向量；friend 启动后会在后台同步一次。
 - 索引为空时自动从数据库全量同步；后台改题后同步并清掉已删除的题目；ES 不可用时直接查 MySQL，搜索不中断。
 
-### 5. 身份透传与用户状态拦截
+### 5. AI 能力（oj_ai，只计算不写库）
+- B 端：AI 出题（题面草稿）、AI 生成用例（模型只出输入，预期输出由解法在判题沙箱实跑得到）、AI 解法示例；AI 帮建竞赛：模型理解描述 → friend 向量 + 关键词混合检索候选 → 模型按难度配比挑题 → system 校验、补齐并由易到难回填表单。
+- C 端：做题辅导对话（SSE 流式、每日次数、竞赛中禁用、只给思路不给完整代码）、语义检索与相似题推荐、昵称 / 个人介绍 / 头像同步审核（审核服务不可用时放行）。
+- 模型调用失败时 oj_ai 返回非 2xx，调用方在本地 client 转换为明确的业务错误码，不伪造结果。
+
+### 6. 身份透传与用户状态拦截
 - 网关校验令牌后，先移除外部传入的身份头，再写入 `userId` / `userKey` 传给下游，防止伪造身份。
 - 下游经拦截器放入 `ThreadLocal`，业务只从上下文取身份，不信任前端传入的用户 ID。
 - 提交代码、报名竞赛等受保护操作标注 `@CheckUserStatus`，由切面统一拦截被拉黑用户。
@@ -170,7 +176,7 @@ online_oj/
 | 认证 | JJWT + Redis 会话 | 0.9.1 |
 | 接口文档 | springdoc-openapi | 2.8.17 |
 | 工具 | Hutool / Fastjson2 / Lombok | 5.8.22 / 2.0.43 / 随 Boot |
-| AI（阶段 3） | Spring AI Alibaba（通义百炼） | 1.1.2.3（BOM 已引入） |
+| AI | Spring AI Alibaba（通义百炼：qwen3.7-max / qwen3.7-flash / text-embedding-v4） | 1.1.2.3 |
 
 ---
 
@@ -187,7 +193,8 @@ docker compose up -d
 ```
 
 > [!NOTE]
-> - 首次部署先在 MySQL 中执行 `deploy/nacos_sql/nacos_v3_init.sql` 创建 Nacos 配置库 `bitoj_nacos_v3`；从 2.x 配置库 `bitoj_nacos_local` 升级时再执行 `migrate_2x_to_v3.sql`，并把网关路由移到 `spring.cloud.gateway.server.webflux.routes` 下。
+> - MySQL 数据卷首次创建时自动执行 `db_sql/oj_init.sql`（业务库 `bitoj_dev`、测试数据、调度库 `xxl_job`）和 `nacos/nacos_v3_init.sql`（Nacos 配置库 `bitoj_nacos_v3`）；已有数据卷不会重复执行，需要时手动执行，脚本可重复执行且不覆盖已有数据。
+> - 测试数据：15 道题（简单 6 / 中等 5 / 困难 4，用例的预期输出由参考解实跑得到）、5 场竞赛（时间以初始化时刻为基准：已结算、已结束待结算、进行中、未开始、未发布各一场）、8 个用户、提交记录与站内消息。管理端账号 `admin / 123456`，用户端手机号 `13800000001` ~ `13800000007`（`13800000008` 为拉黑账号），XXL-JOB 调度中心 `admin / 123456`。
 > - IK 分词插件需与 ES 同版本（8.18.8），放在 `deploy/dev/elasticSearch/es-plugins/ik`；jar 包不入库，从 INFINI Labs 发布页下载后解压到该目录，保留其中的 `config/` 词典。
 > - compose 与各服务读取的环境变量都带 `OJ_` 前缀，避免与本机其他项目的 `NACOS_*` 变量冲突。
 
@@ -200,13 +207,13 @@ docker compose up -d
 | Nacos | `127.0.0.1:8848` / `9848` | 控制台 `http://127.0.0.1:18848`，首次打开设置管理员密码；命名空间 `8f599ee1-85ee-45b3-8435-1522e90fb2e0` |
 | RabbitMQ | `127.0.0.1:5672` | 控制台 `http://127.0.0.1:15672` |
 | Elasticsearch | `127.0.0.1:9200` | Kibana `http://127.0.0.1:15601` |
-| XXL-JOB Admin | `http://127.0.0.1:18080/xxl-job-admin` | 需登记执行器与任务 `examRankSettlementHandler` |
+| XXL-JOB Admin | `http://127.0.0.1:18080/xxl-job-admin` | 初始化脚本已登记执行器 `oj-job-executor` 与两个任务（刷新竞赛列表、结算排名） |
 
 各组件账号密码见 `docker-compose.yml` 与 `deploy/.env`。
 
 ### 4. 配置说明
 - 各服务的 `application.yml` 只保留启动必需项：应用名、profile、Nacos 地址与命名空间（`OJ_NACOS_SERVER_ADDR`、`OJ_NACOS_NAMESPACE`，未设置时用本地默认值）以及 `spring.config.import`。
-- 其余配置（数据库、Redis、MQ、ES、JWT 密钥、OSS、短信、网关路由与白名单、判题参数等）都在 Nacos：
+- 其余配置（数据库、Redis、MQ、ES、JWT 密钥、OSS、短信、网关路由与白名单、判题参数等）都在 Nacos，模板在 `deploy/nacos/config/`：在 Nacos 控制台新建 ID 为 `8f599ee1-85ee-45b3-8435-1522e90fb2e0` 的命名空间（或自建后设置 `OJ_NACOS_NAMESPACE`），按文件名创建同名 Data ID（Group `DEFAULT_GROUP`，格式 YAML）并粘贴内容：
 
 | Data ID | 使用方 |
 | :--- | :--- |
@@ -216,6 +223,19 @@ docker compose up -d
 | `oj-judge-local.yaml` | judge |
 | `oj-ai-local.yaml` | ai（百炼 API Key、模型名、超时；Key 本地可引用环境变量 `OJ_DASHSCOPE_API_KEY`） |
 | `oj-job-local.yaml` | job |
+
+- 模板中的密钥都引用环境变量，服务启动前在系统或 IDEA 运行配置里设置（数据库、Redis、RabbitMQ 未设置时使用 compose 中的本地默认值）：
+
+| 环境变量 | 用途 | 是否必填 |
+| :--- | :--- | :--- |
+| `OJ_JWT_SECRET` | JWT 签名密钥（所有服务一致） | 必填 |
+| `OJ_DASHSCOPE_API_KEY` | 通义百炼 API Key（未设置时读 `DASHSCOPE_API_KEY`） | 使用 AI 功能时必填 |
+| `OJ_MYSQL_USERNAME` / `OJ_MYSQL_PASSWORD` | 业务库账号 | 默认 `root` / `123456789` |
+| `OJ_REDIS_PASSWORD` | Redis 密码 | 默认 `123456` |
+| `OJ_RABBITMQ_USERNAME` / `OJ_RABBITMQ_PASSWORD` | RabbitMQ 账号 | 默认 `admin` / `123456` |
+| `OJ_XXL_JOB_ACCESS_TOKEN` | 与调度中心一致的 accessToken | 默认 `default_token` |
+| `OJ_OSS_ACCESS_KEY_ID` / `OJ_OSS_ACCESS_KEY_SECRET` / `OJ_OSS_BUCKET_NAME` / `OJ_OSS_URL_PREFIX` | 头像上传（阿里云 OSS） | 上传头像时必填 |
+| `OJ_SMS_ACCESS_KEY_ID` / `OJ_SMS_ACCESS_KEY_SECRET` | 真实发送短信 | 关闭模拟发码时必填 |
 
 - 本地短信为模拟发码（`oj-message-local.yaml` 中 `sms.is-confirm: false`）：不发短信，friend 日志输出 `[模拟发码] ... 验证码: xxxxxx`，真实发码模式不输出验证码。
 - Nacos 连不上时服务启动失败；Data ID 不存在时只告警，表现为缺配置启动失败，排查时先看 Nacos 服务端 `config-client-request.log` 里的命名空间。
@@ -272,7 +292,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 ### 2. B端管理系统接口 (`/system/**`)
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
 * `POST /system/sysUser`、`DELETE /system/sysUser/{userId}`：新增、删除管理员
-* `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理
+* `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理（详情也用于管理端题目预览）
 * `POST /system/question/ai/draft`、`POST /system/question/ai/cases`、`POST /system/question/ai/solution`：AI 出题、AI 生成用例、AI 解法示例（用例的预期输出由解法在沙箱实跑得到；未传标程时先由 AI 生成解法；均不落库）
 * `POST /system/exam/ai/plan`：AI 帮建竞赛（按描述、难度倾向与题目数量生成竞赛名称和题目，不落库）
 * `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
@@ -282,7 +302,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
-* `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`：system 调用 AI 生成题面草稿与用例输入
+* `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`、`POST /ai/internal/question/solution`：system 调用 AI 生成题面草稿、用例输入与解法
 * `POST /ai/internal/tutor/chat`：friend 以 WebClient 流式调用 AI 辅导（Feign 不支持流式，路径常量在 `AiInternalPaths`）
 * `POST /ai/internal/exam/intent`、`POST /ai/internal/exam/select`：system AI 帮建竞赛时理解需求、从候选中挑题
 * `POST /ai/internal/embedding`：friend 计算题目与查询词向量
@@ -320,7 +340,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 | 0 代码优化 | 规范排查与重构 | 已完成 |
 | 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成，待联调验收 |
 | 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 计划中 |
-| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、做题辅导、语义检索与相似题推荐、资料审核 | 已完成，待联调验收 |
+| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、AI 帮建竞赛、做题辅导、语义检索与相似题推荐、资料审核 | 已完成 |
 | 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界 | 计划中 |
 
 ---

@@ -1,0 +1,37 @@
+# Data ID: oj-ai-local.yaml  Group: DEFAULT_GROUP  格式: YAML
+# 密钥一律引用 OJ_ 前缀的环境变量，不要把真实值提交到仓库
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${OJ_REDIS_PASSWORD:123456}
+  ai:
+    dashscope:
+      # 通义百炼 API Key：优先 OJ_DASHSCOPE_API_KEY，其次 DASHSCOPE_API_KEY
+      api-key: ${OJ_DASHSCOPE_API_KEY:${DASHSCOPE_API_KEY:}}
+    model:
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      embedding:
+        multimodal: none
+      rerank: none
+      video: none
+    retry:
+      max-attempts: 2
+  http:
+    client:
+      connect-timeout: 5s
+      read-timeout: 90s
+
+jwt:
+  secret: ${OJ_JWT_SECRET}
+
+# 模型与参数（未配置的项使用 AiProperties 中的默认值）
+oj:
+  ai:
+    question-model: qwen3.7-max
+    draft-temperature: 0.7
+    case-temperature: 0.8

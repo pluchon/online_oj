@@ -1,0 +1,48 @@
+# Data ID: oj-gateway-local.yaml  Group: DEFAULT_GROUP  格式: YAML
+# 密钥一律引用 OJ_ 前缀的环境变量，不要把真实值提交到仓库
+server:
+  port: 19090
+
+jwt:
+  secret: ${OJ_JWT_SECRET}
+
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${OJ_REDIS_PASSWORD:123456}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: oj-system
+              uri: lb://oj-system
+              predicates:
+                - Path=/system/**
+              filters:
+                - StripPrefix=1
+            - id: oj-friend
+              uri: lb://oj-friend
+              predicates:
+                - Path=/friend/**
+              filters:
+                - StripPrefix=1
+
+# 免登录路径（其余路径需要令牌；/**/internal/** 由网关统一拒绝）
+security:
+  ignore:
+    whites:
+      - /system/**/login
+      - /friend/**/login
+      - /friend/**/send-code
+      - /**/v3/api-docs/**
+      - /**/doc.html
+      - /**/swagger-resources/**
+      - /**/webjars/**
+      - /friend/exam
+      - /friend/exam/*
+      - /friend/question
+      - /friend/question/*
+      - /friend/question/*/neighbors

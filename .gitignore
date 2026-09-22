@@ -50,5 +50,8 @@ test-output/
 user-code/
 oj_modules/oj_judge/user-code/
 
+### 运行日志 ###
+logs/
+
 ### 部署密钥 ###
 deploy/.env
