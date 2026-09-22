@@ -265,13 +265,13 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息（支持 type 类型、keyword 关键词筛选）与未读数
 * `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
 * `GET  /friend/ai/tutor/{questionId}`：AI 辅导会话（历史消息、今日剩余次数、快捷操作所需的提交状态）
-* `POST /friend/ai/tutor/{questionId}/chat`：AI 辅导提问，SSE 流式返回（`delta` / `done` / `error`）；每人每天 30 次，参加中的竞赛包含本题时拒绝
+* `POST /friend/ai/tutor/{questionId}/chat`：AI 辅导提问，SSE 流式返回（`delta` / `done` / `error`）；每人每天 30 次，在进行中的竞赛里答题（携带 examId）时拒绝
 
 ### 2. B端管理系统接口 (`/system/**`)
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
 * `POST /system/sysUser`、`DELETE /system/sysUser/{userId}`：新增、删除管理员
 * `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理
-* `POST /system/question/ai/draft`、`POST /system/question/ai/cases`：AI 生成题面草稿、AI 生成用例（预期输出由标程在沙箱实跑，均不落库）
+* `POST /system/question/ai/draft`、`POST /system/question/ai/cases`、`POST /system/question/ai/solution`：AI 出题、AI 生成用例、AI 解法示例（用例的预期输出由解法在沙箱实跑得到；未传标程时先由 AI 生成解法；均不落库）
 * `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排

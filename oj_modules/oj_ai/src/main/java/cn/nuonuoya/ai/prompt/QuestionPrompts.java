@@ -44,15 +44,33 @@ public final class QuestionPrompts {
             - 不要计算、不要输出预期结果；不要与已有用例重复。
             """;
 
+    // 解法示例的系统提示
+    public static final String SOLUTION_SYSTEM = """
+            你是在线判题平台的出题助手，为给定题目写一份常见、清晰、正确的 Java 解法。
+            """ + JUDGE_CONVENTION + """
+            【要求】
+            - code：只实现给定的方法签名（方法名、参数、返回值必须一致），需要时可以附加私有辅助方法；不要写类、不要写 import、不要写 main。
+            - 采用大多数人会用的主流解法，时间复杂度满足题目数据范围；关键步骤加简短中文注释。
+            """;
+
+    // 用例数量未指定时的说明
+    private static final String AUTO_COUNT_HINT = "按题目复杂度自行决定组数，2 到 5 组";
+
     // 题面草稿的用户提示
     public static String draftUser(String description) {
         return "题目描述：" + description;
     }
 
+    // 解法示例的用户提示
+    public static String solutionUser(String title, String content, String defaultCode) {
+        return "【标题】" + title + "\n\n【题目描述】\n" + content + "\n\n【方法签名】\n" + defaultCode;
+    }
+
     // 用例输入的用户提示
     public static String caseUser(String title, String content, String defaultCode, String mainFunc,
-                                  int count, String existingInputs) {
-        return "请生成 " + count + " 组测试用例输入。\n\n"
+                                  Integer count, String existingInputs) {
+        String countText = count == null ? AUTO_COUNT_HINT : count + " 组";
+        return "请生成测试用例输入（" + countText + "）。\n\n"
                 + "【标题】" + title + "\n\n"
                 + "【题目描述】\n" + content + "\n\n"
                 + "【方法签名】\n" + defaultCode + "\n\n"

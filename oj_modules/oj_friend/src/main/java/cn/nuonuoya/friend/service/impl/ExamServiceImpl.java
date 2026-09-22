@@ -53,7 +53,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -614,27 +613,15 @@ public class ExamServiceImpl implements ExamService {
         TransactionUtils.afterCommit(() -> rankList.forEach(vo -> messageCacheManager.incrementUnreadCount(vo.getUserId())));
     }
 
-    // 用户已报名且正在进行的竞赛中是否包含该题（不依赖前端是否携带竞赛ID）
+    // 竞赛是否已发布且正在进行
     @Override
-    public boolean isQuestionInOngoingExam(Long userId, Long questionId) {
-        Set<Long> enrolledExamIds = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
-                        .select(TbUserExam::getExamId)
-                        .eq(TbUserExam::getUserId, userId))
-                .stream().map(TbUserExam::getExamId).collect(Collectors.toSet());
-        if (enrolledExamIds.isEmpty()) {
-            return false;
-        }
-        List<Long> examIds = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
-                        .select(TbExamQuestion::getExamId)
-                        .eq(TbExamQuestion::getQuestionId, questionId)
-                        .in(TbExamQuestion::getExamId, enrolledExamIds))
-                .stream().map(TbExamQuestion::getExamId).toList();
-        if (CollUtil.isEmpty(examIds)) {
+    public boolean isExamOngoing(Long examId) {
+        if (examId == null) {
             return false;
         }
         LocalDateTime now = LocalDateTime.now();
         return examMapper.selectCount(new LambdaQueryWrapper<TbExam>()
-                .in(TbExam::getExamId, examIds)
+                .eq(TbExam::getExamId, examId)
                 .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
                 .le(TbExam::getStartTime, now)
                 .ge(TbExam::getEndTime, now)) > 0;

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -31,8 +32,9 @@ public class AiTutorController extends BaseController {
     /** 查询本题的辅导会话与剩余次数 */
     @GetMapping("/{questionId}")
     @Operation(summary = "辅导会话", description = "历史消息、今日剩余次数与快捷操作所需的提交状态")
-    public OJResult<AiTutorSessionVO> session(@PathVariable("questionId") Long questionId) {
-        return OJResult.ok(aiTutorService.getSession(questionId));
+    public OJResult<AiTutorSessionVO> session(@PathVariable("questionId") Long questionId,
+                                              @RequestParam(value = "examId", required = false) Long examId) {
+        return OJResult.ok(aiTutorService.getSession(questionId, examId));
     }
 
     /** 提问并流式返回回复 */

@@ -2,8 +2,10 @@ package cn.nuonuoya.api.ai.api;
 
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
+import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
+import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -17,4 +19,8 @@ public interface AiInternalApi {
     // 根据题面与主函数生成测试用例输入，不含预期输出（调用方：oj-system，只读）
     @PostMapping("/ai/internal/question/case-inputs")
     AiCaseInputVO generateCaseInputs(@RequestBody AiCaseInputDTO caseInputDTO);
+
+    // 根据题面生成常见解法（用作解法示例，并作为生成用例时的标程；调用方：oj-system，只读）
+    @PostMapping("/ai/internal/question/solution")
+    AiSolutionVO generateSolution(@RequestBody AiSolutionDTO solutionDTO);
 }

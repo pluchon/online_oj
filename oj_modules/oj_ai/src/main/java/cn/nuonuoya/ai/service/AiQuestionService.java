@@ -2,8 +2,10 @@ package cn.nuonuoya.ai.service;
 
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
+import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
+import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 
 // 出题类 AI 能力
 public interface AiQuestionService {
@@ -13,4 +15,7 @@ public interface AiQuestionService {
 
     // 根据题面与主函数生成测试用例输入（不含预期输出）
     AiCaseInputVO generateCaseInputs(AiCaseInputDTO caseInputDTO);
+
+    // 根据题面生成常见解法
+    AiSolutionVO generateSolution(AiSolutionDTO solutionDTO);
 }

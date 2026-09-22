@@ -2,8 +2,10 @@ package cn.nuonuoya.system.client;
 
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
+import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
+import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
 import feign.FeignException;
@@ -29,6 +31,11 @@ public class AiClient {
     // 生成测试用例输入
     public AiCaseInputVO generateCaseInputs(AiCaseInputDTO caseInputDTO) {
         return call("用例输入", () -> aiFeignClient.generateCaseInputs(caseInputDTO));
+    }
+
+    // 生成解法示例
+    public AiSolutionVO generateSolution(AiSolutionDTO solutionDTO) {
+        return call("解法示例", () -> aiFeignClient.generateSolution(solutionDTO));
     }
 
     // 执行远程调用：参数错误返回参数校验失败，其余失败（含超时、服务不可用、空结果）返回 AI 服务繁忙

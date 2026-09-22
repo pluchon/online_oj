@@ -46,7 +46,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
 
-// AI 做题辅导实现：资格、次数、落库与转发在这里完成，上下文组装在转换器，竞赛判断在竞赛服务
+// AI 做题辅导实现：资格、次数、落库与转发在这里完成，上下文组装在转换器，竞赛判断在竞赛服务（只在竞赛中答题时禁用，普通练习不受影响）
 @Slf4j
 @Service
 public class AiTutorServiceImpl implements AiTutorService {
@@ -98,7 +98,7 @@ public class AiTutorServiceImpl implements AiTutorService {
 
     // 查询会话：历史消息、剩余次数与快捷操作所需的提交状态
     @Override
-    public AiTutorSessionVO getSession(Long questionId) {
+    public AiTutorSessionVO getSession(Long questionId, Long examId) {
         Long userId = requireUserId();
         requireQuestion(questionId);
 
@@ -111,7 +111,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         TbUserSubmit latest = latestFinishedSubmit(userId, questionId);
         vo.setLatestJudgeStatus(latest == null ? null : latest.getJudgeStatus());
         vo.setAccepted(latestAcceptedSubmit(userId, questionId) != null);
-        vo.setAvailable(!examService.isQuestionInOngoingExam(userId, questionId));
+        vo.setAvailable(!examService.isExamOngoing(examId));
         return vo;
     }
 
@@ -128,7 +128,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         if (action == AiTutorActionEnum.CHAT && content.isEmpty()) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE, "请输入问题");
         }
-        if (examService.isQuestionInOngoingExam(userId, questionId)) {
+        if (examService.isExamOngoing(askDTO.getExamId())) {
             throw new ServiceException(ResultCode.FAILED_AI_IN_EXAM);
         }
 

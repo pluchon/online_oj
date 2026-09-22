@@ -9,9 +9,11 @@ import cn.nuonuoya.ai.prompt.QuestionPrompts;
 import cn.nuonuoya.ai.service.AiQuestionService;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
+import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
+import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +34,12 @@ public class AiQuestionServiceImpl implements AiQuestionService {
 
     // 单组展示输入的最大长度
     private static final int MAX_DISPLAY_INPUT_LENGTH = 2000;
+
+    // 未指定数量时单次最多保留的用例组数
+    private static final int AUTO_CASE_LIMIT = 5;
+
+    // 解法示例使用的采样温度（偏向稳定的主流解法）
+    private static final double SOLUTION_TEMPERATURE = 0.2;
 
     // 空间限制的上限（判题容器内存为 256MB，需给 JVM 自身留余量）
     private static final int MAX_SPACE_LIMIT_MB = 200;
@@ -75,6 +83,7 @@ public class AiQuestionServiceImpl implements AiQuestionService {
                         caseInputDTO.getCount(), existingText),
                 aiProperties.getCaseTemperature(), AiCaseInputVO.class);
 
+        int limit = caseInputDTO.getCount() == null ? AUTO_CASE_LIMIT : caseInputDTO.getCount();
         Set<String> seen = new HashSet<>();
         existing.forEach(input -> seen.add(normalize(input)));
         List<AiCaseInputItemVO> accepted = new ArrayList<>();
@@ -91,13 +100,26 @@ public class AiQuestionServiceImpl implements AiQuestionService {
             item.setDisplayInput(item.getDisplayInput().trim());
             item.setIntent(StrUtil.trimToEmpty(item.getIntent()));
             accepted.add(item);
-            if (accepted.size() >= caseInputDTO.getCount()) {
+            if (accepted.size() >= limit) {
                 break;
             }
         }
         AiCaseInputVO result = new AiCaseInputVO();
         result.setCases(accepted);
         return result;
+    }
+
+    // 生成常见解法，缺少代码时视为失败
+    @Override
+    public AiSolutionVO generateSolution(AiSolutionDTO solutionDTO) {
+        AiSolutionVO solution = callForEntity("解法示例", QuestionPrompts.SOLUTION_SYSTEM,
+                QuestionPrompts.solutionUser(solutionDTO.getTitle(), solutionDTO.getContent(), solutionDTO.getDefaultCode()),
+                SOLUTION_TEMPERATURE, AiSolutionVO.class);
+        if (StrUtil.isBlank(solution.getCode())) {
+            throw new AiModelException("解法示例缺少代码");
+        }
+        solution.setCode(solution.getCode().trim());
+        return solution;
     }
 
     // 以指定模型与温度调用模型并把回复解析为结构化对象，任何失败都转换为模型调用异常

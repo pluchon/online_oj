@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
+import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.judge.dto.JudgeCaseDTO;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
@@ -19,10 +20,12 @@ import cn.nuonuoya.system.client.JudgeClient;
 import cn.nuonuoya.system.converter.QuestionAiConverter;
 import cn.nuonuoya.system.dto.QuestionAiCaseDTO;
 import cn.nuonuoya.system.dto.QuestionAiDraftDTO;
+import cn.nuonuoya.system.dto.QuestionAiSolutionDTO;
 import cn.nuonuoya.system.service.QuestionAiService;
 import cn.nuonuoya.system.vo.QuestionAiCaseItemVO;
 import cn.nuonuoya.system.vo.QuestionAiCaseVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
+import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -59,6 +62,10 @@ public class QuestionAiServiceImpl implements QuestionAiService {
     // 生成测试用例预览：先由模型给出输入，再用标程运行得到输出，运行失败或输出超长的组被丢弃
     @Override
     public QuestionAiCaseVO generateCases(QuestionAiCaseDTO caseDTO) {
+        // 未提供标程时先由 AI 生成常见解法作为标程
+        if (StrUtil.isBlank(caseDTO.getStandardCode())) {
+            caseDTO.setStandardCode(requestSolution(caseDTO.getTitle(), caseDTO.getContent(), caseDTO.getDefaultCode()));
+        }
         List<AiCaseInputItemVO> inputs = CollUtil.emptyIfNull(
                 aiClient.generateCaseInputs(toCaseInputRequest(caseDTO)).getCases());
         if (inputs.isEmpty()) {
@@ -80,9 +87,27 @@ public class QuestionAiServiceImpl implements QuestionAiService {
         QuestionAiCaseVO vo = new QuestionAiCaseVO();
         vo.setCases(cases);
         vo.setGeneratedCount(inputs.size());
+        vo.setStandardCode(caseDTO.getStandardCode());
         vo.setDroppedCount(inputs.size() - cases.size());
         log.info("AI 生成用例完成, 生成 = {}, 可用 = {}", inputs.size(), cases.size());
         return vo;
+    }
+
+    // 生成解法示例
+    @Override
+    public QuestionAiSolutionVO generateSolution(QuestionAiSolutionDTO solutionDTO) {
+        QuestionAiSolutionVO vo = new QuestionAiSolutionVO();
+        vo.setCode(requestSolution(solutionDTO.getTitle(), solutionDTO.getContent(), solutionDTO.getDefaultCode()));
+        return vo;
+    }
+
+    // 请求 AI 生成解法代码
+    private String requestSolution(String title, String content, String defaultCode) {
+        AiSolutionDTO request = new AiSolutionDTO();
+        request.setTitle(title);
+        request.setContent(content);
+        request.setDefaultCode(defaultCode);
+        return aiClient.generateSolution(request).getCode();
     }
 
     // 组装用例输入生成请求

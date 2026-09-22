@@ -2,9 +2,11 @@ package cn.nuonuoya.system.converter;
 
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
+import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import cn.nuonuoya.system.enums.QuestionCaseType;
 import cn.nuonuoya.system.vo.QuestionAiCaseItemVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
+import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 
 // AI 出题结果转换
 public class QuestionAiConverter {
@@ -22,6 +24,13 @@ public class QuestionAiConverter {
         vo.setContent(draft.getContent());
         vo.setDefaultCode(draft.getDefaultCode());
         vo.setMainFunc(draft.getMainFunc());
+        return vo;
+    }
+
+    // AI 解法示例转换为管理端视图
+    public static QuestionAiSolutionVO toSolutionVO(AiSolutionVO solution) {
+        QuestionAiSolutionVO vo = new QuestionAiSolutionVO();
+        vo.setCode(solution.getCode());
         return vo;
     }
 

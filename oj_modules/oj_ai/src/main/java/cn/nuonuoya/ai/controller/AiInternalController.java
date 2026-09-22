@@ -4,8 +4,10 @@ import cn.nuonuoya.ai.service.AiQuestionService;
 import cn.nuonuoya.api.ai.api.AiInternalApi;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
+import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
+import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,5 +30,11 @@ public class AiInternalController implements AiInternalApi {
     @Override
     public AiCaseInputVO generateCaseInputs(@Valid @RequestBody AiCaseInputDTO caseInputDTO) {
         return aiQuestionService.generateCaseInputs(caseInputDTO);
+    }
+
+    /** 根据题面生成常见解法 */
+    @Override
+    public AiSolutionVO generateSolution(@Valid @RequestBody AiSolutionDTO solutionDTO) {
+        return aiQuestionService.generateSolution(solutionDTO);
     }
 }

@@ -4,9 +4,11 @@ import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.system.dto.QuestionAiCaseDTO;
 import cn.nuonuoya.system.dto.QuestionAiDraftDTO;
+import cn.nuonuoya.system.dto.QuestionAiSolutionDTO;
 import cn.nuonuoya.system.service.QuestionAiService;
 import cn.nuonuoya.system.vo.QuestionAiCaseVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
+import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,8 +37,15 @@ public class QuestionAiController extends BaseController {
 
     /** 生成测试用例预览 */
     @PostMapping("/cases")
-    @Operation(summary = "生成测试用例", description = "模型生成输入，标程在判题沙箱中运行得到预期输出，不保存")
+    @Operation(summary = "生成测试用例", description = "模型生成输入，标程（未传时由 AI 生成）在判题沙箱中运行得到预期输出，不保存")
     public OJResult<QuestionAiCaseVO> cases(@Validated @RequestBody QuestionAiCaseDTO caseDTO) {
         return OJResult.ok(questionAiService.generateCases(caseDTO));
+    }
+
+    /** 生成解法示例 */
+    @PostMapping("/solution")
+    @Operation(summary = "生成解法示例", description = "生成常见解法用于参考与生成用例，不保存")
+    public OJResult<QuestionAiSolutionVO> solution(@Validated @RequestBody QuestionAiSolutionDTO solutionDTO) {
+        return OJResult.ok(questionAiService.generateSolution(solutionDTO));
     }
 }

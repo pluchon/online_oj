@@ -20,6 +20,10 @@ public class QuestionAiCaseVO {
     @Schema(description = "模型给出的输入组数")
     private Integer generatedCount;
 
+    // 本次使用的标程（未传标程时为 AI 生成的解法）
+    @Schema(description = "本次使用的标程")
+    private String standardCode;
+
     // 因标程运行失败或输出超长而丢弃的组数
     @Schema(description = "丢弃的组数")
     private Integer droppedCount;

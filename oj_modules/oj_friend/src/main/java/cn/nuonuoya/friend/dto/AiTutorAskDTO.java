@@ -27,6 +27,10 @@ public class AiTutorAskDTO {
     @Size(max = 500, message = "提问不能超过500个字符")
     private String content;
 
+    // 竞赛ID（在竞赛中答题时携带；竞赛进行中时不可使用 AI 辅导）
+    @Schema(description = "竞赛ID，在竞赛中答题时携带")
+    private Long examId;
+
     // 编辑器中的当前代码
     @Schema(description = "编辑器中的当前代码")
     @Size(max = 10000, message = "代码不能超过10000个字符")

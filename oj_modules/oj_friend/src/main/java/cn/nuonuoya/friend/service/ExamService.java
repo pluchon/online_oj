@@ -33,6 +33,6 @@ public interface ExamService {
     // 刷新竞赛列表缓存；examId 非空时同时清除该竞赛的详情与题目顺序缓存
     int refreshExamCache(Long examId);
 
-    // 用户已报名且正在进行的竞赛中是否包含该题
-    boolean isQuestionInOngoingExam(Long userId, Long questionId);
+    // 竞赛是否已发布且正在进行
+    boolean isExamOngoing(Long examId);
 }

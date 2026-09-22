@@ -41,9 +41,8 @@ public class QuestionAiCaseDTO {
     @Size(max = 5000, message = "main函数长度不能超过5000个字符")
     private String mainFunc;
 
-    // 标程（与用户提交格式相同的方法实现）
-    @Schema(description = "标程，与用户提交格式相同", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "标程不能为空")
+    // 标程（与用户提交格式相同的方法实现；为空时由 AI 先生成解法再作为标程）
+    @Schema(description = "标程，与用户提交格式相同；为空时由 AI 生成")
     @Size(max = 10000, message = "标程长度不能超过10000个字符")
     private String standardCode;
 
@@ -59,9 +58,8 @@ public class QuestionAiCaseDTO {
     @Min(value = 1, message = "空间限制必须大于0")
     private Integer spaceLimit;
 
-    // 生成数量
-    @Schema(description = "生成数量（1~10）", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "生成数量不能为空")
+    // 生成数量（为空时由 AI 按题目复杂度在 2~5 组之间决定）
+    @Schema(description = "生成数量（1~10），为空时由 AI 决定")
     @Min(value = 1, message = "生成数量至少为1")
     @Max(value = 10, message = "单次最多生成10组用例")
     private Integer count;
