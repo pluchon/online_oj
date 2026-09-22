@@ -18,7 +18,7 @@ flowchart LR
 | 0 代码优化 | 在旧版本上清理代码，得到干净基线 | 无 |
 | 1 框架升级 | 全量升到 Spring Boot 3.5.16 | 阶段 0 提交完成，打标签 `pre-upgrade` |
 | 2 链路追踪 | 网关、Feign、RabbitMQ 全链路可追踪 | 阶段 1 验收通过 |
-| 3 AI 模块 | 新增 `oj_ai`，接入 Spring AI | 阶段 1 验收通过 |
+| 3 AI 模块 | 新增 `oj_ai`，接入 Spring AI Alibaba（通义百炼） | 阶段 1 验收通过 |
 | 4 Sentinel | 仅在 `JudgeClient`、`AiClient` 两个同步调用上熔断 | 阶段 3 上线，AI 调用真实存在 |
 
 每个阶段单独提交、单独验收，不跨阶段混改。
@@ -35,7 +35,7 @@ flowchart LR
 
 完成后提交，并打标签 `pre-upgrade`，作为升级失败时的回退点。
 
-> 状态：2026-09-21 已完成，前后端仓库均已打 `pre-upgrade` 标签。
+> 状态：2026-09-21 后端完成，2026-09-22 前端规范排查完成；`pre-upgrade` 标签已移到两端排查后的最新提交。
 
 ---
 
@@ -48,7 +48,8 @@ flowchart LR
 | Spring Boot | 3.0.1 | **3.5.16** | 3.5 线最后一个正式版 |
 | Spring Cloud | 2022.0.0 | **2025.0.3** | 2025.0.x 对应 Boot 3.5 |
 | Spring Cloud Alibaba | 2022.0.0.0-RC2 | **2025.0.0.0** | 对应 Spring Cloud 2025.0；内置 Nacos 客户端 3.0.3、Sentinel 1.8.9 |
-| Spring AI | 无 | **1.1.8**（阶段 3 引入） | 1.1.x 基于 Boot 3.5 构建；2.x 面向 Boot 4，不采用 |
+| Spring AI | 无 | **1.1.x**（阶段 3 引入） | 1.1.x 基于 Boot 3.5 构建；2.x 面向 Boot 4，不采用；具体小版本以 Spring AI Alibaba 依赖的版本为准 |
+| Spring AI Alibaba | 无 | 与 Spring AI 1.1.x 配套的版本（阶段 3 引入） | 开工时核对其与 Boot 3.5.16、SCA 2025.0.0.0 的兼容性再定版本号 |
 | MyBatis-Plus | 3.5.5 | **3.5.17** | 继续用 `mybatis-plus-spring-boot3-starter` |
 | PageHelper Starter | 2.0.0 | **2.1.1** | 2.x 为 Boot 3 线；4.x 不采用 |
 | springdoc-openapi | 2.2.0 | **2.8.17** | 2.8.x 对应 Boot 3.5；3.x 面向 Boot 4 |
@@ -165,9 +166,13 @@ oj_friend   client/   AiFeignClient + AiClient，C 端调用方
 
 ### 3.2 技术选型
 
-- Spring AI 1.1.8，经 `spring-ai-bom` 统一版本。
-- 模型提供方待定（见"待确认事项"）。优先使用 OpenAI 兼容接口，方便后续切换。
-- API Key 只从环境变量或 Nacos 加密配置读取，不写入源码和日志。
+- 框架：Spring AI Alibaba（DashScope starter），建在 Spring AI 之上，业务代码只使用 Spring AI 的 `ChatClient` 接口，不直接调用 DashScope SDK。
+- 版本：经 Spring AI Alibaba 的 BOM 统一管理，不单独指定 Spring AI 版本，避免两者错配。
+- 模型：通义百炼托管的商用模型（如 qwen-plus），不部署开源模型；模型名放在 Nacos 配置中，可随时切换。
+- 不采用的方案：
+  - LangChain4j：与 Spring AI 功能重叠，二选一；在 Spring 项目中自动配置、可观测性和 Nacos 配置不如 Spring AI 顺手。
+  - Python + LangChain：生态最强，但要多维护一门语言的服务（Nacos 注册、内部鉴权、部署、链路追踪）；当前三个功能用不到。`oj_ai` 只通过 `/ai/internal/**` 对外，以后需要重度 RAG 或复杂 Agent 时可整体替换实现，调用方不受影响。
+- API Key：本地从环境变量读取，部署时放在 Nacos 控制台配置中；不写入源码、仓库和日志。
 
 ### 3.3 功能顺序
 
@@ -224,17 +229,17 @@ B 端题目管理已接入 `tb_question_case`（2026-09-21 完成，用例随题
 |---|---|---|
 | Q1 | Nacos 采用方案 A（服务端升级到 3.0.x）还是方案 B（固定 2.5.x 客户端） | 阶段 1 |
 | Q2 | ES 服务端是否随之升级（取决于 8.5.3 服务端能否与新客户端正常工作） | 阶段 1 |
-| Q3 | 大模型提供方，以及是否需要流式输出 | 阶段 3 |
+| Q3 | ~~大模型提供方~~ 已定（2026-09-22）：通义百炼商用模型 + Spring AI Alibaba；是否需要流式输出仍待定 | 阶段 3 |
 | Q4 | 是否需要记录 AI 调用日志表（用于额度统计与审计） | 阶段 3 |
 
 ## 暂缓事项（2026-09-21 代码优化中发现）
 
 | 编号 | 事项 | 现状 | 建议 |
 |---|---|---|---|
-| T1 | 竞赛结算无触发方 | **已完成（2026-09-21）**：`tb_exam.rank_settled` 标记 + friend 内部接口 `/friend/internal/exam/rank/settle`，job 任务 `examRankSettlementHandler` 触发；查看排名不再写库 | 需在 XXL-JOB 控制台登记并启用该任务 |
+| T1 | 竞赛结算无触发方 | **已完成（2026-09-21）**：`tb_exam.rank_settled` 标记 + friend 内部接口 `/friend/internal/exam/rank/settle`，job 任务 `examRankSettlementHandler` 触发；查看排名不再写库 | 已在 XXL-JOB 控制台登记并启用（2026-09-22） |
 | T2 | 竞赛缓存跨服务耦合 | **已完成（2026-09-21）**：缓存归 friend 独有，system 变更竞赛/竞赛题目后与 job 定时任务调用 `/friend/internal/exam/cache/refresh` | — |
 | T4 | 判题沙箱共享挂载 | **已完成（2026-09-21）**：容器不再挂载宿主机目录，每次评测 `docker cp` 进借用容器的私有目录，结束后结束残留进程并删除目录，清理失败即淘汰容器 | 判题服务重启时会自动清理旧的带挂载容器 |
-| T3 | Nacos 网关白名单拼写 | `oj-gateway-local.yaml` 中 `/**/webjars/**m` 多了结尾的 m | 在 Nacos 控制台改为 `/**/webjars/**` |
+| T3 | Nacos 网关白名单拼写 | **已完成（2026-09-22）**：`oj-gateway-local.yaml` 中 `/**/webjars/**m` 已由用户在 Nacos 控制台改为 `/**/webjars/**` | — |
 
 ## 回退方案
 
