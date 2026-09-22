@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Spring%20Boot-3.0.1-brightgreen.svg" alt="Spring Boot 3.0.1" />
-  <img src="https://img.shields.io/badge/Spring%20Cloud-2022.0.0-blue.svg" alt="Spring Cloud 2022.0.0" />
-  <img src="https://img.shields.io/badge/Spring%20Cloud%20Alibaba-2022.0.0.0--RC2-orange.svg" alt="Spring Cloud Alibaba" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen.svg" alt="Spring Boot 3.5.16" />
+  <img src="https://img.shields.io/badge/Spring%20Cloud-2025.0.3-blue.svg" alt="Spring Cloud 2025.0.3" />
+  <img src="https://img.shields.io/badge/Spring%20Cloud%20Alibaba-2025.0.0.0-orange.svg" alt="Spring Cloud Alibaba" />
   <img src="https://img.shields.io/badge/JDK-17-red.svg" alt="JDK 17" />
-  <img src="https://img.shields.io/badge/MyBatis--Plus-3.5.5-blueviolet.svg" alt="MyBatis-Plus" />
+  <img src="https://img.shields.io/badge/MyBatis--Plus-3.5.17-blueviolet.svg" alt="MyBatis-Plus" />
   <img src="https://img.shields.io/badge/Docker-Sandbox-2496ed.svg" alt="Docker Sandbox" />
   <img src="https://img.shields.io/badge/RabbitMQ-3.13-ff6600.svg" alt="RabbitMQ" />
   <img src="https://img.shields.io/badge/Redis-Cache-dc382d.svg" alt="Redis" />
@@ -21,7 +21,7 @@
 
 **比特OJ（Online OJ）** 是一套面向高校算法教学、企业技术选拔及算法爱好者的**高可用、高并发、安全隔离**的现代化分布式在线代码评测系统。
 
-项目后端采用主流的 **Spring Boot 3.0 + Spring Cloud Alibaba 2022** 微服务架构，核心业务涵盖题库检索、代码在线提交判题、算法竞赛对抗、实时排行榜生成、站内消息实时触达与用户风控安全拦截等。针对传统 OJ 系统判题冷启动慢、系统调用存在安全隐患等痛点，自研了基于 **Docker 预热容器池化沙箱** 与 **RabbitMQ 异步削峰** 的高性能判题引擎。
+项目后端采用主流的 **Spring Boot 3.5 + Spring Cloud Alibaba 2025** 微服务架构，核心业务涵盖题库检索、代码在线提交判题、算法竞赛对抗、实时排行榜生成、站内消息实时触达与用户风控安全拦截等。针对传统 OJ 系统判题冷启动慢、系统调用存在安全隐患等痛点，自研了基于 **Docker 预热容器池化沙箱** 与 **RabbitMQ 异步削峰** 的高性能判题引擎。
 
 ---
 
@@ -41,7 +41,7 @@ flowchart TD
     end
 
     subgraph ServiceRegistry ["注册与配置中心"]
-        Nacos["Alibaba Nacos 2.2.3\n(服务发现与动态配置中心)"]
+        Nacos["Alibaba Nacos 3.2.4\n(服务发现与动态配置中心)"]
     end
 
     subgraph BusinessServices ["核心业务微服务群"]
@@ -55,7 +55,7 @@ flowchart TD
         MySQL[("MySQL 8.4\n业务主库 (bitoj_dev)")]
         Redis[("Redis 集群\n多级缓存 / 原子计数 / ZSet")]
         RabbitMQ["RabbitMQ 3.13\n异步判题与结果回传队列"]
-        ES["Elasticsearch 8.5.3\n题库全文检索引擎"]
+        ES["Elasticsearch 8.18.8\n题库全文检索引擎"]
         XXLJobAdmin["XXL-JOB Admin 2.4.0\n调度中心看板"]
     end
 
@@ -106,12 +106,13 @@ online_oj/
 ├── deploy/                          # 容器化编排与初始化脚本
 │   ├── docker-compose.yml           # 一键拉起全套中间件 (MySQL, Redis, Nacos, MQ, ES, XXL-JOB)
 │   ├── db_sql/                      # 核心基线与业务增量 SQL 脚本
-│   │   ├── int.sql                  # 基础系统表与 Nacos 数据库结构
+│   │   ├── int.sql                  # 基础系统表结构
 │   │   ├── tables_message.sql       # 站内信消息正文与用户投递表
 │   │   ├── tables_message_type.sql  # 消息类型字段增量（系统通知 / 竞赛通知）
 │   │   ├── tables_user_exam.sql     # 竞赛报名与得分排名记录表
 │   │   ├── tables_user_submit.sql   # 用户提交记录表
 │   │   └── tables_xxl_job.sql       # XXL-JOB 调度引擎库表
+│   ├── nacos_sql/                   # Nacos 3.x 配置库初始化与 2.x 配置迁移脚本
 │   └── dev/                         # 中间件插件配置 (Elasticsearch, Kibana)
 ├── oj_api/                          # 跨服务公共契约包 (DTO / VO / MQ 常量，可被外部服务引用)
 ├── oj_common/                       # 极薄底层技术支撑库 (禁止依赖业务模块)
@@ -169,15 +170,15 @@ online_oj/
 | 类别 | 技术选型 | 版本 | 用途说明 |
 | :--- | :--- | :--- | :--- |
 | **基础语言环境** | Java (Eclipse Temurin) | 17 LTS | 新一代企业级 LTS 运行环境 |
-| **微服务框架** | Spring Boot | 3.0.1 | 核心工程底座 |
-| **微服务治理** | Spring Cloud & Alibaba | 2022.0.0 / 2022.0.0.0-RC2 | 微服务套件与全家桶支持 |
-| **注册与配置中心** | Alibaba Nacos | 2.2.3 | 服务注册发现与配置动态下发 |
-| **微服务网关** | Spring Cloud Gateway | 4.0.1 | 统一入口分发、鉴权与限流 |
-| **持久层技术** | MyBatis-Plus | 3.5.5 | Lambda 链式查询、自动分页与 CRUD 增强 |
+| **微服务框架** | Spring Boot | 3.5.16 | 核心工程底座 |
+| **微服务治理** | Spring Cloud & Alibaba | 2025.0.3 / 2025.0.0.0 | 微服务套件与全家桶支持 |
+| **注册与配置中心** | Alibaba Nacos | 3.2.4 | 服务注册发现与配置动态下发 |
+| **微服务网关** | Spring Cloud Gateway | 4.3.5 | 统一入口分发、鉴权与限流 |
+| **持久层技术** | MyBatis-Plus | 3.5.17 | Lambda 链式查询、自动分页与 CRUD 增强 |
 | **数据库** | MySQL | 8.4 LTS | 核心结构化数据存储 (InnoDB) |
 | **分布式缓存** | Redis | 7.x | 多级缓存、原子计数、排行榜 |
 | **消息中间件** | RabbitMQ | 3.13 | 异步判题任务解耦与削峰填谷 |
-| **搜索引擎** | Elasticsearch & Kibana | 8.5.3 | 题库全文字符匹配与多维筛选高亮 |
+| **搜索引擎** | Elasticsearch & Kibana | 8.18.8（IK 分词 8.18.8） | 题库全文字符匹配与多维筛选高亮 |
 | **定时调度** | XXL-JOB | 2.4.0 | 分布式定时规整与竞赛自动化结算 |
 | **虚拟化沙箱** | Docker & Docker Java Client | Engine 26+ | 容器隔离代码安全执行环境 |
 | **安全认证** | JJWT (Java JWT) | 0.9.1 | 无状态分布式登录凭据签发与校验 |
@@ -199,15 +200,20 @@ online_oj/
 仓库根目录下提供了完备的中间件编排脚本，进入 `deploy` 目录：
 ```powershell
 cd deploy
+copy .env.example .env   # 首次部署：填写 Nacos 令牌密钥与身份标识
 docker compose up -d
 ```
 > [!NOTE]
-> 该命令将自动拉起 MySQL 8.4、Redis、Nacos 2.2.3、RabbitMQ 3.13、Elasticsearch 8.5.3、Kibana 以及 XXL-JOB Admin 调度控制台。初次拉起约需 1-2 分钟完成健康检查。
+> 该命令将自动拉起 MySQL 8.4、Redis、Nacos 3.2.4、RabbitMQ 3.13、Elasticsearch 8.18.8、Kibana 以及 XXL-JOB Admin 调度控制台。初次拉起约需 1-2 分钟完成健康检查。
+>
+> Nacos 配置库为 `bitoj_nacos_v3`，首次部署前执行 `deploy/nacos_sql/nacos_v3_init.sql`；从 2.x 配置库（`bitoj_nacos_local`）升级时再执行 `migrate_2x_to_v3.sql`，并把网关路由移到 `spring.cloud.gateway.server.webflux.routes` 下。
+>
+> ES 的 IK 分词插件需与 ES 版本一致（8.18.8），放在 `deploy/dev/elasticSearch/es-plugins/ik`；jar 包不入库，从 INFINI Labs 发布页下载后解压到该目录，保留其中的 `config/` 词典。
 
 ### 3. 检查数据库与中间件端口映射
 * **MySQL 8.4**：`127.0.0.1:3308`（账号：`root`，密码：`123456789`，主业务库：`bitoj_dev`）
 * **Redis**：`127.0.0.1:6379`（密码：`123456`）
-* **Nacos 控制台**：`http://127.0.0.1:8848/nacos`（账号/密码：`nacos`/`nacos`，默认命名空间 ID：`8f599ee1-85ee-45b3-8435-1522e90fb2e0`）
+* **Nacos 控制台**：`http://127.0.0.1:18848`（首次打开时设置管理员密码；默认命名空间 ID：`8f599ee1-85ee-45b3-8435-1522e90fb2e0`）。服务端口仍为 `8848` / `9848`；各服务从环境变量 `NACOS_SERVER_ADDR`、`NACOS_NAMESPACE` 读取地址与命名空间，未设置时用本地默认值
 * **RabbitMQ 控制台**：`http://127.0.0.1:15672`（账号/密码：`admin`/`123456`）
 * **XXL-JOB 调度中心**：`http://127.0.0.1:18080/xxl-job-admin`（账号/密码：`admin`/`123456`）
 

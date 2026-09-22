@@ -49,3 +49,6 @@ replay_pid*
 test-output/
 user-code/
 oj_modules/oj_judge/user-code/
+
+### 部署密钥 ###
+deploy/.env
