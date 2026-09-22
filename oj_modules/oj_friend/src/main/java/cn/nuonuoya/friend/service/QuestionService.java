@@ -6,11 +6,16 @@ import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
 
+import java.util.List;
+
 // 题目业务服务接口
 public interface QuestionService {
 
     // 分页全文检索题目列表
     TableDataResult<QuestionVO> search(QuestionQueryDTO queryDTO);
+
+    // 相似题推荐（排除当前题与当前用户已通过的题）
+    List<QuestionVO> listSimilar(Long questionId);
 
     // 查询题目详情
     QuestionVO getDetail(Long questionId);

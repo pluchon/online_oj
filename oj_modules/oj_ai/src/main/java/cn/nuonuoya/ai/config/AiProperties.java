@@ -30,4 +30,16 @@ public class AiProperties {
 
     // 做题辅导单次回复的最长耗时（秒）
     private Integer tutorTimeoutSeconds = 90;
+
+    // 文本向量模型
+    private String embeddingModel = "text-embedding-v4";
+
+    // 文本向量维度（与题目索引的向量字段一致）
+    private Integer embeddingDimensions = 1024;
+
+    // 文本审核模型
+    private String moderationModel = "qwen3.7-flash";
+
+    // 图片审核模型
+    private String imageModerationModel = "qwen3-vl-flash";
 }

@@ -31,24 +31,8 @@ public class OssService {
 
     // 上传用户头像文件至阿里云OSS
     public String uploadAvatar(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
-        }
-
-        // 校验文件大小
-        if (file.getSize() > MAX_AVATAR_SIZE) {
-            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
-        }
-
-        // 校验文件拓展名与MIME类型
+        String extension = validateAvatar(file);
         String originalFilename = file.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.lastIndexOf(".") != -1) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
-        }
-        if (!isAllowedImageExtension(extension)) {
-            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
-        }
 
         // 构造唯一存储文件名与目标路径
         String fileName = UUID.randomUUID().toString().replace("-", "") + extension;
@@ -104,6 +88,22 @@ public class OssService {
                 ossClient.shutdown();
             }
         }
+    }
+
+    // 校验头像文件（非空、大小、扩展名），返回小写扩展名
+    public String validateAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty() || file.getSize() > MAX_AVATAR_SIZE) {
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+        if (originalFilename != null && originalFilename.lastIndexOf(".") != -1) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+        }
+        if (!isAllowedImageExtension(extension)) {
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        return extension;
     }
 
     // 校验图片后缀合法性

@@ -28,6 +28,8 @@ import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.service.OssService;
+import cn.nuonuoya.friend.client.AiModerationClient;
+import cn.nuonuoya.api.ai.vo.AiModerationVO;
 import cn.nuonuoya.friend.service.UserService;
 import cn.nuonuoya.friend.vo.UserAbilityRadarVO;
 import cn.nuonuoya.friend.vo.UserCalendarItemVO;
@@ -48,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -99,6 +102,10 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private OssService ossService;
 
+    // AI 内容审核
+    @Autowired
+    private AiModerationClient aiModerationClient;
+
     // 发送短信验证码具体实现
     @Override
     public void sendCode(UserSendCodeDTO sendCodeDTO) {
@@ -138,8 +145,8 @@ public class UserServiceImpl implements UserService {
             // 真实调用阿里云短信服务
             sendSuccess = smsService.sendCode(phone, code, expireMin);
         } else {
-            // 模拟发码模式：跳过远程调用，只打印日志，方便本地/测试环境零资费调试
-            log.info("[模拟发码] 验证码已写入 Redis（键 {}），未真实发送短信, 手机号: {}", codeKey, maskPhone(phone));
+            // 模拟发码模式：不发短信，在日志中输出验证码供本地登录使用（真实发码模式绝不输出验证码）
+            log.info("[模拟发码] 手机号: {}, 验证码: {}（有效期 {} 分钟，未真实发送短信）", maskPhone(phone), code, expireMin);
             sendSuccess = true;
         }
 
@@ -264,10 +271,24 @@ public class UserServiceImpl implements UserService {
             throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
+        // 昵称与个人介绍有变化时先做内容审核
+        List<String> changedTexts = new ArrayList<>();
+        String nickName = updateDTO.getNickName().trim();
+        String introduce = updateDTO.getIntroduce() != null ? updateDTO.getIntroduce().trim() : "";
+        if (!nickName.equals(existingUser.getNickName())) {
+            changedTexts.add(nickName);
+        }
+        if (StringUtils.hasText(introduce) && !introduce.equals(existingUser.getIntroduce())) {
+            changedTexts.add(introduce);
+        }
+        if (!changedTexts.isEmpty()) {
+            rejectIfViolated(aiModerationClient.moderateText(changedTexts), "昵称或个人介绍");
+        }
+
         // 构造更新实体
         TbUser updateEntity = new TbUser();
         updateEntity.setUserId(userId);
-        updateEntity.setNickName(updateDTO.getNickName().trim());
+        updateEntity.setNickName(nickName);
         if (StringUtils.hasText(updateDTO.getHeadImage())) {
             updateEntity.setHeadImage(updateDTO.getHeadImage().trim());
         }
@@ -307,7 +328,9 @@ public class UserServiceImpl implements UserService {
             throw new ServiceException(ResultCode.FAILED_USER_NOT_EXISTS);
         }
 
-        // 调用OSS上传服务存储至指定目录
+        // 校验文件后先做图片审核，再上传至OSS
+        ossService.validateAvatar(file);
+        rejectIfViolated(moderateAvatar(file), "头像");
         String avatarUrl = ossService.uploadAvatar(file);
 
         // 同步持久化至用户表
@@ -558,6 +581,26 @@ public class UserServiceImpl implements UserService {
     }
 
     // 手机号脱敏（保留前3后4）
+    // 审核头像图片，读取失败或审核服务不可用时返回 null
+    private AiModerationVO moderateAvatar(MultipartFile file) {
+        String contentType = StringUtils.hasText(file.getContentType()) ? file.getContentType() : "image/png";
+        try {
+            return aiModerationClient.moderateImage(contentType, file.getBytes());
+        } catch (IOException e) {
+            log.warn("读取头像内容失败，跳过图片审核: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    // 审核不通过时拒绝本次操作；审核服务不可用（结论为空）时放行
+    private void rejectIfViolated(AiModerationVO result, String target) {
+        if (result != null && Boolean.FALSE.equals(result.getPass())) {
+            log.info("内容审核未通过, target = {}, category = {}", target, result.getCategory());
+            throw new ServiceException(ResultCode.FAILED_AI_CONTENT_REJECTED,
+                    target + "可能涉及「" + result.getCategory() + "」，请修改后重试");
+        }
+    }
+
     private String maskPhone(String phone) {
         if (phone == null || phone.length() < 7) {
             return "****";

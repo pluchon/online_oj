@@ -65,4 +65,7 @@ public class QuestionVO {
     // 题目标签列表
     @Schema(description = "题目标签列表")
     private List<String> tags;
+
+    // 是否为语义推荐结果（关键词无匹配时由语义检索补充）
+    private Boolean semantic;
 }

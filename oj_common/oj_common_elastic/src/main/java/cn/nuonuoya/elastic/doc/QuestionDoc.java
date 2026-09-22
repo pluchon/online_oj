@@ -6,6 +6,7 @@ import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.KnnSimilarity;
 
 import java.time.LocalDateTime;
 
@@ -45,6 +46,14 @@ public class QuestionDoc {
     // 评测主函数
     @Field(type = FieldType.Keyword, index = false)
     private String mainFunc;
+
+    // 题目向量（标题与描述的文本向量，用于语义检索与相似题推荐）
+    @Field(type = FieldType.Dense_Vector, dims = 1024, knnSimilarity = KnnSimilarity.COSINE)
+    private float[] embedding;
+
+    // 生成向量时文本的摘要（文本未变化时复用已有向量）
+    @Field(type = FieldType.Keyword, index = false)
+    private String embeddingHash;
 
     // 创建时间
     @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second)

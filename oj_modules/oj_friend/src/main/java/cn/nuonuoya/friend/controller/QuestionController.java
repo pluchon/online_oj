@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 // C端题目搜索与列表控制器
 @Validated
 @RestController
@@ -64,6 +66,13 @@ public class QuestionController extends BaseController {
     public OJResult<QuestionStatsVO> stats() {
         QuestionStatsVO vo = questionService.getStats();
         return OJResult.ok(vo);
+    }
+
+    /** 相似题推荐（需登录，排除已通过的题） */
+    @GetMapping("/{questionId}/similar")
+    @Operation(summary = "相似题推荐", description = "以题目向量检索相似题，排除当前题与当前用户已通过的题；题目尚无向量时返回空列表")
+    public OJResult<List<QuestionVO>> similar(@PathVariable("questionId") Long questionId) {
+        return OJResult.ok(questionService.listSimilar(questionId));
     }
 
     /** 获取上一题与下一题ID */

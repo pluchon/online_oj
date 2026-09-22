@@ -21,4 +21,10 @@ public class AiConfig {
     public ChatClient tutorChatClient(ChatClient.Builder builder) {
         return builder.build();
     }
+
+    // 内容审核使用的对话客户端
+    @Bean
+    public ChatClient moderationChatClient(ChatClient.Builder builder) {
+        return builder.build();
+    }
 }

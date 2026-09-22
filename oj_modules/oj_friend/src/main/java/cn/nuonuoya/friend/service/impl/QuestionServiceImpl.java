@@ -19,6 +19,7 @@ import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.enums.UserQuestionStatusEnum;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
+import cn.nuonuoya.friend.search.QuestionSemanticSearcher;
 import cn.nuonuoya.friend.service.QuestionCaseService;
 import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
@@ -37,6 +38,7 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.Criteria;
 import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilterBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -80,6 +82,13 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Autowired
     private QuestionCaseService questionCaseService;
+
+    // 题目语义检索
+    @Autowired
+    private QuestionSemanticSearcher questionSemanticSearcher;
+
+    // 相似题推荐数量
+    private static final int SIMILAR_LIMIT = 5;
 
     // 分页全文检索题目列表
     @Override
@@ -130,12 +139,25 @@ public class QuestionServiceImpl implements QuestionService {
                 esQuery = new CriteriaQuery(new Criteria()).setPageable(pageable);
             }
 
-            // 执行ES查询
+            // 执行ES查询（不返回向量字段）
+            esQuery.addSourceFilter(new FetchSourceFilterBuilder().withExcludes("embedding").build());
             SearchHits<QuestionDoc> searchHits = elasticsearchOperations.search(esQuery, QuestionDoc.class);
             long total = searchHits.getTotalHits();
             List<QuestionDoc> docList = searchHits.getSearchHits().stream()
                     .map(SearchHit::getContent)
                     .collect(Collectors.toList());
+
+            // 关键词无结果时，首页用语义检索补充推荐
+            if (total == 0 && pageNum == 1 && StrUtil.isNotBlank(queryDTO.getKeyword())) {
+                List<QuestionDoc> semanticDocs = questionSemanticSearcher.search(
+                        queryDTO.getKeyword(), queryDTO.getDifficulty(), pageSize);
+                if (!semanticDocs.isEmpty()) {
+                    List<QuestionVO> semanticList = QuestionConverter.toVOListFromDoc(semanticDocs);
+                    semanticList.forEach(vo -> vo.setSemantic(true));
+                    populateUserStatusAndTags(semanticList);
+                    return TableDataResult.success(semanticList, semanticList.size());
+                }
+            }
 
             List<QuestionVO> voList = QuestionConverter.toVOListFromDoc(docList);
             // 批量装配用户做题状态与标签
@@ -229,10 +251,38 @@ public class QuestionServiceImpl implements QuestionService {
         return syncAllQuestionsToEs();
     }
 
-    // 全量同步MySQL题目数据至ES索引，并移除MySQL中已不存在的文档
+    // 相似题推荐：以题目向量做 kNN，排除当前题与当前用户已通过的题
+    @Override
+    public List<QuestionVO> listSimilar(Long questionId) {
+        if (questionId == null) {
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        Long userId = SecurityUtils.getUserId();
+        Set<Long> passedIds = new HashSet<>();
+        if (userId != null) {
+            userSubmitMapper.selectList(new LambdaQueryWrapper<TbUserSubmit>()
+                            .select(TbUserSubmit::getQuestionId)
+                            .eq(TbUserSubmit::getUserId, userId)
+                            .eq(TbUserSubmit::getPass, SubmitPassEnum.PASS.getCode()))
+                    .forEach(submit -> passedIds.add(submit.getQuestionId()));
+        }
+        try {
+            List<QuestionVO> voList = QuestionConverter.toVOListFromDoc(
+                    questionSemanticSearcher.similar(questionId, passedIds, SIMILAR_LIMIT));
+            populateUserStatusAndTags(voList);
+            return voList;
+        } catch (Exception e) {
+            log.warn("相似题检索失败, questionId = {}, error = {}", questionId, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    // 全量同步MySQL题目数据至ES索引（附带题目向量），并移除MySQL中已不存在的文档
     private int syncAllQuestionsToEs() {
         List<TbQuestion> list = questionMapper.selectList(null);
         List<QuestionDoc> docList = QuestionConverter.toDocList(list);
+        questionSemanticSearcher.ensureMapping();
+        questionSemanticSearcher.fillEmbeddings(docList);
         if (CollUtil.isNotEmpty(docList)) {
             questionRepository.saveAll(docList);
         }
