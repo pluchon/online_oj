@@ -1,244 +1,233 @@
-# 比特OJ 在线代码评测平台（后端服务）
+# 墨衡 OJ 在线判题平台（后端）
 
-<p align="center">
-  <strong>基于 Spring Cloud Alibaba + Java 17 的企业级微服务分布式在线代码评测平台</strong>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Spring%20Boot-3.5.16-brightgreen.svg" alt="Spring Boot 3.5.16" />
-  <img src="https://img.shields.io/badge/Spring%20Cloud-2025.0.3-blue.svg" alt="Spring Cloud 2025.0.3" />
-  <img src="https://img.shields.io/badge/Spring%20Cloud%20Alibaba-2025.0.0.0-orange.svg" alt="Spring Cloud Alibaba" />
-  <img src="https://img.shields.io/badge/JDK-17-red.svg" alt="JDK 17" />
-  <img src="https://img.shields.io/badge/MyBatis--Plus-3.5.17-blueviolet.svg" alt="MyBatis-Plus" />
-  <img src="https://img.shields.io/badge/Docker-Sandbox-2496ed.svg" alt="Docker Sandbox" />
-  <img src="https://img.shields.io/badge/RabbitMQ-3.13-ff6600.svg" alt="RabbitMQ" />
-  <img src="https://img.shields.io/badge/Redis-Cache-dc382d.svg" alt="Redis" />
-</p>
+基于 Spring Cloud Alibaba 的微服务在线判题平台，覆盖刷题、竞赛与后台出题管理。
 
 ---
 
-## 📖 项目简介
+## 项目简介
 
-**比特OJ（Online OJ）** 是一套面向高校算法教学、企业技术选拔及算法爱好者的**高可用、高并发、安全隔离**的现代化分布式在线代码评测系统。
+**墨衡 OJ** 是一套微服务架构的在线判题平台：C 端提供题库检索、在线编码运行与提交、竞赛报名与排名、站内消息；B 端提供题目与测试用例管理、竞赛编排、用户管控。
 
-项目后端采用主流的 **Spring Boot 3.5 + Spring Cloud Alibaba 2025** 微服务架构，核心业务涵盖题库检索、代码在线提交判题、算法竞赛对抗、实时排行榜生成、站内消息实时触达与用户风控安全拦截等。针对传统 OJ 系统判题冷启动慢、系统调用存在安全隐患等痛点，自研了基于 **Docker 预热容器池化沙箱** 与 **RabbitMQ 异步削峰** 的高性能判题引擎。
+判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。后续将新增 `oj_ai` 服务接入通义大模型，提供做题辅导、AI 辅助出题与语义检索（见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)）。
 
 ---
 
-## 🏛️ 系统架构拓扑
-
-系统遵循领域驱动与微服务边界规范，各服务独立演进、依赖显式、契约解耦：
+## 系统架构
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer ["客户端层"]
-        WebUser["C端用户界面 (Vue 3)"]
-        WebAdmin["B端管理后台 (Vue 3)"]
+    subgraph Client ["客户端"]
+        WebUser["C 端（Vue 3）"]
+        WebAdmin["B 端管理后台（Vue 3）"]
     end
 
-    subgraph GatewayLayer ["微服务网关 (Port: 19090)"]
-        Gateway["Spring Cloud Gateway\n(路由转发 / JWT鉴权前置 / 跨域处理)"]
+    Gateway["oj-gateway :19090\n路由 / JWT 鉴权 / 拦截 internal 路径"]
+    Nacos["Nacos 3.2.4\n服务注册 / 配置中心"]
+
+    subgraph Services ["业务服务"]
+        Friend["oj-friend :9202\n题库 / 提交 / 竞赛 / 排名 / 消息 / 用户"]
+        System["oj-system :9201\n题目与用例 / 竞赛编排 / 用户管控"]
+        Judge["oj-judge :9204\n编译与沙箱执行"]
+        Job["oj-job :9203\nXXL-JOB 执行器"]
     end
 
-    subgraph ServiceRegistry ["注册与配置中心"]
-        Nacos["Alibaba Nacos 3.2.4\n(服务发现与动态配置中心)"]
+    subgraph Middleware ["中间件"]
+        MySQL[("MySQL 8.4")]
+        Redis[("Redis")]
+        MQ["RabbitMQ 3.13"]
+        ES["Elasticsearch 8.18.8 + IK"]
+        XXL["XXL-JOB Admin 2.4.0"]
     end
 
-    subgraph BusinessServices ["核心业务微服务群"]
-        FriendService["oj-friend (C端核心服务)\n题库检索 / 竞赛报名 / 排行榜 / 消息中心 / 用户风控"]
-        SystemService["oj-system (B端管理服务)\n题目增删改 / 竞赛编排 / 用户管控 / 权限控制"]
-        JobService["oj-job (分布式任务调度)\nXXL-JOB 定时规整 / 竞赛自动结算与战报推送"]
-        JudgeService["oj-judge (异步判题微服务)\n代码持久化 / 任务调度 / 沙箱执行"]
-    end
+    Pool["Docker 常驻容器池\n(oj_worker_*)"]
 
-    subgraph Middlewares ["高可用中间件支撑集群"]
-        MySQL[("MySQL 8.4\n业务主库 (bitoj_dev)")]
-        Redis[("Redis 集群\n多级缓存 / 原子计数 / ZSet")]
-        RabbitMQ["RabbitMQ 3.13\n异步判题与结果回传队列"]
-        ES["Elasticsearch 8.18.8\n题库全文检索引擎"]
-        XXLJobAdmin["XXL-JOB Admin 2.4.0\n调度中心看板"]
-    end
-
-    subgraph SandboxCluster ["隔离执行沙箱环境"]
-        ContainerPool["Docker 预热容器池\n(oj_worker_1, oj_worker_2, ...)"]
-    end
-
-    %% 连接关系
     WebUser --> Gateway
     WebAdmin --> Gateway
+    Gateway -->|/friend/**| Friend
+    Gateway -->|/system/**| System
+
+    Friend -->|Feign 同步运行示例| Judge
+    Friend -->|提交任务| MQ
+    MQ -->|判题任务| Judge
+    Judge -->|判题结果| MQ
+    MQ -->|结果回写| Friend
+    Judge --> Pool
+
+    System -->|Feign 刷新缓存 / 索引| Friend
+    XXL -->|调度| Job
+    Job -->|Feign 竞赛结算 / 缓存刷新| Friend
+
+    Friend --> MySQL
+    Friend --> Redis
+    Friend --> ES
+    System --> MySQL
+    System --> Redis
+    Job --> MySQL
+    Gateway --> Redis
+
     Gateway -.-> Nacos
-    FriendService -.-> Nacos
-    SystemService -.-> Nacos
-    JobService -.-> Nacos
-    JudgeService -.-> Nacos
-
-    Gateway -->|/friend/**| FriendService
-    Gateway -->|/system/**| SystemService
-    Gateway -->|/judge/**| JudgeService
-
-    FriendService --> MySQL
-    FriendService --> Redis
-    FriendService --> ES
-    FriendService -->|投递判题任务| RabbitMQ
-
-    SystemService --> MySQL
-    SystemService --> Redis
-    SystemService --> ES
-
-    JobService --> MySQL
-    JobService --> Redis
-    JobService --> XXLJobAdmin
-
-    JudgeService --> RabbitMQ
-    JudgeService --> ContainerPool
-    JudgeService -->|回传判题结果| RabbitMQ
-    RabbitMQ -->|结果监听消费| FriendService
+    Friend -.-> Nacos
+    System -.-> Nacos
+    Judge -.-> Nacos
+    Job -.-> Nacos
 ```
+
+- 前端只经网关访问 friend 与 system；judge、job 不对外暴露。
+- 服务间调用走"provider 契约 + 调用方本地 Feign 客户端"：契约放 `oj_api`，调用方在自己的 `client` 包中实现 Feign 与降级；内部接口统一为 `/{domain}/internal/**`，网关拒绝外部访问。
+- 题目 ES 索引、竞赛缓存等只由 friend 维护；system、job 修改数据后通过内部接口通知 friend 刷新。
 
 ---
 
-## 📦 模块分层与工程结构
-
-工程严格贯彻单向依赖原则，公共极薄库不承载具体业务，内部服务间仅依赖 `oj_api` 契约包：
+## 工程结构
 
 ```text
 online_oj/
-├── deploy/                          # 容器化编排与初始化脚本
-│   ├── docker-compose.yml           # 一键拉起全套中间件 (MySQL, Redis, Nacos, MQ, ES, XXL-JOB)
-│   ├── db_sql/                      # 核心基线与业务增量 SQL 脚本
-│   │   ├── int.sql                  # 基础系统表结构
-│   │   ├── tables_message.sql       # 站内信消息正文与用户投递表
-│   │   ├── tables_message_type.sql  # 消息类型字段增量（系统通知 / 竞赛通知）
-│   │   ├── tables_user_exam.sql     # 竞赛报名与得分排名记录表
-│   │   ├── tables_user_submit.sql   # 用户提交记录表
-│   │   └── tables_xxl_job.sql       # XXL-JOB 调度引擎库表
+├── deploy/                          # 本地编排与初始化脚本
+│   ├── docker-compose.yml           # MySQL、Redis、Nacos、RabbitMQ、ES、Kibana、XXL-JOB Admin
+│   ├── .env.example                 # compose 所需密钥模板（复制为 .env，不入库）
+│   ├── db_sql/                      # 业务库基线与增量脚本（MySQL 容器首次启动按文件名顺序执行）
 │   ├── nacos_sql/                   # Nacos 3.x 配置库初始化与 2.x 配置迁移脚本
-│   └── dev/                         # 中间件插件配置 (Elasticsearch, Kibana)
-├── oj_api/                          # 跨服务公共契约包 (DTO / VO / MQ 常量，可被外部服务引用)
-├── oj_common/                       # 极薄底层技术支撑库 (禁止依赖业务模块)
-│   ├── oj_common_core/              # 统一响应封装 (OJResult, TableDataResult)、通用枚举与常量
-│   ├── oj_common_security/          # JWT 认证解析、TokenService、ThreadLocal 上下文与安全拦截器
-│   ├── oj_common_redis/             # RedisTemplate 二次封装 (RedisService)、对象与列表缓存工具
-│   ├── oj_common_mybatis/           # MyBatis-Plus Lambda 配置、分页拦截器与元数据自动填充
-│   ├── oj_common_elastic/           # Elasticsearch 8.x 索引操作与文档同步客户端
-│   ├── oj_common_message/           # 阿里云短信发送 SDK 封装
-│   ├── oj_common_swagger/           # OpenAPI 3 / Knife4j 接口文档集成
-│   └── oj_gateway/                  # Spring Cloud Gateway 统一微服务网关 (Port: 19090)
-└── oj_modules/                      # 核心业务领域微服务
-    ├── oj_system/                   # B端后台管理系统服务 (题目管理、竞赛发布、用户管控)
-    ├── oj_friend/                   # C端核心用户服务 (题库、答题提交、竞赛中心、排行榜、消息中心)
-    ├── oj_judge/                    # 独立安全判题引擎 (Docker 预热容器池、隔离沙箱、编译评测)
-    └── oj_job/                      # 分布式调度服务 (XXL-JOB 定时规整、竞赛排名结算与战报推送)
+│   ├── docs/                        # 模型价格等参考资料
+│   └── dev/                         # ES（IK 插件与自定义词典）、Kibana 配置
+├── oj_api/                          # 跨服务契约：内部接口、DTO / VO、MQ 常量、契约枚举
+├── oj_common/                       # 技术公共库（不含业务归属）
+│   ├── oj_common_core/              # 统一响应、异常、工具类、ThreadLocal 上下文
+│   ├── oj_common_security/          # JWT、TokenService、令牌拦截器
+│   ├── oj_common_redis/             # RedisService 封装
+│   ├── oj_common_mybatis/           # MyBatis-Plus 配置与自动填充
+│   ├── oj_common_elastic/           # ES 客户端配置与题目文档
+│   ├── oj_common_message/           # 阿里云短信
+│   ├── oj_common_swagger/           # springdoc-openapi
+│   └── oj_gateway/                  # Spring Cloud Gateway（端口 19090）
+├── oj_modules/                      # 业务服务
+│   ├── oj_friend/                   # C 端服务
+│   ├── oj_system/                   # B 端服务
+│   ├── oj_judge/                    # 判题服务
+│   └── oj_job/                      # 定时任务执行器
+└── UPGRADE_PLAN.md                  # 升级与 AI 接入计划书
 ```
 
 ---
 
-## 🌟 核心特色与技术亮点
+## 技术亮点
 
-### 1. 独创的 Docker 预热容器池化沙箱
-* **痛点解决**：传统 OJ 评测每道提交时执行 `docker run` 带来明显的容器冷启动耗时（单次冷启可达 1.5s - 2.5s），高并发竞赛期间系统负载急剧升高。
-* **池化技术实现**：`oj_judge` 模块引入 `DockerContainerPool` 机制，系统启动时自动预热并常驻一组轻量级运行沙箱容器（如 `oj_worker_1`、`oj_worker_2` 等）。
-* **极速编译执行**：判题任务到达后将代码 `docker cp` 进空闲 Worker 的私有目录，直接通过 `docker exec` 编译执行，结束后清理进程与目录再归还，将容器启动时间压缩至 **接近 0ms**，单次判题平均耗时优化至 **100ms** 级别。
-* **多维安全防护**：对沙箱容器实施严格限额限制（Memory Limit, CPU Limit）、关闭特权模式、隔离网络访问，防止恶意死循环、Fork 炸弹及未经授权的宿主机系统调用。
+### 1. Docker 常驻容器池判题沙箱
+- 启动时预热一组常驻容器（默认 3 个），判题时借出、用完归还，省掉每次 `docker run` 的冷启动。
+- 每次评测用 `docker cp` 把代码拷进容器私有目录，不挂载宿主机目录，容器之间不共享文件。
+- 全部用例经标准输入一次性喂入，只编译一次、只启动一次 JVM，输出逐行比对；程序中途异常时，从首行起连续匹配的行视为通过，据此定位首个失败用例。
+- 容器断网（`--network none`）、进程数上限 64、内存 256 MB（swap 同值）、1 个 CPU；输出由独立线程读取并设上限，超出判为输出超限。
+- 超时或清理失败的容器直接淘汰并补位；服务重启时清理上次残留的容器。
 
-### 2. RabbitMQ 异步削峰与最终一致性评测
-* 用户在工作台提交代码后，系统毫秒级生成处于评测中状态的提交记录，将任务打包写入 `judge.task.queue` 消息队列，工作台前端即可开启轮询，用户体验丝滑流畅；
-* `oj_judge` 判题引擎按配置并发拉取任务，在沙箱内完成编译、测试用例多组比对（比对标准输出与用例期望）；
-* 判题完成后通过 `judge.result.queue` 回传评测结果（AC / WA / TLE / MLE / CE / RE 等状态及执行时间和内存消耗），`oj_friend` 异步监听并最终落库更新。
+### 2. RabbitMQ 异步判题
+- 提交时先写入"评测中"的提交记录，再把任务投递到判题队列，前端轮询结果。
+- judge 消费任务并在沙箱中执行，结果经结果队列回传，friend 监听后回写提交记录。
+- "运行示例"不落库，friend 通过 Feign 同步调用 `/judge/internal/run`。
 
-### 3. Redis 双层架构站内消息中心
-* **正文缓存解耦（String 缓存）**：`m:d:{textId}` 存储通用或特定消息详情 JSON（默认 7 天 TTL），同一系统公告可被百万用户复用，避免数据库频繁 Join 联表与回表；
-* **用户消息队列（List 缓存）**：`u:m:l:{userId}` 维护当前用户接收的最新 100 条消息 ID 队列，通过 `LPUSH` + `LTRIM` 高效截断与分页；
-* **原子未读数计数（Atomic Increment）**：`u:m:unread:{userId}` 支持新消息到达时原子自增、单条标为已读时原子自减与一键已读直接置零，前台小铃铛角标读取性能达数十万 QPS。
+### 3. 竞赛排名与只执行一次的结算
+- 排名规则：总分降序 → 通过题数降序 → 最后提交时间升序 → 用户 ID 升序；每题取选手最高分。
+- 排名缓存分两档：进行中 3 分钟、已结束 24 小时；查看排名只读不写库。
+- XXL-JOB 调度 job 服务调用 friend 的结算接口：先用条件更新抢占"已结算"标记，任务重叠或重试也只结算一次；每场独立事务，战报的未读计数在事务提交后才写入 Redis。
 
-### 4. 竞赛实时榜单与多级同分仲裁引擎
-* **算分规则**：支持多题累加制，每道题目取选手在竞赛周期内的最高单次提交得分；
-* **四重同分裁决算法（Tie-Breakers）**：
-  $$\text{总分降序} \longrightarrow \text{AC通过题数降序} \longrightarrow \text{最后一次有效提交时间升序} \longrightarrow \text{报名时间升序}$$
-* **动静分区缓存**：未完赛竞赛使用短 TTL（3 分钟）快速缓存保证动态刷新，已完赛榜单建立 24 小时长效缓存并写入 `tb_user_exam` 的 `exam_rank` 归档。
-* **自动化定时战报**：集成 XXL-JOB 每天凌晨调度 `examRankSettlementHandler`，计算前一天完赛竞赛结果，自动生成个性化战报并推送至所有参赛选手消息中心。
+### 4. 题目搜索与降级
+- 题目搜索走 ES，标题与描述使用 IK 分词（含自定义算法词典）。
+- 索引为空时自动从数据库全量同步；后台改题后同步并清掉已删除的题目；ES 不可用时直接查 MySQL，搜索不中断。
 
-### 5. 全链路身份穿透与 AOP 用户拉黑风控
-* 用户请求经由 `oj_gateway` 校验合法性后，解析出 `userId` 与 `userKey`，通过全局请求头传递至下游微服务；
-* 下游服务通过 `ThreadLocalUtil` 在线程上下文中隐式获取身份，杜绝信任前端入参带来的越权安全隐患；
-* 核心受保护操作（提交代码、报名比赛、修改资料等）标记 `@CheckUserStatus` 注解，通过 `UserStatusCheckAspect` 切面统一前置判定用户封禁拉黑状态，一处生效、全平台拦截。
-
----
-
-## 🛠️ 技术栈清单
-
-| 类别 | 技术选型 | 版本 | 用途说明 |
-| :--- | :--- | :--- | :--- |
-| **基础语言环境** | Java (Eclipse Temurin) | 17 LTS | 新一代企业级 LTS 运行环境 |
-| **微服务框架** | Spring Boot | 3.5.16 | 核心工程底座 |
-| **微服务治理** | Spring Cloud & Alibaba | 2025.0.3 / 2025.0.0.0 | 微服务套件与全家桶支持 |
-| **注册与配置中心** | Alibaba Nacos | 3.2.4 | 服务注册发现与配置动态下发 |
-| **微服务网关** | Spring Cloud Gateway | 4.3.5 | 统一入口分发、鉴权与限流 |
-| **持久层技术** | MyBatis-Plus | 3.5.17 | Lambda 链式查询、自动分页与 CRUD 增强 |
-| **数据库** | MySQL | 8.4 LTS | 核心结构化数据存储 (InnoDB) |
-| **分布式缓存** | Redis | 7.x | 多级缓存、原子计数、排行榜 |
-| **消息中间件** | RabbitMQ | 3.13 | 异步判题任务解耦与削峰填谷 |
-| **搜索引擎** | Elasticsearch & Kibana | 8.18.8（IK 分词 8.18.8） | 题库全文字符匹配与多维筛选高亮 |
-| **定时调度** | XXL-JOB | 2.4.0 | 分布式定时规整与竞赛自动化结算 |
-| **虚拟化沙箱** | Docker & Docker Java Client | Engine 26+ | 容器隔离代码安全执行环境 |
-| **安全认证** | JJWT (Java JWT) | 0.9.1 | 无状态分布式登录凭据签发与校验 |
-| **通用工具包** | Hutool / Fastjson2 / Lombok | 5.8.22 / 2.0.43 | 高效集合处理、快速 JSON 编解码 |
-| **接口文档** | SpringDoc / OpenAPI 3 | 2.2.0 | 在线交互式 API 契约文档与调试看板 |
+### 5. 身份透传与用户状态拦截
+- 网关校验令牌后，先移除外部传入的身份头，再写入 `userId` / `userKey` 传给下游，防止伪造身份。
+- 下游经拦截器放入 `ThreadLocal`，业务只从上下文取身份，不信任前端传入的用户 ID。
+- 提交代码、报名竞赛等受保护操作标注 `@CheckUserStatus`，由切面统一拦截被拉黑用户。
+- 会话存于 Redis 并滑动续期；C 端支持主动退出登录使会话失效。
 
 ---
 
-## 🚀 快速启动指南
+## 技术栈
 
-### 1. 本地前置环境准备
-确保本地安装并就绪如下基础组件：
-* **JDK 17**（配置好 `JAVA_HOME` 环境变量）
-* **Maven 3.8+**
-* **Docker Desktop**（已开启守护进程，支持本地 API 调用）
-* **Node.js 18+**（若需调试前台 Vue 工程）
+| 类别 | 技术 | 版本 |
+| :--- | :--- | :--- |
+| 语言 | Java | 17 |
+| 框架 | Spring Boot | 3.5.16 |
+| 微服务 | Spring Cloud / Spring Cloud Alibaba | 2025.0.3 / 2025.0.0.0 |
+| 注册与配置 | Nacos（客户端 3.0.3） | 3.2.4 |
+| 网关 | Spring Cloud Gateway（WebFlux） | 4.3.5 |
+| 服务调用 | OpenFeign + LoadBalancer | 随 Spring Cloud |
+| 持久层 | MyBatis-Plus / PageHelper | 3.5.17 / 2.1.1 |
+| 数据库 | MySQL | 8.4 |
+| 缓存 | Redis | latest |
+| 消息队列 | RabbitMQ | 3.13 |
+| 搜索 | Elasticsearch + IK 分词 / Kibana | 8.18.8 |
+| 定时调度 | XXL-JOB | 2.4.0 |
+| 判题沙箱 | Docker（CLI 调用，常驻容器池） | — |
+| 认证 | JJWT + Redis 会话 | 0.9.1 |
+| 接口文档 | springdoc-openapi | 2.8.17 |
+| 工具 | Hutool / Fastjson2 / Lombok | 5.8.22 / 2.0.43 / 随 Boot |
+| AI（阶段 3） | Spring AI Alibaba（通义百炼） | 1.1.2.3（BOM 已引入） |
 
-### 2. 启动基础支撑中间件（Docker Compose）
-仓库根目录下提供了完备的中间件编排脚本，进入 `deploy` 目录：
+---
+
+## 快速启动
+
+### 1. 环境准备
+- JDK 17、Maven 3.8+、Docker Desktop、Node.js 18+（调试前端时）。
+
+### 2. 启动中间件
 ```powershell
 cd deploy
-copy .env.example .env   # 首次部署：填写 Nacos 令牌密钥与身份标识
+copy .env.example .env   # 首次部署：填写 OJ_NACOS_AUTH_* 等密钥
 docker compose up -d
 ```
+
 > [!NOTE]
-> 该命令将自动拉起 MySQL 8.4、Redis、Nacos 3.2.4、RabbitMQ 3.13、Elasticsearch 8.18.8、Kibana 以及 XXL-JOB Admin 调度控制台。初次拉起约需 1-2 分钟完成健康检查。
->
-> Nacos 配置库为 `bitoj_nacos_v3`，首次部署前执行 `deploy/nacos_sql/nacos_v3_init.sql`；从 2.x 配置库（`bitoj_nacos_local`）升级时再执行 `migrate_2x_to_v3.sql`，并把网关路由移到 `spring.cloud.gateway.server.webflux.routes` 下。
->
-> ES 的 IK 分词插件需与 ES 版本一致（8.18.8），放在 `deploy/dev/elasticSearch/es-plugins/ik`；jar 包不入库，从 INFINI Labs 发布页下载后解压到该目录，保留其中的 `config/` 词典。
+> - 首次部署先在 MySQL 中执行 `deploy/nacos_sql/nacos_v3_init.sql` 创建 Nacos 配置库 `bitoj_nacos_v3`；从 2.x 配置库 `bitoj_nacos_local` 升级时再执行 `migrate_2x_to_v3.sql`，并把网关路由移到 `spring.cloud.gateway.server.webflux.routes` 下。
+> - IK 分词插件需与 ES 同版本（8.18.8），放在 `deploy/dev/elasticSearch/es-plugins/ik`；jar 包不入库，从 INFINI Labs 发布页下载后解压到该目录，保留其中的 `config/` 词典。
+> - compose 与各服务读取的环境变量都带 `OJ_` 前缀，避免与本机其他项目的 `NACOS_*` 变量冲突。
 
-### 3. 检查数据库与中间件端口映射
-* **MySQL 8.4**：`127.0.0.1:3308`（账号：`root`，密码：`123456789`，主业务库：`bitoj_dev`）
-* **Redis**：`127.0.0.1:6379`（密码：`123456`）
-* **Nacos 控制台**：`http://127.0.0.1:18848`（首次打开时设置管理员密码；默认命名空间 ID：`8f599ee1-85ee-45b3-8435-1522e90fb2e0`）。服务端口仍为 `8848` / `9848`；各服务从环境变量 `OJ_NACOS_SERVER_ADDR`、`OJ_NACOS_NAMESPACE` 读取地址与命名空间，未设置时用本地默认值
-* **RabbitMQ 控制台**：`http://127.0.0.1:15672`（账号/密码：`admin`/`123456`）
-* **XXL-JOB 调度中心**：`http://127.0.0.1:18080/xxl-job-admin`（账号/密码：`admin`/`123456`）
+### 3. 本地端口
 
-### 4. 编译与打包后端工程
-在项目根目录下通过 Maven 统一安装公共库与契约依赖：
+| 组件 | 地址 | 说明 |
+| :--- | :--- | :--- |
+| MySQL | `127.0.0.1:3308` | 业务库 `bitoj_dev`，Nacos 配置库 `bitoj_nacos_v3` |
+| Redis | `127.0.0.1:6379` | |
+| Nacos | `127.0.0.1:8848` / `9848` | 控制台 `http://127.0.0.1:18848`，首次打开设置管理员密码；命名空间 `8f599ee1-85ee-45b3-8435-1522e90fb2e0` |
+| RabbitMQ | `127.0.0.1:5672` | 控制台 `http://127.0.0.1:15672` |
+| Elasticsearch | `127.0.0.1:9200` | Kibana `http://127.0.0.1:15601` |
+| XXL-JOB Admin | `http://127.0.0.1:18080/xxl-job-admin` | 需登记执行器与任务 `examRankSettlementHandler` |
+
+各组件账号密码见 `docker-compose.yml` 与 `deploy/.env`。
+
+### 4. 配置说明
+- 各服务的 `application.yml` 只保留启动必需项：应用名、profile、Nacos 地址与命名空间（`OJ_NACOS_SERVER_ADDR`、`OJ_NACOS_NAMESPACE`，未设置时用本地默认值）以及 `spring.config.import`。
+- 其余配置（数据库、Redis、MQ、ES、JWT 密钥、OSS、短信、网关路由与白名单、判题参数等）都在 Nacos：
+
+| Data ID | 使用方 |
+| :--- | :--- |
+| `oj-gateway-local.yaml` | 网关 |
+| `oj-system-local.yaml` | system |
+| `oj-friend-local.yaml`、`oj-message-local.yaml` | friend |
+| `oj-judge-local.yaml` | judge |
+| `oj-job-local.yaml` | job |
+
+- Nacos 连不上时服务启动失败；Data ID 不存在时只告警，表现为缺配置启动失败，排查时先看 Nacos 服务端 `config-client-request.log` 里的命名空间。
+
+### 5. 编译与启动
 ```powershell
 mvn clean install -DskipTests
 ```
 
-### 5. 微服务启动顺序推荐
-使用 IntelliJ IDEA 打开项目，按顺序依次启动各个 Spring Boot 模块主程序：
-1. **`oj_gateway`**（网关路由入口，端口 `19090`）
-   * 主类：`cn.nuonuoya.gateway.GatewayApplication`
-2. **`oj_system`**（管理后台业务服务）
-   * 主类：`cn.nuonuoya.system.SystemApplication`
-3. **`oj_friend`**（C端用户与竞赛服务）
-   * 主类：`cn.nuonuoya.friend.FriendApplication`
-4. **`oj_judge`**（沙箱判题服务）
-   * 主类：`cn.nuonuoya.judge.JudgeApplication`
-5. **`oj_job`**（分布式定时任务处理器，可选）
-   * 主类：`cn.nuonuoya.job.JobApplication`
+在 IDEA 中依次启动：
+
+| 服务 | 主类 | 端口 |
+| :--- | :--- | :--- |
+| oj_gateway | `cn.nuonuoya.gateway.GatewayApplication` | 19090 |
+| oj_system | `cn.nuonuoya.system.SystemApplication` | 9201 |
+| oj_friend | `cn.nuonuoya.friend.FriendApplication` | 9202 |
+| oj_judge | `cn.nuonuoya.judge.JudgeApplication` | 9204 |
+| oj_job | `cn.nuonuoya.job.JobApplication` | 9203 |
+
+judge 需要本机 Docker 可用，启动时会预热判题容器池。
 
 ---
 
-## 📡 核心 API 路由总览
+## API 路由总览
 
 通过统一网关（`http://127.0.0.1:19090`）访问各微服务，主要功能路由如下：
 
@@ -278,9 +267,10 @@ mvn clean install -DskipTests
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
 * `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛
 
+
 ---
 
-## 🛡️ 代码规范与工程约束
+## 代码规范与工程约束
 
 项目严格遵循业界主流开发约束与架构纪律：
 * **分层边界**：调用链严格遵从 `Controller → Service → Mapper`，禁止跨层或在 Controller 注入 Mapper。
@@ -295,6 +285,20 @@ mvn clean install -DskipTests
 
 ---
 
-## 📄 开源许可证
+## 路线图
 
-本项目基于 [MIT License](LICENSE) 协议开源，欢迎学习交流与二次开发。
+详见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
+
+| 阶段 | 内容 | 状态 |
+| :--- | :--- | :--- |
+| 0 代码优化 | 规范排查与重构 | 已完成 |
+| 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成，待联调验收 |
+| 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 计划中 |
+| 3 AI 模块 | 新增 `oj_ai`：做题辅导、AI 辅助出题、语义检索与相似题推荐、资料审核 | 计划中 |
+| 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界 | 计划中 |
+
+---
+
+## 开源许可证
+
+本项目基于 [MIT License](LICENSE) 协议开源。
