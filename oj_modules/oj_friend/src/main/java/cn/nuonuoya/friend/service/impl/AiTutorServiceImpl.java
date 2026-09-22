@@ -21,6 +21,7 @@ import cn.nuonuoya.friend.mapper.AiChatSessionMapper;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.service.AiTutorService;
+import cn.nuonuoya.friend.service.CodeDraftService;
 import cn.nuonuoya.friend.service.ExamService;
 import cn.nuonuoya.friend.service.QuestionCaseService;
 import cn.nuonuoya.friend.vo.AiTutorSessionVO;
@@ -94,6 +95,9 @@ public class AiTutorServiceImpl implements AiTutorService {
     private ExamService examService;
 
     @Autowired
+    private CodeDraftService codeDraftService;
+
+    @Autowired
     private TransactionTemplate transactionTemplate;
 
     // 查询会话：历史消息、剩余次数与快捷操作所需的提交状态
@@ -133,7 +137,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         }
 
         AiTutorChatDTO chatDTO = AiTutorConverter.toChatDTO(question, questionCaseService.listAll(questionId),
-                action, content, askDTO.getUserCode(), submitFor(action, userId, questionId));
+                action, content, codeFor(action, userId, questionId, askDTO.getUserCode()), submitFor(action, userId, questionId));
         Long sessionId = getOrCreateSession(userId, questionId);
         if (!aiTutorQuotaManager.tryAcquire(userId)) {
             throw new ServiceException(ResultCode.FAILED_AI_QUOTA_EXCEEDED);
@@ -142,6 +146,18 @@ public class AiTutorServiceImpl implements AiTutorService {
 
         String userMessage = content.isEmpty() ? action.getLabel() : content;
         return relay(userId, sessionId, action, userMessage, chatDTO);
+    }
+
+    // 发给模型的代码：优化代码思路读取已保存的草稿（前端会先自动保存），其余使用编辑器当前代码
+    private String codeFor(AiTutorActionEnum action, Long userId, Long questionId, String editorCode) {
+        if (action != AiTutorActionEnum.OPTIMIZE_CODE) {
+            return editorCode;
+        }
+        String saved = codeDraftService.getSavedCode(userId, questionId);
+        if (StrUtil.isBlank(saved)) {
+            throw new ServiceException(ResultCode.FAILED_AI_ACTION_UNAVAILABLE, "请先编写并保存代码");
+        }
+        return saved;
     }
 
     // 快捷操作需要的提交记录：分析提交要求最近一次未通过，解释编译错误要求最近一次为编译错误，点评要求已通过

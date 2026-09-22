@@ -4,12 +4,15 @@ import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.aspect.CheckUserStatus;
+import cn.nuonuoya.friend.dto.CodeDraftSaveDTO;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
 import cn.nuonuoya.friend.dto.QuestionRunDTO;
 import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
 import cn.nuonuoya.friend.dto.UserSubmitDTO;
+import cn.nuonuoya.friend.service.CodeDraftService;
 import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.service.UserSubmitService;
+import cn.nuonuoya.friend.vo.CodeDraftVO;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionRunResultVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
@@ -23,6 +26,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,6 +44,9 @@ public class QuestionController extends BaseController {
     // 注入题目业务服务
     @Autowired
     private QuestionService questionService;
+
+    @Autowired
+    private CodeDraftService codeDraftService;
 
     // 注入代码提交评测服务
     @Autowired
@@ -122,6 +129,22 @@ public class QuestionController extends BaseController {
                                                           @Validated SubmitHistoryQueryDTO queryDTO) {
         queryDTO.setQuestionId(questionId);
         return userSubmitService.listHistory(queryDTO);
+    }
+
+    /** 查询本人在本题保存的代码草稿 */
+    @GetMapping("/{questionId}/draft")
+    @Operation(summary = "代码草稿", description = "当前用户在本题保存的代码，没有时 data 为空")
+    public OJResult<CodeDraftVO> draft(@PathVariable("questionId") Long questionId) {
+        return OJResult.ok(codeDraftService.getDraft(questionId));
+    }
+
+    /** 保存本人在本题的代码草稿 */
+    @CheckUserStatus
+    @PutMapping("/{questionId}/draft")
+    @Operation(summary = "保存代码草稿", description = "每个用户每道题一份，保存即覆盖，跨设备可用")
+    public OJResult<CodeDraftVO> saveDraft(@PathVariable("questionId") Long questionId,
+                                           @Validated @RequestBody CodeDraftSaveDTO saveDTO) {
+        return OJResult.ok(codeDraftService.saveDraft(questionId, saveDTO.getCode()));
     }
 
     /** 查询用户代码评测结果 */

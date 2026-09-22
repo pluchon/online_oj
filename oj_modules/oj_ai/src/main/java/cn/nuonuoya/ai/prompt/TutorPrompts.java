@@ -31,6 +31,7 @@ public final class TutorPrompts {
     private static final String HINT_TASK = "学员请求解题思路：从题意与数据范围出发，给出方向性提示与可以考虑的算法，不要一步给到完整解法。";
     private static final String ANALYZE_TASK = "学员请求分析最近一次未通过的提交：结合判题结论与失败用例，指出可能的错误原因和需要检查的代码位置，给出修改方向，不要直接改写成完整正确代码。";
     private static final String COMPILE_TASK = "学员请求解释编译错误：用通俗的中文逐条解释编译器报错的含义、出错位置与修改方法。";
+    private static final String OPTIMIZE_TASK = "学员请求优化当前代码的思路：先判断思路是否正确，再指出潜在错误、边界遗漏与复杂度问题，给出改进方向与不超过 5 行的关键片段，不要给出完整实现。";
     private static final String REVIEW_TASK = "学员的提交已经通过，请点评代码：分析时间与空间复杂度，指出可以优化的地方与更优的思路，评价代码风格；可以给出针对学员代码的改写片段，但不要给出另一份完整实现。";
 
     // 组装系统提示：角色边界 + 题目背景 + 本次任务
@@ -104,6 +105,7 @@ public final class TutorPrompts {
             case ANALYZE_SUBMIT -> ANALYZE_TASK;
             case EXPLAIN_COMPILE -> COMPILE_TASK;
             case REVIEW_CODE -> REVIEW_TASK;
+            case OPTIMIZE_CODE -> OPTIMIZE_TASK;
             default -> null;
         };
     }

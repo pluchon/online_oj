@@ -21,7 +21,10 @@ public enum AiTutorActionEnum {
     EXPLAIN_COMPILE(3, "解释编译错误"),
 
     // 点评最近一次通过的提交
-    REVIEW_CODE(4, "点评我的代码");
+    REVIEW_CODE(4, "点评我的代码"),
+
+    // 分析已保存的代码并给出优化思路
+    OPTIMIZE_CODE(5, "帮我优化代码思路");
 
     // 类型编码
     private final Integer code;
@@ -33,7 +36,7 @@ public enum AiTutorActionEnum {
     public static final int MIN_CODE = 0;
 
     // 最大编码（供请求参数校验，新增类型时同步调整）
-    public static final int MAX_CODE = 4;
+    public static final int MAX_CODE = 5;
 
     // 根据编码获取类型，不存在返回 null
     public static AiTutorActionEnum getByCode(Integer code) {

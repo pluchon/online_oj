@@ -252,6 +252,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET  /friend/question/{questionId}`：单题详情与公开示例
 * `GET  /friend/question/{questionId}/neighbors`：上一题、下一题导航（可带 `examId`）
 * `GET  /friend/question/{questionId}/similar`：相似题推荐（需登录，排除当前题与已通过的题）
+* `GET|PUT /friend/question/{questionId}/draft`：本人在本题的代码草稿（跨设备保存，AI「帮我优化代码思路」读取已保存的代码）
 * `GET  /friend/question/first`、`GET /friend/question/stats`：首题与题库统计
 * `POST /friend/question/{questionId}/run`：同步运行公开示例（不落库）
 * `POST /friend/question/{questionId}/submissions`：提交代码并异步判题
