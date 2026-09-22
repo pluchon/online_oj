@@ -1,9 +1,13 @@
 package cn.nuonuoya.api.ai.api;
 
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
+import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
+import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
+import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,4 +27,12 @@ public interface AiInternalApi {
     // 根据题面生成常见解法（用作解法示例，并作为生成用例时的标程；调用方：oj-system，只读）
     @PostMapping("/ai/internal/question/solution")
     AiSolutionVO generateSolution(@RequestBody AiSolutionDTO solutionDTO);
+
+    // 理解竞赛描述：名称、主题关键词与明确给出的题数（调用方：oj-system，只读）
+    @PostMapping("/ai/internal/exam/intent")
+    AiExamIntentVO parseExamIntent(@RequestBody AiExamIntentDTO intentDTO);
+
+    // 从候选题目中按各难度数量挑题（调用方：oj-system，只读）
+    @PostMapping("/ai/internal/exam/select")
+    AiExamSelectVO selectExamQuestions(@RequestBody AiExamSelectDTO selectDTO);
 }

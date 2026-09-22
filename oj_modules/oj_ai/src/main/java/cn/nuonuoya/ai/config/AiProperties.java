@@ -43,6 +43,9 @@ public class AiProperties {
     // 文本审核模型
     private String moderationModel = "qwen3.7-flash";
 
+    // 竞赛帮建（需求理解与选题）使用的模型
+    private String examModel = "qwen3.7-flash";
+
     // 图片审核模型
     private String imageModerationModel = "qwen3-vl-flash";
 

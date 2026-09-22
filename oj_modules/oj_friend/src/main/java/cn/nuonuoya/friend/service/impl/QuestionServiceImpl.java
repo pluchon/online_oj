@@ -8,6 +8,8 @@ import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.elastic.repository.QuestionRepository;
+import cn.nuonuoya.api.friend.dto.FriendQuestionCandidateQueryDTO;
+import cn.nuonuoya.api.friend.vo.FriendQuestionCandidateVO;
 import cn.nuonuoya.friend.cache.QuestionCacheManager;
 import cn.nuonuoya.friend.converter.QuestionCaseConverter;
 import cn.nuonuoya.friend.converter.QuestionConverter;
@@ -61,6 +63,15 @@ public class QuestionServiceImpl implements QuestionService {
 
     // 相似题推荐数量
     private static final int SIMILAR_LIMIT = 5;
+
+    // 候选检索单次最多返回的数量
+    private static final int CANDIDATE_LIMIT = 60;
+
+    // 候选摘要的最大长度
+    private static final int SUMMARY_LENGTH = 160;
+
+    // 计算通过率所需的最少提交数（提交太少时通过率不可靠）
+    private static final int MIN_SUBMITS_FOR_PASS_RATE = 5;
 
     // 注入ES持久层仓库
     @Autowired
@@ -249,6 +260,41 @@ public class QuestionServiceImpl implements QuestionService {
     public int refreshQuestionData() {
         questionCacheManager.evictListCache(null);
         return syncAllQuestionsToEs();
+    }
+
+    // AI 帮建竞赛的候选题目：混合检索后附上通过率（提交数不足时为空）
+    @Override
+    public List<FriendQuestionCandidateVO> listCandidates(FriendQuestionCandidateQueryDTO queryDTO) {
+        int size = Math.max(1, Math.min(CANDIDATE_LIMIT, queryDTO.getSize() == null ? 1 : queryDTO.getSize()));
+        List<QuestionDoc> docs = questionSemanticSearcher.candidates(queryDTO.getQuery(), queryDTO.getDifficulty(), size,
+                CollUtil.emptyIfNull(queryDTO.getExcludeIds()));
+        if (docs.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<Long, int[]> submitStats = new HashMap<>();
+        userSubmitMapper.selectList(new LambdaQueryWrapper<TbUserSubmit>()
+                        .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
+                        .in(TbUserSubmit::getQuestionId, docs.stream().map(QuestionDoc::getQuestionId).toList())
+                        .ne(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode()))
+                .forEach(submit -> {
+                    int[] stat = submitStats.computeIfAbsent(submit.getQuestionId(), k -> new int[2]);
+                    stat[0]++;
+                    if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
+                        stat[1]++;
+                    }
+                });
+        List<FriendQuestionCandidateVO> result = new ArrayList<>(docs.size());
+        for (QuestionDoc doc : docs) {
+            FriendQuestionCandidateVO vo = new FriendQuestionCandidateVO();
+            vo.setQuestionId(doc.getQuestionId());
+            vo.setTitle(doc.getTitle());
+            vo.setDifficulty(doc.getDifficulty());
+            vo.setSummary(StrUtil.maxLength(StrUtil.nullToEmpty(doc.getContent()).replaceAll("\\s+", " "), SUMMARY_LENGTH));
+            int[] stat = submitStats.get(doc.getQuestionId());
+            vo.setPassRate(stat != null && stat[0] >= MIN_SUBMITS_FOR_PASS_RATE ? (double) stat[1] / stat[0] : null);
+            result.add(vo);
+        }
+        return result;
     }
 
     // 相似题推荐：以题目向量做 kNN，排除当前题与当前用户已通过的题

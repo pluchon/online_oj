@@ -32,6 +32,21 @@ public class QuestionSemanticSearcher {
     // 向量字段名（题目文档中的 embedding 字段）
     public static final String EMBEDDING_FIELD = "embedding";
 
+    // 标题字段名（关键词检索）
+    private static final String TITLE_FIELD = "title";
+
+    // 描述字段名（关键词检索）
+    private static final String CONTENT_FIELD = "content";
+
+    // 关键词检索时标题的权重后缀
+    private static final String TITLE_BOOST = "^2";
+
+    // 排名倒数融合的平滑常数
+    private static final int RRF_K = 60;
+
+    // 候选检索不设相似度门槛（取最接近的若干道即可）
+    private static final float NO_SIMILARITY_LIMIT = -1f;
+
     // 索引映射中字段定义所在的键
     private static final String MAPPING_PROPERTIES = "properties";
 
@@ -139,6 +154,73 @@ public class QuestionSemanticSearcher {
         excludeIds.forEach(id -> excluded.add(String.valueOf(id)));
         Query exclude = Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(excluded)))));
         return knn(doc.getEmbedding(), List.of(exclude), size, similarMinSimilarity);
+    }
+
+    // 候选检索：向量与关键词两路结果按排名倒数融合（RRF），不足时同难度补齐；只取标题、难度、描述
+    public List<QuestionDoc> candidates(String query, Integer difficulty, int size, Collection<Long> excludeIds) {
+        List<Query> filters = new ArrayList<>();
+        if (difficulty != null) {
+            filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(difficulty))));
+        }
+        if (!excludeIds.isEmpty()) {
+            List<String> excluded = excludeIds.stream().map(String::valueOf).toList();
+            filters.add(Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(excluded))))));
+        }
+        Map<Long, Double> scores = new HashMap<>();
+        Map<Long, QuestionDoc> docs = new HashMap<>();
+        if (StrUtil.isNotBlank(query)) {
+            float[] vector = aiSearchClient.embedQuery(StrUtil.maxLength(query.trim(), EMBED_TEXT_LIMIT));
+            if (vector != null) {
+                fuse(knn(vector, filters, size, NO_SIMILARITY_LIMIT), scores, docs);
+            }
+            fuse(keyword(query.trim(), filters, size), scores, docs);
+        }
+        List<QuestionDoc> merged = new ArrayList<>(docs.values());
+        merged.sort((x, y) -> Double.compare(scores.get(y.getQuestionId()), scores.get(x.getQuestionId())));
+        if (merged.size() < size) {
+            List<Query> topUpFilters = new ArrayList<>(filters);
+            if (!merged.isEmpty()) {
+                List<String> picked = merged.stream().map(d -> String.valueOf(d.getQuestionId())).toList();
+                topUpFilters.add(Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(picked))))));
+            }
+            merged.addAll(filterOnly(topUpFilters, size - merged.size()));
+        }
+        return merged.size() > size ? merged.subList(0, size) : merged;
+    }
+
+    // 按排名倒数累加融合分数
+    private void fuse(List<QuestionDoc> ranked, Map<Long, Double> scores, Map<Long, QuestionDoc> docs) {
+        for (int rank = 0; rank < ranked.size(); rank++) {
+            QuestionDoc doc = ranked.get(rank);
+            scores.merge(doc.getQuestionId(), 1.0 / (RRF_K + rank + 1), Double::sum);
+            docs.putIfAbsent(doc.getQuestionId(), doc);
+        }
+    }
+
+    // 关键词检索（标题权重更高）
+    private List<QuestionDoc> keyword(String query, List<Query> filters, int size) {
+        NativeQuery nativeQuery = NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> b
+                        .must(m -> m.multiMatch(mm -> mm.query(query).fields(TITLE_FIELD + TITLE_BOOST, CONTENT_FIELD)))
+                        .filter(filters)))
+                .withSourceFilter(new FetchSourceFilterBuilder().withExcludes(EMBEDDING_FIELD).build())
+                .withMaxResults(size)
+                .build();
+        return elasticsearchOperations.search(nativeQuery, QuestionDoc.class).getSearchHits().stream()
+                .map(SearchHit::getContent)
+                .toList();
+    }
+
+    // 只按过滤条件取题（用于补齐）
+    private List<QuestionDoc> filterOnly(List<Query> filters, int size) {
+        NativeQuery nativeQuery = NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> b.filter(filters)))
+                .withSourceFilter(new FetchSourceFilterBuilder().withExcludes(EMBEDDING_FIELD).build())
+                .withMaxResults(size)
+                .build();
+        return elasticsearchOperations.search(nativeQuery, QuestionDoc.class).getSearchHits().stream()
+                .map(SearchHit::getContent)
+                .toList();
     }
 
     // 执行 kNN 检索，过滤低于阈值的结果（结果不返回向量字段）

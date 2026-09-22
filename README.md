@@ -274,6 +274,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /system/sysUser`、`DELETE /system/sysUser/{userId}`：新增、删除管理员
 * `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理
 * `POST /system/question/ai/draft`、`POST /system/question/ai/cases`、`POST /system/question/ai/solution`：AI 出题、AI 生成用例、AI 解法示例（用例的预期输出由解法在沙箱实跑得到；未传标程时先由 AI 生成解法；均不落库）
+* `POST /system/exam/ai/plan`：AI 帮建竞赛（按描述、难度倾向与题目数量生成竞赛名称和题目，不落库）
 * `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排
@@ -283,10 +284,12 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
 * `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`：system 调用 AI 生成题面草稿与用例输入
 * `POST /ai/internal/tutor/chat`：friend 以 WebClient 流式调用 AI 辅导（Feign 不支持流式，路径常量在 `AiInternalPaths`）
+* `POST /ai/internal/exam/intent`、`POST /ai/internal/exam/select`：system AI 帮建竞赛时理解需求、从候选中挑题
 * `POST /ai/internal/embedding`：friend 计算题目与查询词向量
 * `POST /ai/internal/moderation/text`、`POST /ai/internal/moderation/image`：friend 审核用户资料文本与头像
 * `POST /friend/internal/user/{userId}/cache/evict`：system 修改用户状态后清除缓存
 * `POST /friend/internal/question/refresh`：system 题目变更后刷新题目缓存与 ES
+* `POST /friend/internal/question/candidates`：system AI 帮建竞赛时混合检索候选题目（向量 + 关键词）
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
 * `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛
 

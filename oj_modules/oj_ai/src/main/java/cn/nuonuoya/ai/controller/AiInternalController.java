@@ -1,11 +1,16 @@
 package cn.nuonuoya.ai.controller;
 
+import cn.nuonuoya.ai.service.AiExamService;
 import cn.nuonuoya.ai.service.AiQuestionService;
 import cn.nuonuoya.api.ai.api.AiInternalApi;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
+import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
+import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
+import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import jakarta.validation.Valid;
@@ -19,6 +24,9 @@ public class AiInternalController implements AiInternalApi {
 
     @Autowired
     private AiQuestionService aiQuestionService;
+
+    @Autowired
+    private AiExamService aiExamService;
 
     /** 根据一句话描述生成题面草稿 */
     @Override
@@ -36,5 +44,17 @@ public class AiInternalController implements AiInternalApi {
     @Override
     public AiSolutionVO generateSolution(@Valid @RequestBody AiSolutionDTO solutionDTO) {
         return aiQuestionService.generateSolution(solutionDTO);
+    }
+
+    /** 理解竞赛描述 */
+    @Override
+    public AiExamIntentVO parseExamIntent(@Valid @RequestBody AiExamIntentDTO intentDTO) {
+        return aiExamService.parseIntent(intentDTO);
+    }
+
+    /** 从候选中挑题 */
+    @Override
+    public AiExamSelectVO selectExamQuestions(@Valid @RequestBody AiExamSelectDTO selectDTO) {
+        return aiExamService.selectQuestions(selectDTO);
     }
 }

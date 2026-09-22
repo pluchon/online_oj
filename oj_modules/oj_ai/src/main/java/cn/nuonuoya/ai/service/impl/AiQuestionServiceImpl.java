@@ -2,7 +2,7 @@ package cn.nuonuoya.ai.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.ai.config.AiChatOptionsFactory;
+import cn.nuonuoya.ai.service.support.AiStructuredCaller;
 import cn.nuonuoya.ai.config.AiProperties;
 import cn.nuonuoya.ai.exception.AiModelException;
 import cn.nuonuoya.ai.prompt.QuestionPrompts;
@@ -14,8 +14,6 @@ import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +23,6 @@ import java.util.List;
 import java.util.Set;
 
 // 出题类 AI 能力实现：模型只给题面与输入，结果做范围兜底，不计算预期输出
-@Slf4j
 @Service
 public class AiQuestionServiceImpl implements AiQuestionService {
 
@@ -45,13 +42,10 @@ public class AiQuestionServiceImpl implements AiQuestionService {
     private static final int MAX_SPACE_LIMIT_MB = 200;
 
     @Autowired
-    private ChatClient questionChatClient;
-
-    @Autowired
     private AiProperties aiProperties;
 
     @Autowired
-    private AiChatOptionsFactory aiChatOptionsFactory;
+    private AiStructuredCaller aiStructuredCaller;
 
     // 生成题面草稿，并把难度与时空限制收敛到合法范围
     @Override
@@ -122,29 +116,9 @@ public class AiQuestionServiceImpl implements AiQuestionService {
         return solution;
     }
 
-    // 以指定模型与温度调用模型并把回复解析为结构化对象，任何失败都转换为模型调用异常
+    // 以出题模型调用并解析为结构化对象
     private <T> T callForEntity(String scene, String system, String user, Double temperature, Class<T> type) {
-        long start = System.currentTimeMillis();
-        String model = aiProperties.getQuestionModel();
-        try {
-            T entity = questionChatClient.prompt()
-                    .options(aiChatOptionsFactory.builder(model, temperature).build())
-                    .system(system)
-                    .user(user)
-                    .call()
-                    .entity(type);
-            if (entity == null) {
-                throw new AiModelException(scene + "：模型返回为空");
-            }
-            log.info("AI {}完成, model = {}, 耗时 = {} ms", scene, model, System.currentTimeMillis() - start);
-            return entity;
-        } catch (AiModelException e) {
-            throw e;
-        } catch (Exception e) {
-            log.warn("AI {}失败, model = {}, 耗时 = {} ms, error = {}", scene, model,
-                    System.currentTimeMillis() - start, e.getMessage());
-            throw new AiModelException(scene + "：模型调用失败", e);
-        }
+        return aiStructuredCaller.call(scene, aiProperties.getQuestionModel(), temperature, system, user, type);
     }
 
     // 统一换行并去掉首尾空行，保留行内空格（空数组以空行表示）

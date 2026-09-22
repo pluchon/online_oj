@@ -1,9 +1,13 @@
 package cn.nuonuoya.system.client;
 
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
+import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
+import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
+import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import cn.nuonuoya.common.enums.ResultCode;
@@ -36,6 +40,16 @@ public class AiClient {
     // 生成解法示例
     public AiSolutionVO generateSolution(AiSolutionDTO solutionDTO) {
         return call("解法示例", () -> aiFeignClient.generateSolution(solutionDTO));
+    }
+
+    // 理解竞赛描述
+    public AiExamIntentVO parseExamIntent(AiExamIntentDTO intentDTO) {
+        return call("竞赛需求理解", () -> aiFeignClient.parseExamIntent(intentDTO));
+    }
+
+    // 从候选中挑题
+    public AiExamSelectVO selectExamQuestions(AiExamSelectDTO selectDTO) {
+        return call("竞赛选题", () -> aiFeignClient.selectExamQuestions(selectDTO));
     }
 
     // 执行远程调用：参数错误返回参数校验失败，其余失败（含超时、服务不可用、空结果）返回 AI 服务繁忙
