@@ -2,6 +2,7 @@ package cn.nuonuoya.ai.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.ai.config.AiChatOptionsFactory;
 import cn.nuonuoya.ai.config.AiProperties;
 import cn.nuonuoya.ai.exception.AiModelException;
 import cn.nuonuoya.ai.prompt.QuestionPrompts;
@@ -11,7 +12,6 @@ import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +41,9 @@ public class AiQuestionServiceImpl implements AiQuestionService {
 
     @Autowired
     private AiProperties aiProperties;
+
+    @Autowired
+    private AiChatOptionsFactory aiChatOptionsFactory;
 
     // 生成题面草稿，并把难度与时空限制收敛到合法范围
     @Override
@@ -103,7 +106,7 @@ public class AiQuestionServiceImpl implements AiQuestionService {
         String model = aiProperties.getQuestionModel();
         try {
             T entity = questionChatClient.prompt()
-                    .options(DashScopeChatOptions.builder().model(model).temperature(temperature).build())
+                    .options(aiChatOptionsFactory.builder(model, temperature).build())
                     .system(system)
                     .user(user)
                     .call()

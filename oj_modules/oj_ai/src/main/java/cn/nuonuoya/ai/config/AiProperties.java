@@ -4,6 +4,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.ArrayList;
+import java.util.List;
+
 // AI 业务配置（模型名与采样参数放 Nacos，可随时切换）
 @Getter
 @Setter
@@ -42,4 +45,10 @@ public class AiProperties {
 
     // 图片审核模型
     private String imageModerationModel = "qwen3-vl-flash";
+
+    // 只能走 DashScope 多模态接口的模型（纯文本请求也必须走该接口，否则返回 url error）
+    private List<String> multimodalModels = new ArrayList<>(List.of("qwen3.7-flash", "qwen3-vl-flash"));
+
+    // 是否开启模型的思考模式（qwen3 系默认开启，会先生成大量推理内容，审核耗时从约 0.6 秒升到 12 秒以上）
+    private Boolean enableThinking = false;
 }

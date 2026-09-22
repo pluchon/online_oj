@@ -1,6 +1,7 @@
 package cn.nuonuoya.ai.service.impl;
 
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.ai.config.AiChatOptionsFactory;
 import cn.nuonuoya.ai.config.AiProperties;
 import cn.nuonuoya.ai.exception.AiModelException;
 import cn.nuonuoya.ai.prompt.ModerationPrompts;
@@ -8,7 +9,6 @@ import cn.nuonuoya.ai.service.AiModerationService;
 import cn.nuonuoya.api.ai.dto.AiImageModerationDTO;
 import cn.nuonuoya.api.ai.dto.AiTextModerationDTO;
 import cn.nuonuoya.api.ai.vo.AiModerationVO;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -34,13 +34,16 @@ public class AiModerationServiceImpl implements AiModerationService {
     @Autowired
     private AiProperties aiProperties;
 
+    @Autowired
+    private AiChatOptionsFactory aiChatOptionsFactory;
+
     // 审核文本
     @Override
     public AiModerationVO moderateText(AiTextModerationDTO moderationDTO) {
         String joined = String.join("\n###\n", moderationDTO.getTexts());
         String model = aiProperties.getModerationModel();
         return call("文本审核", model, () -> moderationChatClient.prompt()
-                .options(DashScopeChatOptions.builder().model(model).temperature(MODERATION_TEMPERATURE).build())
+                .options(aiChatOptionsFactory.builder(model, MODERATION_TEMPERATURE).build())
                 .system(ModerationPrompts.TEXT_SYSTEM)
                 .user(joined)
                 .call()
@@ -57,11 +60,7 @@ public class AiModerationServiceImpl implements AiModerationService {
                 .build();
         UserMessage message = UserMessage.builder().text(ModerationPrompts.IMAGE_USER).media(media).build();
         return call("图片审核", model, () -> moderationChatClient.prompt()
-                .options(DashScopeChatOptions.builder()
-                        .model(model)
-                        .temperature(MODERATION_TEMPERATURE)
-                        .multiModel(true)
-                        .build())
+                .options(aiChatOptionsFactory.builder(model, MODERATION_TEMPERATURE).multiModel(true).build())
                 .system(ModerationPrompts.IMAGE_SYSTEM)
                 .messages(message)
                 .call()

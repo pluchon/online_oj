@@ -2,6 +2,7 @@ package cn.nuonuoya.ai.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.ai.config.AiChatOptionsFactory;
 import cn.nuonuoya.ai.config.AiProperties;
 import cn.nuonuoya.ai.prompt.TutorPrompts;
 import cn.nuonuoya.ai.service.AiTutorService;
@@ -9,7 +10,6 @@ import cn.nuonuoya.api.ai.constants.AiInternalPaths;
 import cn.nuonuoya.api.ai.dto.AiTutorChatDTO;
 import cn.nuonuoya.api.ai.dto.AiTutorHistoryDTO;
 import cn.nuonuoya.api.ai.enums.AiTutorActionEnum;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -40,6 +40,9 @@ public class AiTutorServiceImpl implements AiTutorService {
     @Autowired
     private AiProperties aiProperties;
 
+    @Autowired
+    private AiChatOptionsFactory aiChatOptionsFactory;
+
     // 流式对话
     @Override
     public Flux<ServerSentEvent<String>> chat(AiTutorChatDTO chatDTO) {
@@ -68,9 +71,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         long start = System.currentTimeMillis();
         AtomicReference<Usage> usage = new AtomicReference<>();
         Flux<ServerSentEvent<String>> deltas = tutorChatClient.prompt()
-                .options(DashScopeChatOptions.builder()
-                        .model(model)
-                        .temperature(aiProperties.getTutorTemperature())
+                .options(aiChatOptionsFactory.builder(model, aiProperties.getTutorTemperature())
                         .maxToken(aiProperties.getTutorMaxTokens())
                         .incrementalOutput(true)
                         .build())
