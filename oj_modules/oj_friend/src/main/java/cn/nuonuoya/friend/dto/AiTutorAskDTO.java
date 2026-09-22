@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.dto;
 
+import cn.nuonuoya.api.ai.enums.AiTutorActionEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -17,8 +18,8 @@ public class AiTutorAskDTO {
     // 提问类型（0:自由提问 1:思路 2:分析最近一次提交 3:解释编译错误 4:点评代码）
     @Schema(description = "提问类型（0:自由提问 1:思路 2:分析最近一次提交 3:解释编译错误 4:点评代码）", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "提问类型不能为空")
-    @Min(value = 0, message = "提问类型不合法")
-    @Max(value = 4, message = "提问类型不合法")
+    @Min(value = AiTutorActionEnum.MIN_CODE, message = "提问类型不合法")
+    @Max(value = AiTutorActionEnum.MAX_CODE, message = "提问类型不合法")
     private Integer action;
 
     // 提问内容（自由提问时必填）

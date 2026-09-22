@@ -20,4 +20,19 @@ public final class AiInternalPaths {
 
     // 流式事件名：失败
     public static final String EVENT_ERROR = "error";
+
+    // 事件数据字段：增量文本
+    public static final String FIELD_TEXT = "text";
+
+    // 事件数据字段：生成回复的模型
+    public static final String FIELD_MODEL = "model";
+
+    // 事件数据字段：输入 Token 数
+    public static final String FIELD_PROMPT_TOKENS = "promptTokens";
+
+    // 事件数据字段：输出 Token 数
+    public static final String FIELD_COMPLETION_TOKENS = "completionTokens";
+
+    // 事件数据字段：错误提示
+    public static final String FIELD_MSG = "msg";
 }

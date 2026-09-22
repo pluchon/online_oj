@@ -29,6 +29,12 @@ public enum AiTutorActionEnum {
     // 快捷操作文案
     private final String label;
 
+    // 最小编码（供请求参数校验）
+    public static final int MIN_CODE = 0;
+
+    // 最大编码（供请求参数校验，新增类型时同步调整）
+    public static final int MAX_CODE = 4;
+
     // 根据编码获取类型，不存在返回 null
     public static AiTutorActionEnum getByCode(Integer code) {
         for (AiTutorActionEnum action : values()) {

@@ -10,6 +10,7 @@ import cn.nuonuoya.api.ai.constants.AiInternalPaths;
 import cn.nuonuoya.api.ai.dto.AiTutorChatDTO;
 import cn.nuonuoya.api.ai.dto.AiTutorHistoryDTO;
 import cn.nuonuoya.api.ai.enums.AiTutorActionEnum;
+import cn.nuonuoya.common.enums.ResultCode;
 import com.alibaba.fastjson2.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -82,7 +83,7 @@ public class AiTutorServiceImpl implements AiTutorService {
                 .doOnNext(response -> rememberUsage(response, usage))
                 .map(this::textOf)
                 .filter(StrUtil::isNotEmpty)
-                .map(text -> ServerSentEvent.builder(new JSONObject().fluentPut("text", text).toJSONString())
+                .map(text -> ServerSentEvent.builder(new JSONObject().fluentPut(AiInternalPaths.FIELD_TEXT, text).toJSONString())
                         .event(AiInternalPaths.EVENT_DELTA).build());
 
         return deltas
@@ -93,7 +94,7 @@ public class AiTutorServiceImpl implements AiTutorService {
                 .onErrorResume(e -> {
                     log.warn("AI 辅导失败, model = {}, action = {}, 耗时 = {} ms, error = {}", model, action,
                             System.currentTimeMillis() - start, e.getMessage());
-                    return Flux.just(errorEvent("AI 服务繁忙，请稍后重试"));
+                    return Flux.just(errorEvent(ResultCode.FAILED_AI_BUSY.getMsg()));
                 });
     }
 
@@ -116,17 +117,17 @@ public class AiTutorServiceImpl implements AiTutorService {
 
     // 结束事件：模型名与用量
     private ServerSentEvent<String> doneEvent(String model, Usage usage) {
-        JSONObject data = new JSONObject().fluentPut("model", model);
+        JSONObject data = new JSONObject().fluentPut(AiInternalPaths.FIELD_MODEL, model);
         if (usage != null) {
-            data.put("promptTokens", usage.getPromptTokens());
-            data.put("completionTokens", usage.getCompletionTokens());
+            data.put(AiInternalPaths.FIELD_PROMPT_TOKENS, usage.getPromptTokens());
+            data.put(AiInternalPaths.FIELD_COMPLETION_TOKENS, usage.getCompletionTokens());
         }
         return ServerSentEvent.builder(data.toJSONString()).event(AiInternalPaths.EVENT_DONE).build();
     }
 
     // 错误事件
     private ServerSentEvent<String> errorEvent(String message) {
-        return ServerSentEvent.builder(new JSONObject().fluentPut("msg", message).toJSONString())
+        return ServerSentEvent.builder(new JSONObject().fluentPut(AiInternalPaths.FIELD_MSG, message).toJSONString())
                 .event(AiInternalPaths.EVENT_ERROR).build();
     }
 }

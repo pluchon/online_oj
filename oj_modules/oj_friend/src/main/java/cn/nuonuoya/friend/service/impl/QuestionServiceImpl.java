@@ -59,6 +59,9 @@ import java.util.stream.Collectors;
 @Service
 public class QuestionServiceImpl implements QuestionService {
 
+    // 相似题推荐数量
+    private static final int SIMILAR_LIMIT = 5;
+
     // 注入ES持久层仓库
     @Autowired
     private QuestionRepository questionRepository;
@@ -86,9 +89,6 @@ public class QuestionServiceImpl implements QuestionService {
     // 题目语义检索
     @Autowired
     private QuestionSemanticSearcher questionSemanticSearcher;
-
-    // 相似题推荐数量
-    private static final int SIMILAR_LIMIT = 5;
 
     // 分页全文检索题目列表
     @Override
@@ -140,7 +140,7 @@ public class QuestionServiceImpl implements QuestionService {
             }
 
             // 执行ES查询（不返回向量字段）
-            esQuery.addSourceFilter(new FetchSourceFilterBuilder().withExcludes("embedding").build());
+            esQuery.addSourceFilter(new FetchSourceFilterBuilder().withExcludes(QuestionSemanticSearcher.EMBEDDING_FIELD).build());
             SearchHits<QuestionDoc> searchHits = elasticsearchOperations.search(esQuery, QuestionDoc.class);
             long total = searchHits.getTotalHits();
             List<QuestionDoc> docList = searchHits.getSearchHits().stream()

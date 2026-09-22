@@ -19,6 +19,9 @@ import java.time.Duration;
 @Component
 public class AiTutorClient {
 
+    // 负载均衡地址前缀（按服务名解析实例）
+    private static final String LOAD_BALANCED_SCHEME = "http://";
+
     // 服务端事件的反序列化类型
     private static final ParameterizedTypeReference<ServerSentEvent<String>> EVENT_TYPE = new ParameterizedTypeReference<>() {
     };
@@ -34,7 +37,7 @@ public class AiTutorClient {
     public Flux<ServerSentEvent<String>> streamChat(AiTutorChatDTO chatDTO) {
         return loadBalancedWebClientBuilder.build()
                 .post()
-                .uri("http://" + AiInternalPaths.SERVICE_NAME + AiInternalPaths.TUTOR_CHAT)
+                .uri(LOAD_BALANCED_SCHEME + AiInternalPaths.SERVICE_NAME + AiInternalPaths.TUTOR_CHAT)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .bodyValue(chatDTO)

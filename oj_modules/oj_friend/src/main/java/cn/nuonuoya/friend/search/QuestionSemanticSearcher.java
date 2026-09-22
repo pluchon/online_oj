@@ -29,8 +29,11 @@ import java.util.Map;
 @Component
 public class QuestionSemanticSearcher {
 
-    // 向量字段名
-    private static final String EMBEDDING_FIELD = "embedding";
+    // 向量字段名（题目文档中的 embedding 字段）
+    public static final String EMBEDDING_FIELD = "embedding";
+
+    // 难度字段名（语义检索的难度过滤）
+    private static final String DIFFICULTY_FIELD = "difficulty";
 
     // 单次向量计算的最大条数（DashScope 文本向量接口限制）
     private static final int EMBED_BATCH_SIZE = 10;
@@ -110,7 +113,7 @@ public class QuestionSemanticSearcher {
         }
         List<Query> filters = new ArrayList<>();
         if (difficulty != null && difficulty > 0) {
-            filters.add(Query.of(q -> q.term(t -> t.field("difficulty").value(difficulty))));
+            filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(difficulty))));
         }
         return knn(vector, filters, size);
     }

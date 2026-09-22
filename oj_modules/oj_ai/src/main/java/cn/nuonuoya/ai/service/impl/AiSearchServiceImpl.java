@@ -21,8 +21,10 @@ import java.util.List;
 @Service
 public class AiSearchServiceImpl implements AiSearchService {
 
-    // DashScope 文本向量的类型：检索查询与被检索文档
+    // DashScope 文本向量类型：检索查询
     private static final String TEXT_TYPE_QUERY = "query";
+
+    // DashScope 文本向量类型：被检索文档
     private static final String TEXT_TYPE_DOCUMENT = "document";
 
     @Autowired

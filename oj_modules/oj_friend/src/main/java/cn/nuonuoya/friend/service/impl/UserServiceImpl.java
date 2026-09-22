@@ -30,6 +30,7 @@ import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.service.OssService;
 import cn.nuonuoya.friend.client.AiModerationClient;
 import cn.nuonuoya.api.ai.vo.AiModerationVO;
+import org.springframework.http.MediaType;
 import cn.nuonuoya.friend.service.UserService;
 import cn.nuonuoya.friend.vo.UserAbilityRadarVO;
 import cn.nuonuoya.friend.vo.UserCalendarItemVO;
@@ -583,7 +584,7 @@ public class UserServiceImpl implements UserService {
     // 手机号脱敏（保留前3后4）
     // 审核头像图片，读取失败或审核服务不可用时返回 null
     private AiModerationVO moderateAvatar(MultipartFile file) {
-        String contentType = StringUtils.hasText(file.getContentType()) ? file.getContentType() : "image/png";
+        String contentType = StringUtils.hasText(file.getContentType()) ? file.getContentType() : MediaType.IMAGE_PNG_VALUE;
         try {
             return aiModerationClient.moderateImage(contentType, file.getBytes());
         } catch (IOException e) {
