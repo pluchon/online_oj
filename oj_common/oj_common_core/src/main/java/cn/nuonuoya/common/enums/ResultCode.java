@@ -53,7 +53,10 @@ public enum ResultCode {
     // AI 相关（34xx）
     FAILED_AI_BUSY (3401, "AI 服务繁忙，请稍后重试"),
     FAILED_AI_STANDARD_CODE_ERROR (3402, "标程编译或运行失败"),
-    FAILED_AI_NO_VALID_CASE (3403, "未能生成可用的测试用例，请检查题面、main函数与标程后重试");
+    FAILED_AI_NO_VALID_CASE (3403, "未能生成可用的测试用例，请检查题面、main函数与标程后重试"),
+    FAILED_AI_QUOTA_EXCEEDED (3404, "今日 AI 辅导次数已用完，明天再来吧"),
+    FAILED_AI_IN_EXAM (3405, "竞赛进行中，AI 辅导暂不可用"),
+    FAILED_AI_ACTION_UNAVAILABLE (3406, "当前没有可供分析的提交");
 
     private final int code;
     private final String msg;

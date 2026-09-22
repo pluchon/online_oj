@@ -21,6 +21,9 @@ public class FriendCacheConstants {
     // 竞赛题目顺序列表缓存键前缀（exam:q:l:{examId}）
     public final static String EXAM_QUESTION_LIST_KEY = "exam:q:l:";
 
+    // AI 辅导每日次数计数键前缀（ai:tutor:quota:{userId}:{yyyyMMdd}）
+    public final static String AI_TUTOR_QUOTA_KEY = "ai:tutor:quota:";
+
     // 运行示例用例限流键前缀（q:run:limit:{userId}）
     public final static String QUESTION_RUN_LIMIT_KEY = "q:run:limit:";
 

@@ -15,4 +15,10 @@ public class AiConfig {
     public ChatClient questionChatClient(ChatClient.Builder builder) {
         return builder.build();
     }
+
+    // 做题辅导使用的对话客户端
+    @Bean
+    public ChatClient tutorChatClient(ChatClient.Builder builder) {
+        return builder.build();
+    }
 }

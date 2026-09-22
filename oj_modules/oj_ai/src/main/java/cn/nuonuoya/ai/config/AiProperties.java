@@ -18,4 +18,16 @@ public class AiProperties {
 
     // 用例输入的采样温度（略高以覆盖更多情形）
     private Double caseTemperature = 0.8;
+
+    // 做题辅导对话使用的模型
+    private String tutorModel = "qwen3.7-flash";
+
+    // 做题辅导的采样温度
+    private Double tutorTemperature = 0.5;
+
+    // 做题辅导单次回复的最大 Token
+    private Integer tutorMaxTokens = 1500;
+
+    // 做题辅导单次回复的最长耗时（秒）
+    private Integer tutorTimeoutSeconds = 90;
 }
