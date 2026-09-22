@@ -8,7 +8,7 @@
 
 **墨衡 OJ** 是一套微服务架构的在线判题平台：C 端提供题库检索、在线编码运行与提交、竞赛报名与排名、站内消息；B 端提供题目与测试用例管理、竞赛编排、用户管控。
 
-判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。后续将新增 `oj_ai` 服务接入通义大模型，提供做题辅导、AI 辅助出题与语义检索（见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)）。
+判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，已提供 B 端 AI 辅助出题；做题辅导、语义检索等后续功能见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
 
 ---
 
@@ -29,6 +29,7 @@ flowchart TD
         System["oj-system :9201\n题目与用例 / 竞赛编排 / 用户管控"]
         Judge["oj-judge :9204\n编译与沙箱执行"]
         Job["oj-job :9203\nXXL-JOB 执行器"]
+        Ai["oj-ai :9205\n模型调用（只计算不写库）"]
     end
 
     subgraph Middleware ["中间件"]
@@ -40,6 +41,7 @@ flowchart TD
     end
 
     Pool["Docker 常驻容器池\n(oj_worker_*)"]
+    Bailian["通义百炼"]
 
     WebUser --> Gateway
     WebAdmin --> Gateway
@@ -54,6 +56,9 @@ flowchart TD
     Judge --> Pool
 
     System -->|Feign 刷新缓存 / 索引| Friend
+    System -->|Feign AI 出题| Ai
+    System -->|Feign 运行标程| Judge
+    Ai --> Bailian
     XXL -->|调度| Job
     Job -->|Feign 竞赛结算 / 缓存刷新| Friend
 
@@ -70,9 +75,10 @@ flowchart TD
     System -.-> Nacos
     Judge -.-> Nacos
     Job -.-> Nacos
+    Ai -.-> Nacos
 ```
 
-- 前端只经网关访问 friend 与 system；judge、job 不对外暴露。
+- 前端只经网关访问 friend 与 system；judge、job、ai 不对外暴露，AI 能力由 friend / system 转发并负责权限与次数。
 - 服务间调用走"provider 契约 + 调用方本地 Feign 客户端"：契约放 `oj_api`，调用方在自己的 `client` 包中实现 Feign 与降级；内部接口统一为 `/{domain}/internal/**`，网关拒绝外部访问。
 - 题目 ES 索引、竞赛缓存等只由 friend 维护；system、job 修改数据后通过内部接口通知 friend 刷新。
 
@@ -103,7 +109,8 @@ online_oj/
 │   ├── oj_friend/                   # C 端服务
 │   ├── oj_system/                   # B 端服务
 │   ├── oj_judge/                    # 判题服务
-│   └── oj_job/                      # 定时任务执行器
+│   ├── oj_job/                      # 定时任务执行器
+│   └── oj_ai/                       # AI 服务（Spring AI Alibaba，只做模型计算）
 └── UPGRADE_PLAN.md                  # 升级与 AI 接入计划书
 ```
 
@@ -204,6 +211,7 @@ docker compose up -d
 | `oj-system-local.yaml` | system |
 | `oj-friend-local.yaml`、`oj-message-local.yaml` | friend |
 | `oj-judge-local.yaml` | judge |
+| `oj-ai-local.yaml` | ai（百炼 API Key、模型名、超时；Key 本地可引用环境变量 `OJ_DASHSCOPE_API_KEY`） |
 | `oj-job-local.yaml` | job |
 
 - Nacos 连不上时服务启动失败；Data ID 不存在时只告警，表现为缺配置启动失败，排查时先看 Nacos 服务端 `config-client-request.log` 里的命名空间。
@@ -222,6 +230,7 @@ mvn clean install -DskipTests
 | oj_friend | `cn.nuonuoya.friend.FriendApplication` | 9202 |
 | oj_judge | `cn.nuonuoya.judge.JudgeApplication` | 9204 |
 | oj_job | `cn.nuonuoya.job.JobApplication` | 9203 |
+| oj_ai | `cn.nuonuoya.ai.AiApplication` | 9205 |
 
 judge 需要本机 Docker 可用，启动时会预热判题容器池。
 
@@ -255,13 +264,15 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
 * `POST /system/sysUser`、`DELETE /system/sysUser/{userId}`：新增、删除管理员
 * `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理
+* `POST /system/question/ai/draft`、`POST /system/question/ai/cases`：AI 生成题面草稿、AI 生成用例（预期输出由标程在沙箱实跑，均不落库）
 * `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排
 * `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
-* `POST /judge/internal/run`：friend 同步运行示例
+* `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
+* `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`：system 调用 AI 生成题面草稿与用例输入
 * `POST /friend/internal/user/{userId}/cache/evict`：system 修改用户状态后清除缓存
 * `POST /friend/internal/question/refresh`：system 题目变更后刷新题目缓存与 ES
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
@@ -294,7 +305,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 | 0 代码优化 | 规范排查与重构 | 已完成 |
 | 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成，待联调验收 |
 | 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 计划中 |
-| 3 AI 模块 | 新增 `oj_ai`：做题辅导、AI 辅助出题、语义检索与相似题推荐、资料审核 | 计划中 |
+| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题（已完成）、做题辅导、语义检索与相似题推荐、资料审核 | 进行中 |
 | 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界 | 计划中 |
 
 ---
