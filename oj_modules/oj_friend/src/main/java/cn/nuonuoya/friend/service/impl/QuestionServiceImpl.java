@@ -328,7 +328,6 @@ public class QuestionServiceImpl implements QuestionService {
         for (QuestionVO vo : voList) {
             Integer status = statusMap.getOrDefault(vo.getQuestionId(), UserQuestionStatusEnum.UNTOUCHED.getCode());
             vo.setUserStatus(status);
-            vo.setPassStatus(status);
             vo.setTags(resolveQuestionTags(vo));
         }
     }
@@ -342,7 +341,6 @@ public class QuestionServiceImpl implements QuestionService {
         Long userId = SecurityUtils.getUserId();
         if (userId == null || vo.getQuestionId() == null) {
             vo.setUserStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());
-            vo.setPassStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());
             return;
         }
         List<TbUserSubmit> submits = userSubmitMapper.selectList(
@@ -357,7 +355,6 @@ public class QuestionServiceImpl implements QuestionService {
             status = anyPass ? UserQuestionStatusEnum.SOLVED.getCode() : UserQuestionStatusEnum.IN_PROGRESS.getCode();
         }
         vo.setUserStatus(status);
-        vo.setPassStatus(status);
     }
 
     // 启发式解析题目特征算法分类标签

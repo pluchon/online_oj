@@ -108,6 +108,7 @@ online_oj/
 │   ├── db_sql/                      # 核心基线与业务增量 SQL 脚本
 │   │   ├── int.sql                  # 基础系统表与 Nacos 数据库结构
 │   │   ├── tables_message.sql       # 站内信消息正文与用户投递表
+│   │   ├── tables_message_type.sql  # 消息类型字段增量（系统通知 / 竞赛通知）
 │   │   ├── tables_user_exam.sql     # 竞赛报名与得分排名记录表
 │   │   ├── tables_user_submit.sql   # 用户提交记录表
 │   │   └── tables_xxl_job.sql       # XXL-JOB 调度引擎库表
@@ -252,7 +253,7 @@ mvn clean install -DskipTests
 * `POST /friend/exam/{examId}/enrollment`：报名竞赛
 * `GET  /friend/exam/mine`：我报名的竞赛
 * `GET  /friend/exam/{examId}/rank`：竞赛排名（竞赛结束后公布）
-* `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息与未读数
+* `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息（支持 type 类型、keyword 关键词筛选）与未读数
 * `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
 
 ### 2. B端管理系统接口 (`/system/**`)

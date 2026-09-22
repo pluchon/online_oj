@@ -2,8 +2,8 @@ package cn.nuonuoya.friend.controller;
 
 import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
-import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
+import cn.nuonuoya.friend.dto.MessageQueryDTO;
 import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.MessageVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,9 +29,9 @@ public class MessageController extends BaseController {
 
     /** 分页查询当前用户站内消息列表 */
     @GetMapping
-    @Operation(summary = "消息列表", description = "分页查询当前登录用户的站内消息列表")
-    public TableDataResult<MessageVO> list(PageQuery pageQuery) {
-        return messageService.list(pageQuery);
+    @Operation(summary = "消息列表", description = "分页查询当前登录用户的站内消息列表，支持按类型与关键词筛选")
+    public TableDataResult<MessageVO> list(@Validated MessageQueryDTO queryDTO) {
+        return messageService.list(queryDTO);
     }
 
     /** 查询当前用户未读消息数量 */

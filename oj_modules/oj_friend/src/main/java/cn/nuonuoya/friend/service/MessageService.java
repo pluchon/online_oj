@@ -1,6 +1,6 @@
 package cn.nuonuoya.friend.service;
 
-import cn.nuonuoya.common.domain.PageQuery;
+import cn.nuonuoya.friend.dto.MessageQueryDTO;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.vo.MessageVO;
 
@@ -8,7 +8,7 @@ import cn.nuonuoya.friend.vo.MessageVO;
 public interface MessageService {
 
     // 分页查询当前登录用户的消息列表
-    TableDataResult<MessageVO> list(PageQuery pageQuery);
+    TableDataResult<MessageVO> list(MessageQueryDTO queryDTO);
 
     // 获取当前登录用户未读消息数量
     int getUnreadCount();

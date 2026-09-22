@@ -20,6 +20,7 @@ import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.enums.ExamListTypeEnum;
 import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
 import cn.nuonuoya.friend.enums.ExamRankSettledEnum;
+import cn.nuonuoya.friend.enums.MessageTypeEnum;
 import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
@@ -591,9 +592,9 @@ public class ExamServiceImpl implements ExamService {
     // 为每位参赛选手写入战报消息，缓存在事务提交后更新
     private void sendRankNotices(TbExam exam, List<ExamRankVO> rankList) {
         int totalParticipants = rankList.size();
-        List<TbMessageText> texts = new ArrayList<>(totalParticipants);
         for (ExamRankVO vo : rankList) {
             TbMessageText text = new TbMessageText();
+            text.setMessageType(MessageTypeEnum.EXAM.getCode());
             text.setMessageTitle("竞赛结果通知");
             text.setMessageContent("您参与的竞赛：" + exam.getTitle() + "：本次共参赛" + totalParticipants + "人，您排名：第" + vo.getExamRank() + "名！");
             text.setCreateBy(SYSTEM_SENDER_ID);
@@ -608,13 +609,7 @@ public class ExamServiceImpl implements ExamService {
             message.setCreateBy(SYSTEM_SENDER_ID);
             message.setCreateTime(LocalDateTime.now());
             messageMapper.insert(message);
-            texts.add(text);
         }
-        TransactionUtils.afterCommit(() -> {
-            for (int i = 0; i < texts.size(); i++) {
-                messageCacheManager.saveMessageTextCache(texts.get(i));
-                messageCacheManager.pushUserMessage(rankList.get(i).getUserId(), texts.get(i).getTextId());
-            }
-        });
+        TransactionUtils.afterCommit(() -> rankList.forEach(vo -> messageCacheManager.incrementUnreadCount(vo.getUserId())));
     }
 }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.nuonuoya.friend.mapper.MessageMapper">
+
+    <select id="selectUserMessageList" resultType="cn.nuonuoya.friend.vo.MessageVO">
+        SELECT
+            m.message_id AS messageId,
+            m.text_id AS textId,
+            t.message_type AS type,
+            t.message_title AS title,
+            t.message_content AS content,
+            m.send_id AS sendId,
+            m.is_read AS isRead,
+            m.create_time AS createTime
+        FROM tb_message m
+        INNER JOIN tb_message_text t ON m.text_id = t.text_id
+        WHERE m.rec_id = #{userId}
+        <if test="query.type != null">
+            AND t.message_type = #{query.type}
+        </if>
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (t.message_title LIKE CONCAT('%', #{query.keyword}, '%')
+                OR t.message_content LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        ORDER BY m.create_time DESC, m.message_id DESC
+    </select>
+
+</mapper>

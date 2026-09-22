@@ -62,10 +62,6 @@ public class QuestionVO {
     @Schema(description = "学员做题状态（0:未尝试 1:已攻克 2:尝试中）")
     private Integer userStatus;
 
-    // 答题通过状态兼容字段（同userStatus，0:未尝试 1:已攻克 2:尝试中）
-    @Schema(description = "答题通过状态兼容字段")
-    private Integer passStatus;
-
     // 题目标签列表
     @Schema(description = "题目标签列表")
     private List<String> tags;

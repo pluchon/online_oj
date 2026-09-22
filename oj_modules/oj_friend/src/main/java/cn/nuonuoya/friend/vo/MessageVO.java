@@ -24,6 +24,10 @@ public class MessageVO {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long textId;
 
+    // 消息类型（1: 系统通知 2: 竞赛通知）
+    @Schema(description = "消息类型(1:系统通知 2:竞赛通知)")
+    private Integer type;
+
     // 消息标题
     @Schema(description = "消息标题")
     private String title;

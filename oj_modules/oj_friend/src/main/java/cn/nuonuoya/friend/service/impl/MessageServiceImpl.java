@@ -2,14 +2,12 @@ package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.cache.MessageCacheManager;
-import cn.nuonuoya.friend.converter.MessageConverter;
+import cn.nuonuoya.friend.dto.MessageQueryDTO;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.friend.domain.TbMessage;
-import cn.nuonuoya.friend.domain.TbMessageText;
 import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.mapper.MessageMapper;
 import cn.nuonuoya.friend.service.MessageService;
@@ -26,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -42,36 +39,21 @@ public class MessageServiceImpl implements MessageService {
     private MessageCacheManager messageCacheManager;
 
 
-    // 分页查询当前登录用户的站内消息列表
+    // 分页查询当前登录用户的站内消息列表（按类型、关键词在数据库侧筛选后分页）
     @Override
-    public TableDataResult<MessageVO> list(PageQuery pageQuery) {
+    public TableDataResult<MessageVO> list(MessageQueryDTO queryDTO) {
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
             throw new ServiceException(ResultCode.FAILED_UNAUTHORIZED);
         }
+        queryDTO.setKeyword(StrUtil.trimToNull(queryDTO.getKeyword()));
 
-        int pageNum = pageQuery != null && pageQuery.getPageNum() != null ? pageQuery.getPageNum() : 1;
-        int pageSize = pageQuery != null && pageQuery.getPageSize() != null ? pageQuery.getPageSize() : 10;
-
-        PageHelper.startPage(pageNum, pageSize);
-        List<TbMessage> messageList = messageMapper.selectList(new LambdaQueryWrapper<TbMessage>()
-                .eq(TbMessage::getRecId, userId)
-                .orderByDesc(TbMessage::getCreateTime, TbMessage::getMessageId));
-
-        if (CollUtil.isEmpty(messageList)) {
+        PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
+        List<MessageVO> voList = messageMapper.selectUserMessageList(userId, queryDTO);
+        if (CollUtil.isEmpty(voList)) {
             return TableDataResult.empty();
         }
-
-        long total = new PageInfo<>(messageList).getTotal();
-        List<MessageVO> voList = new ArrayList<>(messageList.size());
-
-        for (TbMessage message : messageList) {
-            // 正文优先从缓存读取
-            TbMessageText text = messageCacheManager.getMessageText(message.getTextId());
-            voList.add(MessageConverter.toVO(message, text));
-        }
-
-        return TableDataResult.success(voList, total);
+        return TableDataResult.success(voList, new PageInfo<>(voList).getTotal());
     }
 
     // 获取未读消息数量

@@ -19,6 +19,9 @@ public class TbMessageText extends BaseEntity {
     @TableId(value = "TEXT_ID", type = IdType.ASSIGN_ID)
     private Long textId;
 
+    // 消息类型（见 MessageTypeEnum）
+    private Integer messageType;
+
     // 消息标题
     private String messageTitle;
 
