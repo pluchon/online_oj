@@ -24,6 +24,12 @@
             <artifactId>spring-web</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!--    契约 DTO 的参数校验注解，由提供方引入校验运行时    -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
 </project>

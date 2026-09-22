@@ -287,7 +287,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         requestDTO.setUserId(userId);
         requestDTO.setQuestionId(question.getQuestionId());
         requestDTO.setUserCode(userCode);
-        requestDTO.setCompleteCode(buildCompleteCode(userCode, question.getMainFunc()));
+        requestDTO.setMainFunc(question.getMainFunc());
         // 时空限制为空时由判题服务使用默认值
         requestDTO.setTimeLimit(question.getTimeLimit());
         requestDTO.setSpaceLimit(question.getSpaceLimit());
@@ -317,39 +317,5 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             vo.setFailCase(QuestionCaseConverter.toCaseResultVO(failCase, submit.getFailOutput(), false));
         }
         return vo;
-    }
-
-    // 拼接用户源码与题库主驱动函数生成完整可运行代码
-    private String buildCompleteCode(String userCode, String mainFunc) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("import java.util.*;\n");
-        sb.append("import java.io.*;\n\n");
-
-        if (userCode != null && userCode.contains("class Solution")) {
-            // 用户代码已包含类定义，将 mainFunc 嵌入类中
-            int lastBraceIndex = userCode.lastIndexOf('}');
-            if (lastBraceIndex != -1) {
-                sb.append(userCode, 0, lastBraceIndex);
-                sb.append("\n\n");
-                if (StrUtil.isNotBlank(mainFunc)) {
-                    sb.append("    ").append(mainFunc).append("\n");
-                }
-                sb.append("}\n\n");
-            } else {
-                sb.append(userCode).append("\n\n");
-            }
-        } else {
-            // 用户代码为纯方法，包装进 Solution 类中
-            sb.append("public class Solution {\n\n");
-            sb.append(userCode).append("\n\n");
-            if (StrUtil.isNotBlank(mainFunc)) {
-                sb.append(mainFunc).append("\n\n");
-            }
-            sb.append("}\n\n");
-        }
-
-        // 兼容主函数测试用例调用的 Main 类型引用
-        sb.append("class Main extends Solution {}\n");
-        return sb.toString();
     }
 }

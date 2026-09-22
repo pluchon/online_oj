@@ -32,8 +32,8 @@ public class JudgeRequestDTO implements Serializable {
     // 用户提交的原始代码
     private String userCode;
 
-    // 拼装完成的待编译可执行完整代码
-    private String completeCode;
+    // 题目主驱动函数（判题服务将其与用户代码拼装为可运行代码）
+    private String mainFunc;
 
     // 时间限制（毫秒）
     private Integer timeLimit;

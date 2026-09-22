@@ -48,7 +48,12 @@ public enum ResultCode {
 
     // 判题相关
     FAILED_QUESTION_NO_CASE (3301, "题目尚未配置测试用例"),
-    FAILED_QUESTION_NO_SAMPLE (3302, "请至少设置一组公开示例用例");
+    FAILED_QUESTION_NO_SAMPLE (3302, "请至少设置一组公开示例用例"),
+
+    // AI 相关（34xx）
+    FAILED_AI_BUSY (3401, "AI 服务繁忙，请稍后重试"),
+    FAILED_AI_STANDARD_CODE_ERROR (3402, "标程编译或运行失败"),
+    FAILED_AI_NO_VALID_CASE (3403, "未能生成可用的测试用例，请检查题面、main函数与标程后重试");
 
     private final int code;
     private final String msg;

@@ -86,7 +86,8 @@ public class JudgeSandboxService {
         // 步骤 1：用户代码与用例输入落盘至独立评测目录
         File workDir;
         try {
-            File solutionFile = codeFileStorageService.saveSolutionFile(requestDTO.getUserId(), submitId, requestDTO.getCompleteCode());
+            File solutionFile = codeFileStorageService.saveSolutionFile(requestDTO.getUserId(), submitId,
+                    buildCompleteCode(requestDTO.getUserCode(), requestDTO.getMainFunc()));
             workDir = solutionFile.getParentFile();
             codeFileStorageService.saveInputFile(workDir, buildStdin(cases));
         } catch (Exception e) {
@@ -198,6 +199,40 @@ public class JudgeSandboxService {
             // 评测结束即清理代码与输入，源码已在提交记录中留存
             codeFileStorageService.deleteFolder(workDir);
         }
+    }
+
+    // 拼接用户源码与题库主驱动函数生成完整可运行代码
+    private String buildCompleteCode(String userCode, String mainFunc) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("import java.util.*;\n");
+        sb.append("import java.io.*;\n\n");
+
+        if (userCode != null && userCode.contains("class Solution")) {
+            // 用户代码已包含类定义，将 mainFunc 嵌入类中
+            int lastBraceIndex = userCode.lastIndexOf('}');
+            if (lastBraceIndex != -1) {
+                sb.append(userCode, 0, lastBraceIndex);
+                sb.append("\n\n");
+                if (StrUtil.isNotBlank(mainFunc)) {
+                    sb.append("    ").append(mainFunc).append("\n");
+                }
+                sb.append("}\n\n");
+            } else {
+                sb.append(userCode).append("\n\n");
+            }
+        } else {
+            // 用户代码为纯方法，包装进 Solution 类中
+            sb.append("public class Solution {\n\n");
+            sb.append(userCode).append("\n\n");
+            if (StrUtil.isNotBlank(mainFunc)) {
+                sb.append(mainFunc).append("\n\n");
+            }
+            sb.append("}\n\n");
+        }
+
+        // 兼容主函数测试用例调用的 Main 类型引用
+        sb.append("class Main extends Solution {}\n");
+        return sb.toString();
     }
 
     // 填充判题状态与回显信息

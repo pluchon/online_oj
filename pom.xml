@@ -86,10 +86,10 @@
 				<scope>import</scope>
 			</dependency>
 
-			<!-- Spring AI Alibaba（阶段 3 的 oj_ai 使用，Spring AI 版本随其传递） -->
+			<!-- Spring AI Alibaba 扩展 BOM（管理 DashScope starter，oj_ai 使用；Spring AI 版本随其传递） -->
 			<dependency>
 				<groupId>com.alibaba.cloud.ai</groupId>
-				<artifactId>spring-ai-alibaba-bom</artifactId>
+				<artifactId>spring-ai-alibaba-extensions-bom</artifactId>
 				<version>${spring-ai-alibaba.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
