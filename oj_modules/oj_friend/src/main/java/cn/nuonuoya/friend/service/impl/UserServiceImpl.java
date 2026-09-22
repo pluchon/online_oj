@@ -8,7 +8,6 @@ import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.common.enums.UserIdentity;
 import cn.nuonuoya.friend.cache.UserCacheManager;
-import cn.nuonuoya.friend.converter.UserConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.domain.TbUser;
 import cn.nuonuoya.friend.domain.TbUserExam;

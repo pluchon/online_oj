@@ -1,11 +1,11 @@
 package cn.nuonuoya.friend.controller;
 
+import cn.nuonuoya.api.friend.api.FriendQuestionInternalApi;
 import cn.nuonuoya.api.friend.dto.FriendQuestionCandidateQueryDTO;
 import cn.nuonuoya.api.friend.vo.FriendQuestionCandidateVO;
-import org.springframework.web.bind.annotation.RequestBody;
-import cn.nuonuoya.api.friend.api.FriendQuestionInternalApi;
 import cn.nuonuoya.friend.service.QuestionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;

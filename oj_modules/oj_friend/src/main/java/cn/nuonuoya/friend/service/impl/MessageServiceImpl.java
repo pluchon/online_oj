@@ -14,7 +14,6 @@ import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.MessageVO;
 import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -37,7 +36,6 @@ public class MessageServiceImpl implements MessageService {
 
     @Autowired
     private MessageCacheManager messageCacheManager;
-
 
     // 分页查询当前登录用户的站内消息列表（按类型、关键词在数据库侧筛选后分页）
     @Override

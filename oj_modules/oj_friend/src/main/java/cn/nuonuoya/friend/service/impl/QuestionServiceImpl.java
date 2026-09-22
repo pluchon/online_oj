@@ -43,7 +43,6 @@ import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilterBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -92,7 +91,6 @@ public class QuestionServiceImpl implements QuestionService {
     // 注入题目缓存管理器
     @Autowired
     private QuestionCacheManager questionCacheManager;
-
 
     @Autowired
     private QuestionCaseService questionCaseService;

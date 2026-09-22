@@ -1,6 +1,5 @@
 package cn.nuonuoya.friend.aspect;
 
-import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.cache.UserCacheManager;
 import cn.nuonuoya.friend.enums.UserStatusEnum;
@@ -22,7 +21,6 @@ public class UserStatusCheckAspect {
 
     @Autowired
     private UserCacheManager userCacheManager;
-
 
     // 在受保护操作执行前拦截校验用户账号状态
     @Before("@annotation(checkUserStatus)")

@@ -5,10 +5,6 @@ import cn.nuonuoya.system.enums.ExamStatus;
 import cn.nuonuoya.system.vo.ExamDetailVO;
 import cn.nuonuoya.system.vo.ExamVO;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 // 竞赛对象转换器
 public class ExamConverter {
 
