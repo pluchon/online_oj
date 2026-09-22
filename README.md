@@ -8,7 +8,7 @@
 
 **墨衡 OJ** 是一套微服务架构的在线判题平台：C 端提供题库检索、在线编码运行与提交、竞赛报名与排名、站内消息；B 端提供题目与测试用例管理、竞赛编排、用户管控。
 
-判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，已提供 B 端 AI 辅助出题与 C 端 AI 做题辅导；语义检索等后续功能见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
+判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，提供 B 端 AI 辅助出题、C 端 AI 做题辅导、题目语义检索与相似题推荐、用户资料内容审核，设计见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
 
 ---
 
@@ -59,6 +59,7 @@ flowchart TD
     System -->|Feign AI 出题| Ai
     System -->|Feign 运行标程| Judge
     Friend -->|WebClient 流式辅导| Ai
+    Friend -->|Feign 向量 / 审核| Ai
     Ai --> Bailian
     XXL -->|调度| Job
     Job -->|Feign 竞赛结算 / 缓存刷新| Friend
@@ -137,7 +138,8 @@ online_oj/
 - XXL-JOB 调度 job 服务调用 friend 的结算接口：先用条件更新抢占"已结算"标记，任务重叠或重试也只结算一次；每场独立事务，战报的未读计数在事务提交后才写入 Redis。
 
 ### 4. 题目搜索与降级
-- 题目搜索走 ES，标题与描述使用 IK 分词（含自定义算法词典）。
+- 题目搜索走 ES，标题与描述使用 IK 分词（含自定义算法词典）；关键词无结果时，首页用题目向量做 kNN 语义推荐（按相似度阈值过滤无关结果），同一份向量也用于相似题推荐。
+- 题目向量随索引同步生成，文本未变化的题目复用已有向量；friend 启动后会在后台同步一次。
 - 索引为空时自动从数据库全量同步；后台改题后同步并清掉已删除的题目；ES 不可用时直接查 MySQL，搜索不中断。
 
 ### 5. 身份透传与用户状态拦截
@@ -215,6 +217,7 @@ docker compose up -d
 | `oj-ai-local.yaml` | ai（百炼 API Key、模型名、超时；Key 本地可引用环境变量 `OJ_DASHSCOPE_API_KEY`） |
 | `oj-job-local.yaml` | job |
 
+- 本地短信为模拟发码（`oj-message-local.yaml` 中 `sms.is-confirm: false`）：不发短信，friend 日志输出 `[模拟发码] ... 验证码: xxxxxx`，真实发码模式不输出验证码。
 - Nacos 连不上时服务启动失败；Data ID 不存在时只告警，表现为缺配置启动失败，排查时先看 Nacos 服务端 `config-client-request.log` 里的命名空间。
 
 ### 5. 编译与启动
@@ -243,11 +246,12 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 
 ### 1. C端用户与竞赛接口 (`/friend/**`)
 * `POST /friend/user/send-code`、`POST /friend/user/login`、`DELETE /friend/user/logout`：短信验证码登录（新用户自动注册）与退出登录
-* `GET|PUT /friend/user/profile`、`POST /friend/user/avatar`：个人资料与头像
+* `GET|PUT /friend/user/profile`、`POST /friend/user/avatar`：个人资料与头像（昵称、个人介绍、头像变更前做内容审核，审核服务不可用时放行）
 * `GET  /friend/user/profile/overview`、`GET /friend/user/profile/calendar`：做题统计、能力雷达与解题日历
 * `GET  /friend/question`：题库分页检索（关键字、难度）
 * `GET  /friend/question/{questionId}`：单题详情与公开示例
 * `GET  /friend/question/{questionId}/neighbors`：上一题、下一题导航（可带 `examId`）
+* `GET  /friend/question/{questionId}/similar`：相似题推荐（需登录，排除当前题与已通过的题）
 * `GET  /friend/question/first`、`GET /friend/question/stats`：首题与题库统计
 * `POST /friend/question/{questionId}/run`：同步运行公开示例（不落库）
 * `POST /friend/question/{questionId}/submissions`：提交代码并异步判题
@@ -277,6 +281,8 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
 * `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`：system 调用 AI 生成题面草稿与用例输入
 * `POST /ai/internal/tutor/chat`：friend 以 WebClient 流式调用 AI 辅导（Feign 不支持流式，路径常量在 `AiInternalPaths`）
+* `POST /ai/internal/embedding`：friend 计算题目与查询词向量
+* `POST /ai/internal/moderation/text`、`POST /ai/internal/moderation/image`：friend 审核用户资料文本与头像
 * `POST /friend/internal/user/{userId}/cache/evict`：system 修改用户状态后清除缓存
 * `POST /friend/internal/question/refresh`：system 题目变更后刷新题目缓存与 ES
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
@@ -309,7 +315,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 | 0 代码优化 | 规范排查与重构 | 已完成 |
 | 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成，待联调验收 |
 | 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 计划中 |
-| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、做题辅导（已完成）、语义检索与相似题推荐、资料审核 | 进行中 |
+| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、做题辅导、语义检索与相似题推荐、资料审核 | 已完成，待联调验收 |
 | 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界 | 计划中 |
 
 ---
