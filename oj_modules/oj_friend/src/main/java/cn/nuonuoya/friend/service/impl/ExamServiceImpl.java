@@ -38,6 +38,7 @@ import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
 import com.alibaba.fastjson2.JSON;
+import cn.nuonuoya.friend.vo.ExamStatsVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
@@ -52,6 +53,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.function.Consumer;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -625,5 +627,41 @@ public class ExamServiceImpl implements ExamService {
                 .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
                 .le(TbExam::getStartTime, now)
                 .ge(TbExam::getEndTime, now)) > 0;
+    }
+
+    // 竞赛状态统计：按当前时间划分未开赛、进行中、已完赛（不受列表筛选条件影响）
+    @Override
+    public ExamStatsVO getStats(boolean mine) {
+        ExamStatsVO vo = new ExamStatsVO();
+        List<Long> examIds = null;
+        if (mine) {
+            Long userId = SecurityUtils.getUserId();
+            examIds = userId == null ? Collections.emptyList() : userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
+                            .select(TbUserExam::getExamId)
+                            .eq(TbUserExam::getUserId, userId))
+                    .stream().map(TbUserExam::getExamId).toList();
+            if (examIds.isEmpty()) {
+                vo.setTotal(0L);
+                vo.setOngoing(0L);
+                vo.setNotStarted(0L);
+                vo.setFinished(0L);
+                return vo;
+            }
+        }
+        LocalDateTime now = LocalDateTime.now();
+        vo.setNotStarted(countPublished(examIds, w -> w.gt(TbExam::getStartTime, now)));
+        vo.setOngoing(countPublished(examIds, w -> w.le(TbExam::getStartTime, now).ge(TbExam::getEndTime, now)));
+        vo.setFinished(countPublished(examIds, w -> w.lt(TbExam::getEndTime, now)));
+        vo.setTotal(vo.getNotStarted() + vo.getOngoing() + vo.getFinished());
+        return vo;
+    }
+
+    // 统计已发布竞赛中满足时间条件的场次（examIds 非空时只统计这些竞赛）
+    private long countPublished(List<Long> examIds, Consumer<LambdaQueryWrapper<TbExam>> timeCondition) {
+        LambdaQueryWrapper<TbExam> wrapper = new LambdaQueryWrapper<TbExam>()
+                .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
+                .in(examIds != null, TbExam::getExamId, examIds);
+        timeCondition.accept(wrapper);
+        return examMapper.selectCount(wrapper);
     }
 }

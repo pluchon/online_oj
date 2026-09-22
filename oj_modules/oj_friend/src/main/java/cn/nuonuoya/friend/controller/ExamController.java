@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import cn.nuonuoya.friend.vo.ExamStatsVO;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -57,6 +59,13 @@ public class ExamController extends BaseController {
     public OJResult<Void> enroll(@PathVariable("examId") Long examId) {
         examService.enroll(examId);
         return OJResult.ok();
+    }
+
+    /** 竞赛状态统计 */
+    @GetMapping("/stats")
+    @Operation(summary = "竞赛状态统计", description = "mine 为 true 时只统计当前用户已报名的竞赛；不受列表筛选条件影响")
+    public OJResult<ExamStatsVO> stats(@RequestParam(value = "mine", defaultValue = "false") boolean mine) {
+        return OJResult.ok(examService.getStats(mine));
     }
 
     /** 分页查询我的竞赛列表 */

@@ -12,7 +12,7 @@ public enum AiTutorActionEnum {
     CHAT(0, "自由提问"),
 
     // 给一点解题思路
-    HINT(1, "给我一点思路"),
+    HINT(1, "指点迷津"),
 
     // 分析最近一次未通过的提交
     ANALYZE_SUBMIT(2, "分析我最近一次提交"),

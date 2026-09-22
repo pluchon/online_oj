@@ -24,7 +24,7 @@ public class AiTutorQuotaManager {
     private RedisService redisService;
 
     // 每人每日可提问次数，可在 Nacos 中覆盖
-    @Value("${oj.ai.tutor.daily-limit:30}")
+    @Value("${oj.ai.tutor.daily-limit:50}")
     private int dailyLimit;
 
     // 每日可提问次数

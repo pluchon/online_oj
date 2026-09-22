@@ -261,11 +261,12 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET  /friend/exam/{examId}`：竞赛详情
 * `POST /friend/exam/{examId}/enrollment`：报名竞赛
 * `GET  /friend/exam/mine`：我报名的竞赛
+* `GET  /friend/exam/stats?mine=`：竞赛状态统计（全部或已报名，不受列表筛选影响）
 * `GET  /friend/exam/{examId}/rank`：竞赛排名（竞赛结束后公布）
 * `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息（支持 type 类型、keyword 关键词筛选）与未读数
 * `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
 * `GET  /friend/ai/tutor/{questionId}`：AI 辅导会话（历史消息、今日剩余次数、快捷操作所需的提交状态）
-* `POST /friend/ai/tutor/{questionId}/chat`：AI 辅导提问，SSE 流式返回（`delta` / `done` / `error`）；每人每天 30 次，在进行中的竞赛里答题（携带 examId）时拒绝
+* `POST /friend/ai/tutor/{questionId}/chat`：AI 辅导提问，SSE 流式返回（`delta` / `done` / `error`）；每人每天 50 次（剩余不超过 5 次时前端才显示），在进行中的竞赛里答题（携带 examId）时拒绝
 
 ### 2. B端管理系统接口 (`/system/**`)
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息

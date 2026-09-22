@@ -5,6 +5,7 @@ import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.vo.ExamRankVO;
 import cn.nuonuoya.friend.vo.ExamVO;
+import cn.nuonuoya.friend.vo.ExamStatsVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
 
 import java.util.List;
@@ -35,4 +36,7 @@ public interface ExamService {
 
     // 竞赛是否已发布且正在进行
     boolean isExamOngoing(Long examId);
+
+    // 竞赛状态统计（mine 为 true 时只统计当前用户已报名的竞赛）
+    ExamStatsVO getStats(boolean mine);
 }
