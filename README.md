@@ -8,7 +8,7 @@
 
 **墨衡 OJ** 是一套微服务架构的在线判题平台：C 端提供题库检索、在线编码运行与提交、竞赛报名与排名、站内消息；B 端提供题目与测试用例管理、竞赛编排、用户管控。
 
-判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，已提供 B 端 AI 辅助出题；做题辅导、语义检索等后续功能见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
+判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，已提供 B 端 AI 辅助出题与 C 端 AI 做题辅导；语义检索等后续功能见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
 
 ---
 
@@ -58,6 +58,7 @@ flowchart TD
     System -->|Feign 刷新缓存 / 索引| Friend
     System -->|Feign AI 出题| Ai
     System -->|Feign 运行标程| Judge
+    Friend -->|WebClient 流式辅导| Ai
     Ai --> Bailian
     XXL -->|调度| Job
     Job -->|Feign 竞赛结算 / 缓存刷新| Friend
@@ -259,6 +260,8 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET  /friend/exam/{examId}/rank`：竞赛排名（竞赛结束后公布）
 * `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息（支持 type 类型、keyword 关键词筛选）与未读数
 * `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
+* `GET  /friend/ai/tutor/{questionId}`：AI 辅导会话（历史消息、今日剩余次数、快捷操作所需的提交状态）
+* `POST /friend/ai/tutor/{questionId}/chat`：AI 辅导提问，SSE 流式返回（`delta` / `done` / `error`）；每人每天 30 次，参加中的竞赛包含本题时拒绝
 
 ### 2. B端管理系统接口 (`/system/**`)
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
@@ -273,6 +276,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
 * `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`：system 调用 AI 生成题面草稿与用例输入
+* `POST /ai/internal/tutor/chat`：friend 以 WebClient 流式调用 AI 辅导（Feign 不支持流式，路径常量在 `AiInternalPaths`）
 * `POST /friend/internal/user/{userId}/cache/evict`：system 修改用户状态后清除缓存
 * `POST /friend/internal/question/refresh`：system 题目变更后刷新题目缓存与 ES
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
@@ -305,7 +309,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 | 0 代码优化 | 规范排查与重构 | 已完成 |
 | 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成，待联调验收 |
 | 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 计划中 |
-| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题（已完成）、做题辅导、语义检索与相似题推荐、资料审核 | 进行中 |
+| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、做题辅导（已完成）、语义检索与相似题推荐、资料审核 | 进行中 |
 | 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界 | 计划中 |
 
 ---
