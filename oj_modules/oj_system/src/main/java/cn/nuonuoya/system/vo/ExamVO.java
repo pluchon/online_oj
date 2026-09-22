@@ -45,6 +45,10 @@ public class ExamVO {
     @Schema(description = "创建用户")
     private String creatorName;
 
+    // 参赛人数（报名该竞赛的用户数）
+    @Schema(description = "参赛人数")
+    private Long enterCount;
+
     // 创建时间
     @Schema(description = "创建时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

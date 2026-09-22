@@ -10,7 +10,8 @@
             e.end_time AS endTime,
             e.status,
             u.nick_name AS creatorName,
-            e.create_time AS createTime
+            e.create_time AS createTime,
+            (SELECT COUNT(*) FROM tb_user_exam ue WHERE ue.exam_id = e.exam_id) AS enterCount
         FROM tb_exam e
         LEFT JOIN tb_sys_user u ON e.create_by = u.user_id
         <where>
