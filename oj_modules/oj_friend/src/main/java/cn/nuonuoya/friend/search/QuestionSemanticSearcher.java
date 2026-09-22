@@ -32,6 +32,9 @@ public class QuestionSemanticSearcher {
     // 向量字段名（题目文档中的 embedding 字段）
     public static final String EMBEDDING_FIELD = "embedding";
 
+    // 索引映射中字段定义所在的键
+    private static final String MAPPING_PROPERTIES = "properties";
+
     // 难度字段名（语义检索的难度过滤）
     private static final String DIFFICULTY_FIELD = "difficulty";
 
@@ -53,17 +56,24 @@ public class QuestionSemanticSearcher {
     @Autowired
     private AiSearchClient aiSearchClient;
 
-    // 语义检索的最低余弦相似度，低于它的结果视为无关，可在 Nacos 中覆盖
-    @Value("${oj.ai.search.min-similarity:0.55}")
+    // 语义检索（查询词对题目）的最低余弦相似度；text-embedding-v4 实测相关 0.50~0.76、无关 0.39~0.41，可在 Nacos 中覆盖
+    @Value("${oj.ai.search.min-similarity:0.45}")
     private float minSimilarity;
 
-    // 确保索引存在且映射包含向量字段（旧索引补充新字段）
+    // 相似题（题目对题目）的最低余弦相似度；不同题目之间的基线约 0.45~0.49，阈值需高于查询词场景，可在 Nacos 中覆盖
+    @Value("${oj.ai.search.similar-min-similarity:0.6}")
+    private float similarMinSimilarity;
+
+    // 确保索引存在：不存在时按实体映射创建；已存在但缺少向量字段时只告警（旧版本 ES 创建的索引向量字段默认不建索引，更新映射会冲突，需删除后由同步自动重建）
     public void ensureMapping() {
         IndexOperations indexOps = elasticsearchOperations.indexOps(QuestionDoc.class);
         if (!indexOps.exists()) {
             indexOps.createWithMapping();
-        } else {
-            indexOps.putMapping();
+            return;
+        }
+        Object properties = indexOps.getMapping().get(MAPPING_PROPERTIES);
+        if (!(properties instanceof Map<?, ?> fields) || !fields.containsKey(EMBEDDING_FIELD)) {
+            log.warn("题目索引缺少向量字段，语义检索与相似题不可用；请删除 question 索引，同步时会自动按新映射重建");
         }
     }
 
@@ -115,7 +125,7 @@ public class QuestionSemanticSearcher {
         if (difficulty != null && difficulty > 0) {
             filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(difficulty))));
         }
-        return knn(vector, filters, size);
+        return knn(vector, filters, size, minSimilarity);
     }
 
     // 相似题：以题目自身向量做 kNN，排除自身与指定题目；题目尚无向量时返回空列表
@@ -128,11 +138,11 @@ public class QuestionSemanticSearcher {
         excluded.add(String.valueOf(questionId));
         excludeIds.forEach(id -> excluded.add(String.valueOf(id)));
         Query exclude = Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(excluded)))));
-        return knn(doc.getEmbedding(), List.of(exclude), size);
+        return knn(doc.getEmbedding(), List.of(exclude), size, similarMinSimilarity);
     }
 
-    // 执行 kNN 检索（结果不返回向量字段）
-    private List<QuestionDoc> knn(float[] vector, List<Query> filters, int size) {
+    // 执行 kNN 检索，过滤低于阈值的结果（结果不返回向量字段）
+    private List<QuestionDoc> knn(float[] vector, List<Query> filters, int size, float threshold) {
         List<Float> queryVector = new ArrayList<>(vector.length);
         for (float v : vector) {
             queryVector.add(v);
@@ -142,7 +152,7 @@ public class QuestionSemanticSearcher {
                         .queryVector(queryVector)
                         .k(size)
                         .numCandidates(Math.max(size * CANDIDATE_FACTOR, 50))
-                        .similarity(minSimilarity)
+                        .similarity(threshold)
                         .filter(filters))
                 .withSourceFilter(new FetchSourceFilterBuilder().withExcludes(EMBEDDING_FIELD).build())
                 .withMaxResults(size)
