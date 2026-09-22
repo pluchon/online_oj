@@ -40,9 +40,9 @@ services:
       # 客户端鉴权保持关闭（与 2.x 时一致）；控制台登录鉴权由 3.x 默认开启
       NACOS_AUTH_ENABLE: "false"
       # 令牌密钥与服务端身份标识，取自 deploy/.env（参考 .env.example）
-      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:?请在 deploy/.env 中设置 NACOS_AUTH_TOKEN}
-      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:?请在 deploy/.env 中设置 NACOS_AUTH_IDENTITY_KEY}
-      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:?请在 deploy/.env 中设置 NACOS_AUTH_IDENTITY_VALUE}
+      NACOS_AUTH_TOKEN: ${OJ_NACOS_AUTH_TOKEN:?请在 deploy/.env 中设置 OJ_NACOS_AUTH_TOKEN}
+      NACOS_AUTH_IDENTITY_KEY: ${OJ_NACOS_AUTH_IDENTITY_KEY:?请在 deploy/.env 中设置 OJ_NACOS_AUTH_IDENTITY_KEY}
+      NACOS_AUTH_IDENTITY_VALUE: ${OJ_NACOS_AUTH_IDENTITY_VALUE:?请在 deploy/.env 中设置 OJ_NACOS_AUTH_IDENTITY_VALUE}
       SPRING_DATASOURCE_PLATFORM: mysql
       MYSQL_SERVICE_HOST: mysql
       MYSQL_SERVICE_PORT: 3306
