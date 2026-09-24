@@ -91,7 +91,7 @@ flowchart TD
 ```text
 online_oj/
 ├── deploy/                          # 本地编排与初始化脚本
-│   ├── docker-compose.yml           # MySQL、Redis、Nacos、RabbitMQ、ES、Kibana、XXL-JOB Admin
+│   ├── docker-compose.yml           # MySQL、Redis、Nacos、RabbitMQ、ES、Kibana、XXL-JOB Admin、Zipkin
 │   ├── .env.example                 # compose 所需密钥模板（复制为 .env，不入库）
 │   ├── db_sql/oj_init.sql           # 业务库表结构 + 测试数据 + XXL-JOB 库（MySQL 首次启动自动执行，可重复执行）
 │   ├── nacos/nacos_v3_init.sql      # Nacos 3.x 配置库表结构（在业务库脚本之后自动执行）
@@ -148,7 +148,12 @@ online_oj/
 - C 端：做题辅导对话（SSE 流式、每日次数、竞赛中禁用、只给思路不给完整代码）、语义检索与相似题推荐、昵称 / 个人介绍 / 头像同步审核（审核服务不可用时放行）。
 - 模型调用失败时 oj_ai 返回非 2xx，调用方在本地 client 转换为明确的业务错误码，不伪造结果。
 
-### 6. 身份透传与用户状态拦截
+### 6. 链路追踪
+- Micrometer Tracing + Brave 上报 Zipkin：网关、各服务的 HTTP 入口、Feign 调用、friend 调 oj_ai 的流式 WebClient、RabbitMQ 发送与监听都自动传播追踪头，一次提交在 Zipkin 中是一条完整链路：网关 → friend → MQ → judge → MQ → friend。
+- 日志带 `traceId` / `spanId`，拿 Zipkin 里的 traceId 可以直接在各服务日志中检索同一次请求。
+- 采样率与 Zipkin 地址放在所有服务共用的 Nacos 配置 `oj-common-local.yaml`，本地全量采样。
+
+### 7. 身份透传与用户状态拦截
 - 网关校验令牌后，先移除外部传入的身份头，再写入 `userId` / `userKey` 传给下游，防止伪造身份。
 - 下游经拦截器放入 `ThreadLocal`，业务只从上下文取身份，不信任前端传入的用户 ID。
 - 提交代码、报名竞赛等受保护操作标注 `@CheckUserStatus`，由切面统一拦截被拉黑用户。
@@ -172,6 +177,7 @@ online_oj/
 | 消息队列 | RabbitMQ | 3.13 |
 | 搜索 | Elasticsearch + IK 分词 / Kibana | 8.18.8 |
 | 定时调度 | XXL-JOB | 2.4.0 |
+| 链路追踪 | Micrometer Tracing + Brave / Zipkin | 1.5.12 / 3 |
 | 判题沙箱 | Docker（CLI 调用，常驻容器池） | — |
 | 认证 | JJWT + Redis 会话 | 0.9.1 |
 | 接口文档 | springdoc-openapi | 2.8.17 |
@@ -207,6 +213,7 @@ docker compose up -d
 | Nacos | `127.0.0.1:8848` / `9848` | 控制台 `http://127.0.0.1:18848`，首次打开设置管理员密码；命名空间 `8f599ee1-85ee-45b3-8435-1522e90fb2e0` |
 | RabbitMQ | `127.0.0.1:5672` | 控制台 `http://127.0.0.1:15672` |
 | Elasticsearch | `127.0.0.1:9200` | Kibana `http://127.0.0.1:15601` |
+| Zipkin | `http://127.0.0.1:9411` | 调用链查询（内存存储，重启后清空） |
 | XXL-JOB Admin | `http://127.0.0.1:18080/xxl-job-admin` | 初始化脚本已登记执行器 `oj-job-executor` 与两个任务（刷新竞赛列表、结算排名） |
 
 各组件账号密码见 `docker-compose.yml` 与 `deploy/.env`。
@@ -217,6 +224,7 @@ docker compose up -d
 
 | Data ID | 使用方 |
 | :--- | :--- |
+| `oj-common-local.yaml` | 所有服务最先导入的公共配置（链路追踪采样率与 Zipkin 地址），可被各服务自己的 Data ID 覆盖 |
 | `oj-gateway-local.yaml` | 网关 |
 | `oj-system-local.yaml` | system |
 | `oj-friend-local.yaml`、`oj-message-local.yaml` | friend |
@@ -236,6 +244,7 @@ docker compose up -d
 | `OJ_XXL_JOB_ACCESS_TOKEN` | 与调度中心一致的 accessToken | 默认 `default_token` |
 | `OJ_OSS_ACCESS_KEY_ID` / `OJ_OSS_ACCESS_KEY_SECRET` / `OJ_OSS_BUCKET_NAME` / `OJ_OSS_URL_PREFIX` | 头像上传（阿里云 OSS） | 上传头像时必填 |
 | `OJ_SMS_ACCESS_KEY_ID` / `OJ_SMS_ACCESS_KEY_SECRET` | 真实发送短信 | 关闭模拟发码时必填 |
+| `OJ_TRACING_SAMPLING` / `OJ_ZIPKIN_ENDPOINT` | 链路追踪采样率与 Zipkin 上报地址 | 默认 `1.0` / 本机 9411 |
 
 - 本地短信为模拟发码（`oj-message-local.yaml` 中 `sms.is-confirm: false`）：不发短信，friend 日志输出 `[模拟发码] ... 验证码: xxxxxx`，真实发码模式不输出验证码。
 - Nacos 连不上时服务启动失败；Data ID 不存在时只告警，表现为缺配置启动失败，排查时先看 Nacos 服务端 `config-client-request.log` 里的命名空间。
@@ -338,10 +347,10 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 | 阶段 | 内容 | 状态 |
 | :--- | :--- | :--- |
 | 0 代码优化 | 规范排查与重构 | 已完成 |
-| 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成，待联调验收 |
-| 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 计划中 |
+| 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成 |
+| 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 已完成 |
 | 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、AI 帮建竞赛、做题辅导、语义检索与相似题推荐、资料审核 | 已完成 |
-| 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界 | 计划中 |
+| 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界（含 AI 辅导流式调用），阈值按链路追踪实测耗时定 | 计划中 |
 
 ---
 

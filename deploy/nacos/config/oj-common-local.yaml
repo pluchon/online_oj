@@ -1,0 +1,22 @@
+# Data ID: oj-common-local.yaml  Group: DEFAULT_GROUP  格式: YAML
+# 所有服务最先导入的公共配置，服务自己的 Data ID 可覆盖；密钥一律引用 OJ_ 前缀的环境变量
+management:
+  tracing:
+    sampling:
+      # 本地全量采样，生产按需下调
+      probability: ${OJ_TRACING_SAMPLING:1.0}
+  zipkin:
+    tracing:
+      endpoint: ${OJ_ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+
+spring:
+  reactor:
+    # Reactor 线程（网关、WebClient 回调）自动带上链路上下文
+    context-propagation: auto
+  rabbitmq:
+    # 链路穿过消息队列：发送端写入追踪头，监听端接续
+    template:
+      observation-enabled: true
+    listener:
+      simple:
+        observation-enabled: true

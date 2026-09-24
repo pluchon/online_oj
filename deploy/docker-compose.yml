@@ -146,6 +146,19 @@ services:
           - rabbitmq
           - oj-rabbitmq
 
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: oj-zipkin
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+    environment:
+      # 内存存储，重启后清空；只用于本地排查调用链
+      STORAGE_TYPE: mem
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+    networks:
+      - oj-net
+
 networks:
   oj-net:
     driver: bridge

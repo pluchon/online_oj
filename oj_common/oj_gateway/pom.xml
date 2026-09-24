@@ -50,6 +50,19 @@
             <artifactId>oj_common_redis</artifactId>
             <version>${oj-common-redis.version}</version>
         </dependency>
+        <!--    链路追踪：Micrometer Tracing + Brave，上报到 Zipkin    -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

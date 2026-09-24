@@ -57,6 +57,19 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
             <artifactId>oj_common_mybatis</artifactId>
             <version>${oj-common-mybatis.version}</version>
         </dependency>
+        <!--    链路追踪：Micrometer Tracing + Brave，上报到 Zipkin    -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-brave</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.zipkin.reporter2</groupId>
+            <artifactId>zipkin-reporter-brave</artifactId>
+        </dependency>
         <!--    参数合法性校验    -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

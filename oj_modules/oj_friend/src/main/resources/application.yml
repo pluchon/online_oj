@@ -21,5 +21,6 @@ spring:
   config:
     # 后导入的覆盖先导入的；Nacos 连不上时启动失败，Data ID 不存在时只告警
     import:
+      - nacos:oj-common-${spring.profiles.active}.yaml?group=DEFAULT_GROUP
       - nacos:oj-message-${spring.profiles.active}.yaml?group=DEFAULT_GROUP
       - nacos:${spring.application.name}-${spring.profiles.active}.yaml?group=DEFAULT_GROUP
