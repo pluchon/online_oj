@@ -8,7 +8,7 @@
 
 **墨衡 OJ** 是一套微服务架构的在线判题平台：C 端提供题库检索、在线编码运行与提交、竞赛报名与排名、站内消息；B 端提供题目与测试用例管理、竞赛编排、用户管控。
 
-判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，提供 B 端 AI 辅助出题与 AI 帮建竞赛、C 端 AI 做题辅导、题目语义检索与相似题推荐、用户资料内容审核，设计见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
+判题由独立的 `oj_judge` 服务完成，基于自研的 **Docker 常驻容器池沙箱**；提交走 **RabbitMQ 异步判题**，示例运行走 Feign 同步调用。`oj_ai` 服务经 Spring AI Alibaba 接入通义大模型，提供 B 端 AI 辅助出题与 AI 帮建竞赛、C 端 AI 做题辅导、题目语义检索与相似题推荐、用户资料内容审核。
 
 ---
 
@@ -109,13 +109,12 @@ online_oj/
 │   ├── oj_common_message/           # 阿里云短信
 │   ├── oj_common_swagger/           # springdoc-openapi
 │   └── oj_gateway/                  # Spring Cloud Gateway（端口 19090）
-├── oj_modules/                      # 业务服务
-│   ├── oj_friend/                   # C 端服务
-│   ├── oj_system/                   # B 端服务
-│   ├── oj_judge/                    # 判题服务
-│   ├── oj_job/                      # 定时任务执行器
-│   └── oj_ai/                       # AI 服务（Spring AI Alibaba，只做模型计算）
-└── UPGRADE_PLAN.md                  # 升级与 AI 接入计划书
+└── oj_modules/                      # 业务服务
+    ├── oj_friend/                   # C 端服务
+    ├── oj_system/                   # B 端服务
+    ├── oj_judge/                    # 判题服务
+    ├── oj_job/                      # 定时任务执行器
+    └── oj_ai/                       # AI 服务（Spring AI Alibaba，只做模型计算）
 ```
 
 ---
@@ -359,17 +358,15 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 
 ---
 
-## 路线图
+## 演进历程
 
-详见 [UPGRADE_PLAN.md](UPGRADE_PLAN.md)。
-
-| 阶段 | 内容 | 状态 |
-| :--- | :--- | :--- |
-| 0 代码优化 | 规范排查与重构 | 已完成 |
-| 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成 |
-| 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 已完成 |
-| 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、AI 帮建竞赛、做题辅导、语义检索与相似题推荐、资料审核 | 已完成 |
-| 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界（含 AI 辅导流式调用） | 已完成 |
+| 阶段 | 内容 |
+| :--- | :--- |
+| 代码优化 | 按规范逐模块排查与重构：分层边界、内部契约、缓存归属、判题沙箱隔离、竞赛结算幂等 |
+| 框架升级 | Boot 3.0 → 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 |
+| AI 模块 | 新增 `oj_ai`：AI 辅助出题、AI 帮建竞赛、做题辅导、语义检索与相似题推荐、资料审核 |
+| 链路追踪 | Micrometer Tracing + Brave + Zipkin，链路穿过 Feign、WebClient 与 RabbitMQ |
+| 熔断限流 | Sentinel，只加在判题与 AI 调用边界（含 AI 辅导流式调用），规则以 YAML 放在 Nacos |
 
 ---
 

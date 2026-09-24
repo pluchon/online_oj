@@ -147,16 +147,6 @@ public class RedisService {
         return redisTemplate.opsForList().leftPush(key, value);
     }
 
-    // 删除列表中首个与 value 相等的元素
-    public <T> Long removeForList(final String key, T value) {
-        return redisTemplate.opsForList().remove(key, 1L, value);
-    }
-
-    // 仅保留列表指定范围内的元素
-    public void trimList(final String key, long start, long end) {
-        redisTemplate.opsForList().trim(key, start, end);
-    }
-
     // 将缓存值转换为目标类型
     @SuppressWarnings("unchecked")
     private <T> T convert(Object value, Class<T> clazz) {
