@@ -1,0 +1,38 @@
+# Data ID: oj-friend-sentinel-degrade.yaml  Group: DEFAULT_GROUP  格式: YAML
+# friend 的熔断规则。grade 0 = 慢调用比例（count 为慢调用阈值毫秒，slowRatioThreshold 为比例），1 = 异常比例（count 为比例）
+# minRequestAmount：统计窗口 statIntervalMs 内至少这么多次调用才判断；timeWindow：熔断持续秒数，之后放行一次试探
+
+# 运行示例：超过 5 秒算慢，10 秒内过半慢调用则熔断 10 秒
+- resource: friend-judge-run
+  grade: 0
+  count: 5000
+  slowRatioThreshold: 0.5
+  minRequestAmount: 5
+  statIntervalMs: 10000
+  timeWindow: 10
+
+# AI 辅导流：60 秒内异常过半（含 AI 返回的错误事件）则熔断 30 秒
+- resource: friend-ai-tutor
+  grade: 1
+  count: 0.5
+  minRequestAmount: 5
+  statIntervalMs: 60000
+  timeWindow: 30
+
+# 向量计算：超过 3 秒算慢，熔断期间只走关键词检索
+- resource: friend-ai-embedding
+  grade: 0
+  count: 3000
+  slowRatioThreshold: 0.5
+  minRequestAmount: 5
+  statIntervalMs: 10000
+  timeWindow: 30
+
+# 资料审核：超过 5 秒算慢，熔断期间放行并记录告警
+- resource: friend-ai-moderation
+  grade: 0
+  count: 5000
+  slowRatioThreshold: 0.5
+  minRequestAmount: 5
+  statIntervalMs: 30000
+  timeWindow: 30

@@ -1,6 +1,6 @@
 package cn.nuonuoya.friend.constants;
 
-// Sentinel 资源名（规则在 Nacos 的 oj-friend-sentinel-flow.json / oj-friend-sentinel-degrade.json 中按资源名配置）
+// Sentinel 资源名（规则在 Nacos 的 oj-friend-sentinel-flow.yaml / oj-friend-sentinel-degrade.yaml 中按资源名配置）
 public final class SentinelResources {
 
     private SentinelResources() {

@@ -4,6 +4,7 @@ import cn.nuonuoya.api.ai.dto.AiImageModerationDTO;
 import cn.nuonuoya.api.ai.dto.AiTextModerationDTO;
 import cn.nuonuoya.api.ai.vo.AiModerationVO;
 import cn.nuonuoya.friend.constants.SentinelResources;
+import cn.nuonuoya.sentinel.SentinelGuard;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -20,6 +20,7 @@
         <module>oj_common_mybatis</module>
         <module>oj_common_message</module>
         <module>oj_common_elastic</module>
+        <module>oj_common_sentinel</module>
     </modules>
 
     <properties>

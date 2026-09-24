@@ -11,6 +11,7 @@ import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import cn.nuonuoya.common.enums.ResultCode;
+import cn.nuonuoya.sentinel.SentinelGuard;
 import cn.nuonuoya.system.constants.SentinelResources;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import cn.nuonuoya.security.exception.ServiceException;

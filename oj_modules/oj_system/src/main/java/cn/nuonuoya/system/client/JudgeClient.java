@@ -2,6 +2,7 @@ package cn.nuonuoya.system.client;
 
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
+import cn.nuonuoya.sentinel.SentinelGuard;
 import cn.nuonuoya.system.constants.SentinelResources;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import lombok.extern.slf4j.Slf4j;

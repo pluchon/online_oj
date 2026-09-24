@@ -5,6 +5,7 @@ import cn.nuonuoya.api.judge.enums.JudgePassEnum;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.constants.SentinelResources;
+import cn.nuonuoya.sentinel.SentinelGuard;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

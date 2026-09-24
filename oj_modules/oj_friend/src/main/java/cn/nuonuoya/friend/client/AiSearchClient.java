@@ -3,6 +3,7 @@ package cn.nuonuoya.friend.client;
 import cn.nuonuoya.api.ai.dto.AiEmbeddingDTO;
 import cn.nuonuoya.api.ai.vo.AiEmbeddingVO;
 import cn.nuonuoya.friend.constants.SentinelResources;
+import cn.nuonuoya.sentinel.SentinelGuard;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

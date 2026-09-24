@@ -17,7 +17,7 @@ spring:
         enabled: false
       # 启动即加载规则，不等第一次调用
       eager: true
-      # 规则从 Nacos 读取（未引入 Sentinel 的服务忽略这段）：Data ID 为 {服务名}-sentinel-flow.json / -degrade.json
+      # 规则从 Nacos 读取（未引入 Sentinel 的服务忽略这段）：Data ID 为 {服务名}-sentinel-flow.yaml / -degrade.yaml，YAML 列表由自定义转换器解析
       datasource:
         flow:
           nacos:
@@ -26,8 +26,9 @@ spring:
             username: ${spring.cloud.nacos.username:}
             password: ${spring.cloud.nacos.password:}
             group-id: DEFAULT_GROUP
-            data-id: ${spring.application.name}-sentinel-flow.json
-            data-type: json
+            data-id: ${spring.application.name}-sentinel-flow.yaml
+            data-type: custom
+            converter-class: cn.nuonuoya.sentinel.converter.FlowRuleYamlConverter
             rule-type: flow
         degrade:
           nacos:
@@ -36,8 +37,9 @@ spring:
             username: ${spring.cloud.nacos.username:}
             password: ${spring.cloud.nacos.password:}
             group-id: DEFAULT_GROUP
-            data-id: ${spring.application.name}-sentinel-degrade.json
-            data-type: json
+            data-id: ${spring.application.name}-sentinel-degrade.yaml
+            data-type: custom
+            converter-class: cn.nuonuoya.sentinel.converter.DegradeRuleYamlConverter
             rule-type: degrade
   reactor:
     # Reactor 线程（网关、WebClient 回调）自动带上链路上下文

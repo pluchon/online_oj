@@ -1,0 +1,13 @@
+# Data ID: oj-system-sentinel-flow.yaml  Group: DEFAULT_GROUP  格式: YAML
+# system 的限流规则。grade 0 = 按并发数限制（同时在途的调用数），1 = 按 QPS；count 为上限
+# 同一瞬间涌入的请求可能一起通过（Sentinel 先检查后计数），依次到达时严格生效
+
+# AI 出题与帮建 → oj_ai：同时进行的生成请求上限
+- resource: system-ai
+  grade: 0
+  count: 5
+
+# 运行标程 → judge
+- resource: system-judge-run
+  grade: 0
+  count: 5

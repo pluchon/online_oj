@@ -48,6 +48,7 @@
 		<oj-common-mybatis.version>1.0-SNAPSHOT</oj-common-mybatis.version>
 		<oj-common-message.version>1.0-SNAPSHOT</oj-common-message.version>
 		<oj-common-elastic.version>1.0-SNAPSHOT</oj-common-elastic.version>
+		<oj-common-sentinel.version>1.0-SNAPSHOT</oj-common-sentinel.version>
 		<oj_api.version>1.0-SNAPSHOT</oj_api.version>
 	</properties>
 

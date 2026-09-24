@@ -75,24 +75,9 @@
         </dependency>
         <!--    熔断限流：只用在 client 包的调用边界，规则从 Nacos 读取    -->
         <dependency>
-            <groupId>com.alibaba.cloud</groupId>
-            <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
-            <exclusions>
-                <!--    不部署控制台：去掉 8719 端口上无鉴权的规则读写接口    -->
-                <exclusion>
-                    <groupId>com.alibaba.csp</groupId>
-                    <artifactId>sentinel-transport-simple-http</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.csp</groupId>
-            <artifactId>sentinel-transport-common</artifactId>
-            <version>${sentinel.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.csp</groupId>
-            <artifactId>sentinel-datasource-nacos</artifactId>
+            <groupId>cn.nuonuoya</groupId>
+            <artifactId>oj_common_sentinel</artifactId>
+            <version>${oj-common-sentinel.version}</version>
         </dependency>
         <!--    Feign 调用纳入链路追踪    -->
         <dependency>

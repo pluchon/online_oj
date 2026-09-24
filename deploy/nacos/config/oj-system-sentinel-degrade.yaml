@@ -1,0 +1,20 @@
+# Data ID: oj-system-sentinel-degrade.yaml  Group: DEFAULT_GROUP  格式: YAML
+# system 的熔断规则。grade 0 = 慢调用比例（count 为慢调用阈值毫秒，slowRatioThreshold 为比例），1 = 异常比例（count 为比例）
+# minRequestAmount：统计窗口 statIntervalMs 内至少这么多次调用才判断；timeWindow：熔断持续秒数，之后放行一次试探
+
+# AI 出题与帮建：生成本身就慢，只按异常判断；60 秒内至少 3 次且异常过半则熔断 60 秒
+- resource: system-ai
+  grade: 1
+  count: 0.5
+  minRequestAmount: 3
+  statIntervalMs: 60000
+  timeWindow: 60
+
+# 运行标程：超过 10 秒算慢，30 秒内过半慢调用则熔断 30 秒
+- resource: system-judge-run
+  grade: 0
+  count: 10000
+  slowRatioThreshold: 0.5
+  minRequestAmount: 3
+  statIntervalMs: 30000
+  timeWindow: 30

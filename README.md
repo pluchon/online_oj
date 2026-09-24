@@ -105,6 +105,7 @@ online_oj/
 │   ├── oj_common_redis/             # RedisService 封装
 │   ├── oj_common_mybatis/           # MyBatis-Plus 配置与自动填充
 │   ├── oj_common_elastic/           # ES 客户端配置与题目文档
+│   ├── oj_common_sentinel/          # Sentinel 依赖、调用保护工具与 YAML 规则转换器
 │   ├── oj_common_message/           # 阿里云短信
 │   ├── oj_common_swagger/           # springdoc-openapi
 │   └── oj_gateway/                  # Spring Cloud Gateway（端口 19090）
@@ -154,7 +155,7 @@ online_oj/
 - 采样率与 Zipkin 地址放在所有服务共用的 Nacos 配置 `oj-common-local.yaml`，本地全量采样。
 
 ### 7. 熔断限流（Sentinel）
-- 只加在调用方 `client` 包的跨服务同步调用上，不统计全部 Web 接口、不做网关限流、不部署控制台（已去掉 8719 端口上无鉴权的规则读写接口）；规则从 Nacos 读取，改规则不用重启。
+- 只加在调用方 `client` 包的跨服务同步调用上，不统计全部 Web 接口、不做网关限流、不部署控制台（已去掉 8719 端口上无鉴权的规则读写接口）；规则以 YAML 写在 Nacos，由 `oj_common_sentinel` 的转换器解析，改规则不用重启。
 - 被限流或熔断时沿用各调用边界原有的失败语义，不伪造成功：
 
 | 资源 | 调用 | 规则（初始值，按链路追踪实测耗时调整） | 被拦截时 |
@@ -241,8 +242,8 @@ docker compose up -d
 | Data ID | 使用方 |
 | :--- | :--- |
 | `oj-common-local.yaml` | 所有服务最先导入的公共配置（链路追踪、Sentinel 规则数据源），可被各服务自己的 Data ID 覆盖 |
-| `oj-friend-sentinel-flow.json`、`oj-friend-sentinel-degrade.json` | friend 的限流、熔断规则（格式 JSON） |
-| `oj-system-sentinel-flow.json`、`oj-system-sentinel-degrade.json` | system 的限流、熔断规则（格式 JSON） |
+| `oj-friend-sentinel-flow.yaml`、`oj-friend-sentinel-degrade.yaml` | friend 的限流、熔断规则（YAML 列表，模板内有字段说明） |
+| `oj-system-sentinel-flow.yaml`、`oj-system-sentinel-degrade.yaml` | system 的限流、熔断规则（YAML 列表，模板内有字段说明） |
 | `oj-gateway-local.yaml` | 网关 |
 | `oj-system-local.yaml` | system |
 | `oj-friend-local.yaml`、`oj-message-local.yaml` | friend |
