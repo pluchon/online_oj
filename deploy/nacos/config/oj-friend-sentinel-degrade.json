@@ -1,0 +1,37 @@
+[
+  {
+    "resource": "friend-judge-run",
+    "grade": 0,
+    "count": 5000,
+    "slowRatioThreshold": 0.5,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000,
+    "timeWindow": 10
+  },
+  {
+    "resource": "friend-ai-tutor",
+    "grade": 1,
+    "count": 0.5,
+    "minRequestAmount": 5,
+    "statIntervalMs": 60000,
+    "timeWindow": 30
+  },
+  {
+    "resource": "friend-ai-embedding",
+    "grade": 0,
+    "count": 3000,
+    "slowRatioThreshold": 0.5,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000,
+    "timeWindow": 30
+  },
+  {
+    "resource": "friend-ai-moderation",
+    "grade": 0,
+    "count": 5000,
+    "slowRatioThreshold": 0.5,
+    "minRequestAmount": 5,
+    "statIntervalMs": 30000,
+    "timeWindow": 30
+  }
+]

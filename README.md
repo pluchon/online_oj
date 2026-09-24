@@ -153,7 +153,22 @@ online_oj/
 - 日志带 `traceId` / `spanId`，拿 Zipkin 里的 traceId 可以直接在各服务日志中检索同一次请求。
 - 采样率与 Zipkin 地址放在所有服务共用的 Nacos 配置 `oj-common-local.yaml`，本地全量采样。
 
-### 7. 身份透传与用户状态拦截
+### 7. 熔断限流（Sentinel）
+- 只加在调用方 `client` 包的跨服务同步调用上，不统计全部 Web 接口、不做网关限流、不部署控制台（已去掉 8719 端口上无鉴权的规则读写接口）；规则从 Nacos 读取，改规则不用重启。
+- 被限流或熔断时沿用各调用边界原有的失败语义，不伪造成功：
+
+| 资源 | 调用 | 规则（初始值，按链路追踪实测耗时调整） | 被拦截时 |
+| :--- | :--- | :--- | :--- |
+| `friend-judge-run` | friend 运行示例 → judge | 并发 10；慢调用（> 5s）过半熔断 10s | 返回系统错误结果"判题服务繁忙" |
+| `friend-ai-tutor` | friend AI 辅导流 → oj_ai | 并发流 20；异常过半熔断 30s（AI 返回的错误事件也计入） | 推送错误事件"AI 服务繁忙"并归还次数 |
+| `friend-ai-embedding` | friend 向量计算 → oj_ai | 慢调用（> 3s）过半熔断 30s | 按没有向量处理，只走关键词检索 |
+| `friend-ai-moderation` | friend 资料审核 → oj_ai | 慢调用（> 5s）过半熔断 30s | 放行并记录告警（与审核服务不可用一致） |
+| `system-ai` | system AI 出题 / 帮建 → oj_ai | 并发 5；异常过半熔断 60s | 返回 3401"AI 服务繁忙" |
+| `system-judge-run` | system 运行标程 → judge | 并发 5；慢调用（> 10s）过半熔断 30s | 返回"判题服务暂不可用" |
+
+- 熔断需在统计窗口内至少 5 次调用（system 为 3 次）才会判断；并发数按同时在途的调用计，同一瞬间涌入的请求可能一起通过，这是 Sentinel 先检查后计数的特性。
+
+### 8. 身份透传与用户状态拦截
 - 网关校验令牌后，先移除外部传入的身份头，再写入 `userId` / `userKey` 传给下游，防止伪造身份。
 - 下游经拦截器放入 `ThreadLocal`，业务只从上下文取身份，不信任前端传入的用户 ID。
 - 提交代码、报名竞赛等受保护操作标注 `@CheckUserStatus`，由切面统一拦截被拉黑用户。
@@ -178,6 +193,7 @@ online_oj/
 | 搜索 | Elasticsearch + IK 分词 / Kibana | 8.18.8 |
 | 定时调度 | XXL-JOB | 2.4.0 |
 | 链路追踪 | Micrometer Tracing + Brave / Zipkin | 1.5.12 / 3 |
+| 熔断限流 | Sentinel（Nacos 规则数据源） | 1.8.9 |
 | 判题沙箱 | Docker（CLI 调用，常驻容器池） | — |
 | 认证 | JJWT + Redis 会话 | 0.9.1 |
 | 接口文档 | springdoc-openapi | 2.8.17 |
@@ -224,7 +240,9 @@ docker compose up -d
 
 | Data ID | 使用方 |
 | :--- | :--- |
-| `oj-common-local.yaml` | 所有服务最先导入的公共配置（链路追踪采样率与 Zipkin 地址），可被各服务自己的 Data ID 覆盖 |
+| `oj-common-local.yaml` | 所有服务最先导入的公共配置（链路追踪、Sentinel 规则数据源），可被各服务自己的 Data ID 覆盖 |
+| `oj-friend-sentinel-flow.json`、`oj-friend-sentinel-degrade.json` | friend 的限流、熔断规则（格式 JSON） |
+| `oj-system-sentinel-flow.json`、`oj-system-sentinel-degrade.json` | system 的限流、熔断规则（格式 JSON） |
 | `oj-gateway-local.yaml` | 网关 |
 | `oj-system-local.yaml` | system |
 | `oj-friend-local.yaml`、`oj-message-local.yaml` | friend |
@@ -350,7 +368,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 | 1 框架升级 | Boot 3.5.16、Spring Cloud 2025、Nacos 3.2.4、ES 8.18.8 | 已完成 |
 | 2 链路追踪 | Micrometer Tracing + Brave + Zipkin | 已完成 |
 | 3 AI 模块 | 新增 `oj_ai`：AI 辅助出题、AI 帮建竞赛、做题辅导、语义检索与相似题推荐、资料审核 | 已完成 |
-| 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界（含 AI 辅导流式调用），阈值按链路追踪实测耗时定 | 计划中 |
+| 4 熔断限流 | Sentinel，仅加在判题与 AI 调用边界（含 AI 辅导流式调用） | 已完成 |
 
 ---
 

@@ -15,11 +15,8 @@ class AiTutorStreamState {
     // 结束事件的数据（模型与用量），未收到时为空
     private JSONObject done;
 
-    // 是否收到失败事件
-    private boolean failed;
-
-    // 是否正常完成：未失败、收到结束事件且回复非空
+    // 是否正常完成：收到结束事件且回复非空
     boolean isCompleted() {
-        return !failed && done != null && !reply.isEmpty();
+        return done != null && !reply.isEmpty();
     }
 }

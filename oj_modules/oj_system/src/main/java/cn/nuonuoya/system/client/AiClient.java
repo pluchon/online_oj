@@ -11,6 +11,8 @@ import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import cn.nuonuoya.common.enums.ResultCode;
+import cn.nuonuoya.system.constants.SentinelResources;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
 import cn.nuonuoya.security.exception.ServiceException;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
@@ -52,14 +54,16 @@ public class AiClient {
         return call("竞赛选题", () -> aiFeignClient.selectExamQuestions(selectDTO));
     }
 
-    // 执行远程调用：参数错误返回参数校验失败，其余失败（含超时、服务不可用、空结果）返回 AI 服务繁忙
+    // 执行远程调用：参数错误返回参数校验失败，其余失败（含超时、服务不可用、空结果、被限流或熔断）返回 AI 服务繁忙
     private <T> T call(String scene, Supplier<T> action) {
         try {
-            T result = action.get();
+            T result = SentinelGuard.call(SentinelResources.AI, action);
             if (result != null) {
                 return result;
             }
             log.warn("AI 服务返回空结果, scene = {}", scene);
+        } catch (BlockException e) {
+            log.warn("AI 调用被限流或熔断, scene = {}, rule = {}", scene, e.getClass().getSimpleName());
         } catch (FeignException.BadRequest e) {
             log.warn("AI 服务参数校验失败, scene = {}", scene);
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);

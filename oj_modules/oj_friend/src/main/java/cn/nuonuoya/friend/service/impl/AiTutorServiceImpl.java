@@ -188,11 +188,8 @@ public class AiTutorServiceImpl implements AiTutorService {
         return emitter;
     }
 
-    // 处理 AI 服务的一个事件：增量文本转发给浏览器，结束与失败事件记录到状态
+    // 处理 AI 服务的一个事件：增量文本转发给浏览器，结束事件记录到状态（错误事件已由客户端转为错误信号）
     private void onEvent(SseEmitter emitter, AiTutorStreamState state, ServerSentEvent<String> event) {
-        if (state.isFailed()) {
-            return;
-        }
         String name = event.event();
         if (AiInternalPaths.EVENT_DELTA.equals(name)) {
             String text = JSON.parseObject(event.data()).getString(AiInternalPaths.FIELD_TEXT);
@@ -200,8 +197,6 @@ public class AiTutorServiceImpl implements AiTutorService {
             send(emitter, AiInternalPaths.EVENT_DELTA, new JSONObject().fluentPut(AiInternalPaths.FIELD_TEXT, text));
         } else if (AiInternalPaths.EVENT_DONE.equals(name)) {
             state.setDone(JSON.parseObject(event.data()));
-        } else if (AiInternalPaths.EVENT_ERROR.equals(name)) {
-            state.setFailed(true);
         }
     }
 

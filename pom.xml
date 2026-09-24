@@ -37,6 +37,8 @@
 		<hutool-all.version>5.8.22</hutool-all.version>
 		<transmittable-thread-local.version>2.14.4</transmittable-thread-local.version>
 		<xxl-job.version>2.4.0</xxl-job.version>
+		<!-- 与 Spring Cloud Alibaba 2025.0.0.0 自带的 Sentinel 版本一致（transport-common 未被其 BOM 管理） -->
+		<sentinel.version>1.8.9</sentinel.version>
 		<aliyun-oss.version>3.17.4</aliyun-oss.version>
 		<aliyun.dypnsapi.version>1.2.2</aliyun.dypnsapi.version>
 		<oj-common-core.version>1.0-SNAPSHOT</oj-common-core.version>

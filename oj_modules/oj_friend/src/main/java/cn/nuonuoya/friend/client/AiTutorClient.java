@@ -2,6 +2,8 @@ package cn.nuonuoya.friend.client;
 
 import cn.nuonuoya.api.ai.constants.AiInternalPaths;
 import cn.nuonuoya.api.ai.dto.AiTutorChatDTO;
+import cn.nuonuoya.friend.constants.SentinelResources;
+import com.alibaba.csp.sentinel.adapter.reactor.SentinelReactorTransformer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +16,7 @@ import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 
-// AI 辅导流式调用边界（Feign 不支持流式响应，改用负载均衡的 WebClient）
+// AI 辅导流式调用边界（Feign 不支持流式响应，改用负载均衡的 WebClient；整个流纳入 Sentinel 资源，被限流或熔断时以 BlockException 错误信号结束）
 @Slf4j
 @Component
 public class AiTutorClient {
@@ -33,7 +35,7 @@ public class AiTutorClient {
     @Value("${oj.ai.tutor.stream-timeout-seconds:120}")
     private long streamTimeoutSeconds;
 
-    // 流式对话；连接失败、超时与非 2xx 均以错误信号结束，由调用方转换为错误事件
+    // 流式对话；连接失败、超时、非 2xx、AI 返回错误事件、被限流或熔断均以错误信号结束，由调用方转换为错误事件并归还次数
     public Flux<ServerSentEvent<String>> streamChat(AiTutorChatDTO chatDTO) {
         return loadBalancedWebClientBuilder.build()
                 .post()
@@ -44,6 +46,10 @@ public class AiTutorClient {
                 .retrieve()
                 .bodyToFlux(EVENT_TYPE)
                 .timeout(Duration.ofSeconds(streamTimeoutSeconds))
-                .doOnError(e -> log.error("调用 AI 辅导失败, error = {}", e.getMessage()));
+                .concatMap(event -> AiInternalPaths.EVENT_ERROR.equals(event.event())
+                        ? Flux.<ServerSentEvent<String>>error(new IllegalStateException("AI 辅导返回错误事件"))
+                        : Flux.just(event))
+                .transform(new SentinelReactorTransformer<>(SentinelResources.AI_TUTOR))
+                .doOnError(e -> log.error("调用 AI 辅导失败, error = {}", e.getClass().getSimpleName() + ": " + e.getMessage()));
     }
 }
