@@ -53,6 +53,10 @@ public class QuestionDetailVO {
     @Schema(description = "题目标签")
     private List<QuestionTagVO> tags;
 
+    // 官方题解（Markdown，没有时为空字符串）
+    @Schema(description = "官方题解（Markdown）")
+    private String editorial;
+
     // 默认代码块
     @Schema(description = "默认代码块")
     private String defaultCode;

@@ -1,11 +1,13 @@
 package cn.nuonuoya.system.client;
 
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
 import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
+import cn.nuonuoya.api.ai.vo.AiEditorialVO;
 import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
 import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
@@ -43,6 +45,11 @@ public class AiClient {
     // 生成解法示例
     public AiSolutionVO generateSolution(AiSolutionDTO solutionDTO) {
         return call("解法示例", () -> aiFeignClient.generateSolution(solutionDTO));
+    }
+
+    // 生成题解草稿
+    public AiEditorialVO generateEditorial(AiEditorialDTO editorialDTO) {
+        return call("题解草稿", () -> aiFeignClient.generateEditorial(editorialDTO));
     }
 
     // 理解竞赛描述

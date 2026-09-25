@@ -51,6 +51,7 @@ public enum ResultCode {
     FAILED_QUESTION_NO_SAMPLE (3302, "请至少设置一组公开示例用例"),
     FAILED_TAG_NOT_EXISTS (3303, "所选标签不存在或已被删除，请刷新后重试"),
     FAILED_TAG_EXISTS (3304, "标签名称已存在"),
+    FAILED_EDITORIAL_IN_EXAM (3305, "该题正在竞赛中使用，竞赛结束后才能查看题解"),
 
     // AI 相关（34xx）
     FAILED_AI_BUSY (3401, "AI 服务繁忙，请稍后重试"),

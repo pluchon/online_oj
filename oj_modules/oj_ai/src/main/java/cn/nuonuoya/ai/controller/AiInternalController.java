@@ -4,11 +4,13 @@ import cn.nuonuoya.ai.service.AiExamService;
 import cn.nuonuoya.ai.service.AiQuestionService;
 import cn.nuonuoya.api.ai.api.AiInternalApi;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
 import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
+import cn.nuonuoya.api.ai.vo.AiEditorialVO;
 import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
 import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
@@ -44,6 +46,12 @@ public class AiInternalController implements AiInternalApi {
     @Override
     public AiSolutionVO generateSolution(@Valid @RequestBody AiSolutionDTO solutionDTO) {
         return aiQuestionService.generateSolution(solutionDTO);
+    }
+
+    /** 根据题面生成题解草稿 */
+    @Override
+    public AiEditorialVO generateEditorial(@Valid @RequestBody AiEditorialDTO editorialDTO) {
+        return aiQuestionService.generateEditorial(editorialDTO);
     }
 
     /** 理解竞赛描述 */

@@ -15,6 +15,7 @@ import cn.nuonuoya.system.enums.QuestionCaseType;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.mapper.QuestionCaseMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
+import cn.nuonuoya.system.service.QuestionEditorialService;
 import cn.nuonuoya.system.service.QuestionService;
 import cn.nuonuoya.system.service.TagService;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
@@ -49,6 +50,9 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Autowired
     private TagService tagService;
+
+    @Autowired
+    private QuestionEditorialService questionEditorialService;
 
     // 分页查询题目列表实现
     @Override
@@ -87,6 +91,7 @@ public class QuestionServiceImpl implements QuestionService {
         int rows = questionMapper.insert(question);
         saveCases(question.getQuestionId(), addDTO.getCases());
         tagService.replaceQuestionTags(question.getQuestionId(), addDTO.getTagIds());
+        questionEditorialService.save(question.getQuestionId(), addDTO.getEditorial());
         notifyQuestionChanged(rows);
         return rows;
     }
@@ -105,6 +110,7 @@ public class QuestionServiceImpl implements QuestionService {
         QuestionDetailVO vo = QuestionConverter.toDetailVO(question);
         vo.setCases(QuestionConverter.toCaseVOList(listCases(questionId)));
         vo.setTags(tagService.listQuestionTags(questionId));
+        vo.setEditorial(questionEditorialService.getContent(questionId));
         return vo;
     }
 
@@ -135,6 +141,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .eq(TbQuestionCase::getQuestionId, editDTO.getQuestionId()));
         saveCases(editDTO.getQuestionId(), editDTO.getCases());
         tagService.replaceQuestionTags(editDTO.getQuestionId(), editDTO.getTagIds());
+        questionEditorialService.save(editDTO.getQuestionId(), editDTO.getEditorial());
         notifyQuestionChanged(rows);
         return rows;
     }
@@ -155,6 +162,7 @@ public class QuestionServiceImpl implements QuestionService {
         questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
                 .eq(TbQuestionCase::getQuestionId, questionId));
         tagService.removeQuestionTags(questionId);
+        questionEditorialService.remove(questionId);
         notifyQuestionChanged(rows);
         return rows;
     }

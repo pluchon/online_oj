@@ -8,10 +8,12 @@ import cn.nuonuoya.ai.exception.AiModelException;
 import cn.nuonuoya.ai.prompt.QuestionPrompts;
 import cn.nuonuoya.ai.service.AiQuestionService;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
+import cn.nuonuoya.api.ai.vo.AiEditorialVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -126,6 +128,20 @@ public class AiQuestionServiceImpl implements AiQuestionService {
         }
         solution.setCode(solution.getCode().trim());
         return solution;
+    }
+
+    // 生成题解草稿（Markdown），内容为空时视为模型输出不可用
+    @Override
+    public AiEditorialVO generateEditorial(AiEditorialDTO editorialDTO) {
+        AiEditorialVO editorial = callForEntity("题解草稿", QuestionPrompts.EDITORIAL_SYSTEM,
+                QuestionPrompts.editorialUser(editorialDTO.getTitle(), editorialDTO.getContent(),
+                        editorialDTO.getDefaultCode(), editorialDTO.getReferenceCode()),
+                SOLUTION_TEMPERATURE, AiEditorialVO.class);
+        if (StrUtil.isBlank(editorial.getContent())) {
+            throw new AiModelException("题解草稿缺少内容");
+        }
+        editorial.setContent(editorial.getContent().trim());
+        return editorial;
     }
 
     // 以出题模型调用并解析为结构化对象

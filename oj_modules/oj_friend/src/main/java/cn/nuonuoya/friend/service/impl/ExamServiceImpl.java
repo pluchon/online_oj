@@ -629,6 +629,30 @@ public class ExamServiceImpl implements ExamService {
                 .ge(TbExam::getEndTime, now)) > 0;
     }
 
+    // 题目是否被正在进行的竞赛使用：先取包含该题的竞赛，再看其中是否有已发布且在比赛时间内的
+    @Override
+    public boolean isQuestionInOngoingExam(Long questionId) {
+        if (questionId == null) {
+            return false;
+        }
+        List<Long> examIds = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
+                        .select(TbExamQuestion::getExamId)
+                        .eq(TbExamQuestion::getQuestionId, questionId))
+                .stream()
+                .map(TbExamQuestion::getExamId)
+                .distinct()
+                .toList();
+        if (examIds.isEmpty()) {
+            return false;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        return examMapper.selectCount(new LambdaQueryWrapper<TbExam>()
+                .in(TbExam::getExamId, examIds)
+                .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
+                .le(TbExam::getStartTime, now)
+                .ge(TbExam::getEndTime, now)) > 0;
+    }
+
     // 竞赛状态统计：按当前时间划分未开赛、进行中、已完赛（不受列表筛选条件影响）
     @Override
     public ExamStatsVO getStats(boolean mine) {

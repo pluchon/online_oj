@@ -2,11 +2,13 @@ package cn.nuonuoya.system.converter;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
+import cn.nuonuoya.api.ai.vo.AiEditorialVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import cn.nuonuoya.system.enums.QuestionCaseType;
 import cn.nuonuoya.system.vo.QuestionAiCaseItemVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
+import cn.nuonuoya.system.vo.QuestionAiEditorialVO;
 import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 
 import java.util.Map;
@@ -33,6 +35,13 @@ public class QuestionAiConverter {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList());
+        return vo;
+    }
+
+    // AI 题解草稿转换为管理端视图
+    public static QuestionAiEditorialVO toEditorialVO(AiEditorialVO editorial) {
+        QuestionAiEditorialVO vo = new QuestionAiEditorialVO();
+        vo.setContent(editorial.getContent());
         return vo;
     }
 

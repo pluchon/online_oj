@@ -37,6 +37,9 @@ public interface ExamService {
     // 竞赛是否已发布且正在进行
     boolean isExamOngoing(Long examId);
 
+    // 题目是否被某场已发布且正在进行的竞赛使用
+    boolean isQuestionInOngoingExam(Long questionId);
+
     // 竞赛状态统计（mine 为 true 时只统计当前用户已报名的竞赛）
     ExamStatsVO getStats(boolean mine);
 }

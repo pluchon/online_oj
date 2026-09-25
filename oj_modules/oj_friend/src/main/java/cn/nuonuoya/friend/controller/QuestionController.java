@@ -10,9 +10,11 @@ import cn.nuonuoya.friend.dto.QuestionRunDTO;
 import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
 import cn.nuonuoya.friend.dto.UserSubmitDTO;
 import cn.nuonuoya.friend.service.CodeDraftService;
+import cn.nuonuoya.friend.service.QuestionEditorialService;
 import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.service.UserSubmitService;
 import cn.nuonuoya.friend.vo.CodeDraftVO;
+import cn.nuonuoya.friend.vo.QuestionEditorialVO;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionRunResultVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
@@ -49,6 +51,10 @@ public class QuestionController extends BaseController {
     @Autowired
     private CodeDraftService codeDraftService;
 
+    // 题目官方题解
+    @Autowired
+    private QuestionEditorialService questionEditorialService;
+
     // 注入代码提交评测服务
     @Autowired
     private UserSubmitService userSubmitService;
@@ -73,6 +79,13 @@ public class QuestionController extends BaseController {
     @Operation(summary = "题目标签", description = "返回全部题目标签（按分类排序），用于题库按标签筛选")
     public OJResult<List<QuestionTagVO>> tags() {
         return OJResult.ok(questionService.listTags());
+    }
+
+    /** 查询题目官方题解 */
+    @GetMapping("/{questionId}/editorial")
+    @Operation(summary = "官方题解", description = "题目正被进行中的竞赛使用时拒绝；没有题解时 data 为空")
+    public OJResult<QuestionEditorialVO> editorial(@PathVariable("questionId") Long questionId) {
+        return OJResult.ok(questionEditorialService.getEditorial(questionId));
     }
 
     /** 获取题库做题统计信息 */

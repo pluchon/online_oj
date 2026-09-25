@@ -3,6 +3,7 @@ package cn.nuonuoya.system.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
+import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
@@ -20,12 +21,14 @@ import cn.nuonuoya.system.client.JudgeClient;
 import cn.nuonuoya.system.converter.QuestionAiConverter;
 import cn.nuonuoya.system.dto.QuestionAiCaseDTO;
 import cn.nuonuoya.system.dto.QuestionAiDraftDTO;
+import cn.nuonuoya.system.dto.QuestionAiEditorialDTO;
 import cn.nuonuoya.system.dto.QuestionAiSolutionDTO;
 import cn.nuonuoya.system.service.QuestionAiService;
 import cn.nuonuoya.system.service.TagService;
 import cn.nuonuoya.system.vo.QuestionAiCaseItemVO;
 import cn.nuonuoya.system.vo.QuestionAiCaseVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
+import cn.nuonuoya.system.vo.QuestionAiEditorialVO;
 import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,6 +111,17 @@ public class QuestionAiServiceImpl implements QuestionAiService {
         QuestionAiSolutionVO vo = new QuestionAiSolutionVO();
         vo.setCode(requestSolution(solutionDTO.getTitle(), solutionDTO.getContent(), solutionDTO.getDefaultCode()));
         return vo;
+    }
+
+    // 生成题解草稿：有 AI 解法示例时作为参考解法，题解围绕它讲解
+    @Override
+    public QuestionAiEditorialVO generateEditorial(QuestionAiEditorialDTO editorialDTO) {
+        AiEditorialDTO request = new AiEditorialDTO();
+        request.setTitle(editorialDTO.getTitle().trim());
+        request.setContent(editorialDTO.getContent());
+        request.setDefaultCode(editorialDTO.getDefaultCode());
+        request.setReferenceCode(StrUtil.trimToNull(editorialDTO.getReferenceCode()));
+        return QuestionAiConverter.toEditorialVO(aiClient.generateEditorial(request));
     }
 
     // 请求 AI 生成解法代码

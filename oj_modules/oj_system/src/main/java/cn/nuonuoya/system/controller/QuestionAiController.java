@@ -4,10 +4,12 @@ import cn.nuonuoya.common.controller.BaseController;
 import cn.nuonuoya.common.domain.OJResult;
 import cn.nuonuoya.system.dto.QuestionAiCaseDTO;
 import cn.nuonuoya.system.dto.QuestionAiDraftDTO;
+import cn.nuonuoya.system.dto.QuestionAiEditorialDTO;
 import cn.nuonuoya.system.dto.QuestionAiSolutionDTO;
 import cn.nuonuoya.system.service.QuestionAiService;
 import cn.nuonuoya.system.vo.QuestionAiCaseVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
+import cn.nuonuoya.system.vo.QuestionAiEditorialVO;
 import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,5 +49,12 @@ public class QuestionAiController extends BaseController {
     @Operation(summary = "生成解法示例", description = "生成常见解法用于参考与生成用例，不保存")
     public OJResult<QuestionAiSolutionVO> solution(@Validated @RequestBody QuestionAiSolutionDTO solutionDTO) {
         return OJResult.ok(questionAiService.generateSolution(solutionDTO));
+    }
+
+    /** 生成题解草稿 */
+    @PostMapping("/editorial")
+    @Operation(summary = "生成题解草稿", description = "生成思路、复杂度与代码组成的 Markdown 题解，只回填编辑框，随题目保存")
+    public OJResult<QuestionAiEditorialVO> editorial(@Validated @RequestBody QuestionAiEditorialDTO editorialDTO) {
+        return OJResult.ok(questionAiService.generateEditorial(editorialDTO));
     }
 }

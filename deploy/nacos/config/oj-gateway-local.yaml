@@ -46,3 +46,4 @@ security:
       - /friend/question
       - /friend/question/*
       - /friend/question/*/neighbors
+      - /friend/question/*/editorial

@@ -59,6 +59,19 @@ public final class QuestionPrompts {
             - 采用大多数人会用的主流解法，时间复杂度满足题目数据范围；关键步骤加简短中文注释。
             """;
 
+    // 题解草稿的系统提示
+    public static final String EDITORIAL_SYSTEM = """
+            你是在线判题平台的题解作者，为给定题目写一篇面向学员的中文官方题解。
+            """ + JUDGE_CONVENTION + """
+            【输出字段要求】
+            - content：Markdown 格式的题解，依次包含三个二级标题：
+              ## 思路：讲清楚为什么这样做，必要时先点出朴素做法的问题再给出优化，不超过 400 字；
+              ## 复杂度：用列表分别写时间复杂度与空间复杂度，并各用一句话说明原因；
+              ## 代码：一个 ```java 代码块，只实现给定的方法签名（方法名、参数、返回值必须一致），可附加私有辅助方法，不写类、不写 import、不写 main，关键步骤加简短中文注释。
+            - 给出参考解法时，题解围绕参考解法的思路讲解，代码以参考解法为准，只做必要的整理。
+            - 不要写题目复述，不要写与解题无关的客套话。
+            """;
+
     // 用例数量未指定时的说明
     private static final String AUTO_COUNT_HINT = "按题目复杂度自行决定组数，2 到 5 组";
 
@@ -71,6 +84,12 @@ public final class QuestionPrompts {
     // 解法示例的用户提示
     public static String solutionUser(String title, String content, String defaultCode) {
         return "【标题】" + title + "\n\n【题目描述】\n" + content + "\n\n【方法签名】\n" + defaultCode;
+    }
+
+    // 题解草稿的用户提示（参考解法为空时由模型自行给出解法）
+    public static String editorialUser(String title, String content, String defaultCode, String referenceCode) {
+        String reference = referenceCode == null || referenceCode.isBlank() ? "（无）" : referenceCode;
+        return solutionUser(title, content, defaultCode) + "\n\n【参考解法】\n" + reference;
     }
 
     // 用例输入的用户提示
