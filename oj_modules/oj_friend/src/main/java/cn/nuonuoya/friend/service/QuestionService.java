@@ -6,6 +6,7 @@ import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
+import cn.nuonuoya.friend.vo.QuestionTagVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
 
 import java.util.List;
@@ -24,6 +25,9 @@ public interface QuestionService {
 
     // 查询题目详情
     QuestionVO getDetail(Long questionId);
+
+    // 查询全部题目标签（题库筛选用）
+    List<QuestionTagVO> listTags();
 
     // 获取题库总题数与当前学员解题统计信息
     QuestionStatsVO getStats();

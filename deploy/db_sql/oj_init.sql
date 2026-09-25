@@ -1,7 +1,7 @@
 -- =============================================================
 -- 墨衡 OJ 数据库初始化脚本（业务库 bitoj_dev + 调度库 xxl_job）
 -- 用法：docker compose 首次创建 MySQL 数据卷时自动执行；也可手动执行，重复执行不会覆盖已有数据
--- 内容：13 张业务表、测试数据（15 道题与用例、5 场竞赛、8 个用户、提交记录与站内消息）、XXL-JOB 表与任务
+-- 内容：15 张业务表、测试数据（15 道题与用例、题目标签、5 场竞赛、8 个用户、提交记录与站内消息）、XXL-JOB 表与任务
 -- 测试账号：管理端 admin / 123456；用户端手机号 13800000001 ~ 13800000007（模拟发码模式下验证码输出在 oj-friend 控制台）
 -- 竞赛时间以执行时刻为基准：1 场已结算、1 场已结束待结算、1 场进行中、1 场未开始、1 场未发布
 -- 主键为雪花 ID（测试数据用固定值），题目用例表 case_id 为自增
@@ -239,6 +239,36 @@ CREATE TABLE IF NOT EXISTS `tb_ai_chat_message` (
   KEY `idx_user_time` (`user_id`,`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI 做题辅导消息表';
 
+-- 题目标签表（未删除的标签名称唯一，已删除的不占用名称）
+CREATE TABLE IF NOT EXISTS `tb_tag` (
+  `tag_id` bigint unsigned NOT NULL COMMENT '标签id(主键)',
+  `tag_name` varchar(20) NOT NULL COMMENT '标签名称',
+  `category` tinyint NOT NULL COMMENT '标签分类 1: 数据结构 2: 算法 3: 数学 4: 其他',
+  `create_by` bigint unsigned NOT NULL COMMENT '创建人',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  `delete_state` tinyint NOT NULL DEFAULT '0' COMMENT '0: 正常 1: 已删除',
+  `active_name` varchar(20) GENERATED ALWAYS AS (IF(`delete_state` = 0, `tag_name`, NULL)) VIRTUAL COMMENT '未删除标签的名称(唯一约束用)',
+  PRIMARY KEY (`tag_id`),
+  UNIQUE KEY `uk_active_name` (`active_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目标签表';
+
+-- 题目标签关联表
+CREATE TABLE IF NOT EXISTS `tb_question_tag` (
+  `question_tag_id` bigint unsigned NOT NULL COMMENT '关联id(主键)',
+  `question_id` bigint unsigned NOT NULL COMMENT '题目id',
+  `tag_id` bigint unsigned NOT NULL COMMENT '标签id',
+  `create_by` bigint unsigned NOT NULL COMMENT '创建人',
+  `create_time` datetime NOT NULL COMMENT '创建时间',
+  `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  `delete_state` tinyint NOT NULL DEFAULT '0' COMMENT '0: 正常 1: 已删除',
+  PRIMARY KEY (`question_tag_id`),
+  KEY `idx_question` (`question_id`),
+  KEY `idx_tag` (`tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目标签关联表';
+
 -- -------------------------------------------------------------
 -- 二、测试数据
 -- -------------------------------------------------------------
@@ -275,6 +305,63 @@ INSERT IGNORE INTO `tb_question` (`question_id`, `title`, `difficulty`, `time_li
 (1795000000000000113, '编辑距离', 3, 1000, 128, '给你两个单词 `word1` 和 `word2`，请返回将 `word1` 转换成 `word2` 所使用的最少操作数。\n\n你可以对一个单词进行如下三种操作：插入一个字符、删除一个字符、替换一个字符。\n\n提示：\n- 1 <= word1.length, word2.length <= 500\n- word1 和 word2 由小写英文字母组成', 'public int minDistance(String word1, String word2) {\n    // 请在此处编写你的代码\n    return 0;\n}', 'public static void main(String[] args) throws IOException {\n    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));\n    int t = Integer.parseInt(in.readLine().trim());\n    Main m = new Main();\n    for (int i = 0; i < t; i++) {\n        String a = in.readLine().trim();\n        String b = in.readLine().trim();\n        System.out.println(m.minDistance(a, b));\n    }\n}', 1, DATE_SUB(NOW(), INTERVAL 63360 MINUTE)),
 (1795000000000000114, '最长有效括号', 3, 1000, 128, '给你一个只包含 `(` 和 `)` 的字符串，找出最长有效（格式正确且连续）括号子串的长度。\n\n提示：\n- 1 <= s.length <= 3 * 10^4\n- s[i] 为 ( 或 )', 'public int longestValidParentheses(String s) {\n    // 请在此处编写你的代码\n    return 0;\n}', 'public static void main(String[] args) throws IOException {\n    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));\n    int t = Integer.parseInt(in.readLine().trim());\n    Main m = new Main();\n    for (int i = 0; i < t; i++) {\n        String s = in.readLine().trim();\n        System.out.println(m.longestValidParentheses(s));\n    }\n}', 1, DATE_SUB(NOW(), INTERVAL 59040 MINUTE)),
 (1795000000000000115, 'N 皇后 II', 3, 2000, 128, 'n 皇后问题研究的是如何将 `n` 个皇后放置在 `n × n` 的棋盘上，并且使皇后彼此之间不能相互攻击（任意两个皇后不在同一行、同一列或同一斜线上）。\n\n给你一个整数 `n`，返回 n 皇后问题不同的解决方案的数量。\n\n提示：\n- 1 <= n <= 9', 'public int totalNQueens(int n) {\n    // 请在此处编写你的代码\n    return 0;\n}', 'public static void main(String[] args) throws IOException {\n    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));\n    int t = Integer.parseInt(in.readLine().trim());\n    Main m = new Main();\n    for (int i = 0; i < t; i++) {\n        int n = Integer.parseInt(in.readLine().trim());\n        System.out.println(m.totalNQueens(n));\n    }\n}', 1, DATE_SUB(NOW(), INTERVAL 54720 MINUTE));
+
+-- 题目标签
+INSERT IGNORE INTO `tb_tag` (`tag_id`, `tag_name`, `category`, `create_by`, `create_time`) VALUES
+(1800000000000000001, '数组', 1, 1, NOW()),
+(1800000000000000002, '字符串', 1, 1, NOW()),
+(1800000000000000003, '哈希表', 1, 1, NOW()),
+(1800000000000000004, '栈', 1, 1, NOW()),
+(1800000000000000005, '链表', 1, 1, NOW()),
+(1800000000000000006, '树', 1, 1, NOW()),
+(1800000000000000007, '图', 1, 1, NOW()),
+(1800000000000000008, '动态规划', 2, 1, NOW()),
+(1800000000000000009, '贪心', 2, 1, NOW()),
+(1800000000000000010, '二分查找', 2, 1, NOW()),
+(1800000000000000011, '双指针', 2, 1, NOW()),
+(1800000000000000012, '滑动窗口', 2, 1, NOW()),
+(1800000000000000013, '回溯', 2, 1, NOW()),
+(1800000000000000014, '深度优先搜索', 2, 1, NOW()),
+(1800000000000000015, '广度优先搜索', 2, 1, NOW()),
+(1800000000000000016, '数学', 3, 1, NOW()),
+(1800000000000000017, '位运算', 3, 1, NOW()),
+(1800000000000000018, '模拟', 4, 1, NOW());
+
+-- 题目与标签的关联
+INSERT IGNORE INTO `tb_question_tag` (`question_tag_id`, `question_id`, `tag_id`, `create_by`, `create_time`) VALUES
+(1800000000000001001, 1794933791345602562, 1800000000000000001, 1, NOW()),
+(1800000000000001002, 1794933791345602562, 1800000000000000003, 1, NOW()),
+(1800000000000001003, 1794900876543210003, 1800000000000000004, 1, NOW()),
+(1800000000000001004, 1794900876543210003, 1800000000000000002, 1, NOW()),
+(1800000000000001005, 1796119683661783042, 1800000000000000016, 1, NOW()),
+(1800000000000001006, 1795000000000000104, 1800000000000000008, 1, NOW()),
+(1800000000000001007, 1795000000000000104, 1800000000000000016, 1, NOW()),
+(1800000000000001008, 1795000000000000105, 1800000000000000001, 1, NOW()),
+(1800000000000001009, 1795000000000000105, 1800000000000000017, 1, NOW()),
+(1800000000000001010, 1795000000000000106, 1800000000000000001, 1, NOW()),
+(1800000000000001011, 1795000000000000106, 1800000000000000010, 1, NOW()),
+(1800000000000001012, 2102360449353351170, 1800000000000000007, 1, NOW()),
+(1800000000000001013, 2102360449353351170, 1800000000000000014, 1, NOW()),
+(1800000000000001014, 2102360449353351170, 1800000000000000015, 1, NOW()),
+(1800000000000001015, 1795000000000000108, 1800000000000000002, 1, NOW()),
+(1800000000000001016, 1795000000000000108, 1800000000000000003, 1, NOW()),
+(1800000000000001017, 1795000000000000108, 1800000000000000012, 1, NOW()),
+(1800000000000001018, 1795000000000000109, 1800000000000000001, 1, NOW()),
+(1800000000000001019, 1795000000000000109, 1800000000000000008, 1, NOW()),
+(1800000000000001020, 1795000000000000109, 1800000000000000010, 1, NOW()),
+(1800000000000001021, 1795000000000000110, 1800000000000000001, 1, NOW()),
+(1800000000000001022, 1795000000000000110, 1800000000000000008, 1, NOW()),
+(1800000000000001023, 1795000000000000111, 1800000000000000001, 1, NOW()),
+(1800000000000001024, 1795000000000000111, 1800000000000000008, 1, NOW()),
+(1800000000000001025, 1795000000000000112, 1800000000000000001, 1, NOW()),
+(1800000000000001026, 1795000000000000112, 1800000000000000011, 1, NOW()),
+(1800000000000001027, 1795000000000000112, 1800000000000000004, 1, NOW()),
+(1800000000000001028, 1795000000000000113, 1800000000000000002, 1, NOW()),
+(1800000000000001029, 1795000000000000113, 1800000000000000008, 1, NOW()),
+(1800000000000001030, 1795000000000000114, 1800000000000000002, 1, NOW()),
+(1800000000000001031, 1795000000000000114, 1800000000000000004, 1, NOW()),
+(1800000000000001032, 1795000000000000114, 1800000000000000008, 1, NOW()),
+(1800000000000001033, 1795000000000000115, 1800000000000000013, 1, NOW());
 
 -- 题目用例（该题尚无有效用例时才写入；预期输出由参考解实跑得到）
 -- 两数之和

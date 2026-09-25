@@ -16,4 +16,10 @@ public class QuestionDTO extends PageQuery {
 
     // 题目标题（支持模糊查询）
     private String title;
+
+    // 标签分类（只看带该分类下任一标签的题目）
+    private Integer tagCategory;
+
+    // 标签ID（只看带该标签的题目）
+    private Long tagId;
 }

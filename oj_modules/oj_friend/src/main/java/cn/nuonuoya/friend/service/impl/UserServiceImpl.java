@@ -2,7 +2,6 @@ package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
-import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.enums.ResultCode;
@@ -19,6 +18,7 @@ import cn.nuonuoya.friend.dto.UserProfileUpdateDTO;
 import cn.nuonuoya.friend.dto.UserSendCodeDTO;
 import cn.nuonuoya.friend.enums.QuestionDifficultyEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
+import cn.nuonuoya.friend.enums.TagCategoryEnum;
 import cn.nuonuoya.friend.enums.TimeRangeEnum;
 import cn.nuonuoya.friend.enums.UserSexEnum;
 import cn.nuonuoya.friend.enums.UserStatusEnum;
@@ -27,6 +27,7 @@ import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.service.OssService;
+import cn.nuonuoya.friend.service.TagService;
 import cn.nuonuoya.friend.client.AiModerationClient;
 import cn.nuonuoya.api.ai.vo.AiModerationVO;
 import org.springframework.http.MediaType;
@@ -35,6 +36,7 @@ import cn.nuonuoya.friend.vo.UserAbilityRadarVO;
 import cn.nuonuoya.friend.vo.UserCalendarItemVO;
 import cn.nuonuoya.friend.vo.UserCalendarVO;
 import cn.nuonuoya.friend.vo.UserOverviewVO;
+import cn.nuonuoya.friend.vo.QuestionTagVO;
 import cn.nuonuoya.friend.vo.UserVO;
 import cn.nuonuoya.security.utils.SecurityUtils;
 import cn.nuonuoya.security.exception.ServiceException;
@@ -66,6 +68,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 // C端用户业务实现类
 @Slf4j
@@ -105,6 +108,10 @@ public class UserServiceImpl implements UserService {
     // AI 内容审核
     @Autowired
     private AiModerationClient aiModerationClient;
+
+    // 题目标签查询（能力雷达图按标签分类统计）
+    @Autowired
+    private TagService tagService;
 
     // 发送短信验证码具体实现
     @Override
@@ -441,29 +448,19 @@ public class UserServiceImpl implements UserService {
         int mediumCount = 0;
         int hardCount = 0;
 
+        // 按题目标签的分类统计各维度的通过题数（一道题带某分类的任一标签即计入该维度）
+        Map<Long, List<QuestionTagVO>> tagMap = tagService.mapQuestionTags(solvedQuestionIds);
         for (TbQuestion q : solvedQuestions) {
-            String title = StrUtil.nullToEmpty(q.getTitle());
-            String content = StrUtil.nullToEmpty(q.getContent());
-            String text = title + " " + content;
-
-            // 数据结构特征识别：数组、哈希表、栈、队列、链表、树、二叉树、图、堆等
-            if (text.contains("数组") || text.contains("哈希") || text.contains("栈")
-                    || text.contains("队列") || text.contains("链表") || text.contains("树")
-                    || text.contains("图") || text.contains("堆") || text.contains("二叉")) {
+            Set<Integer> categories = tagMap.getOrDefault(q.getQuestionId(), Collections.emptyList()).stream()
+                    .map(QuestionTagVO::getCategory)
+                    .collect(Collectors.toSet());
+            if (categories.contains(TagCategoryEnum.DATA_STRUCTURE.getCode())) {
                 dsCount++;
             }
-
-            // 算法思维特征识别：动态规划、dp、贪心、回溯、二分、搜索、双指针、递归、排序等
-            if (text.contains("动态规划") || text.contains("贪心") || text.contains("回溯")
-                    || text.contains("二分") || text.contains("双指针") || text.contains("递归")
-                    || text.contains("深度优先") || text.contains("广度优先") || text.contains("滑动窗口")) {
+            if (categories.contains(TagCategoryEnum.ALGORITHM.getCode())) {
                 algoCount++;
             }
-
-            // 数学逻辑特征识别：数学、位运算、质数、公约数、矩阵、几何、概率、异或等
-            if (text.contains("数学") || text.contains("位运算") || text.contains("质数")
-                    || text.contains("进制") || text.contains("异或") || text.contains("倍数")
-                    || text.contains("整除") || text.contains("几何")) {
+            if (categories.contains(TagCategoryEnum.MATH.getCode())) {
                 mathCount++;
             }
 

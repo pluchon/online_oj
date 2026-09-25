@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.converter;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
@@ -8,14 +9,17 @@ import cn.nuonuoya.system.vo.QuestionAiCaseItemVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
 import cn.nuonuoya.system.vo.QuestionAiSolutionVO;
 
+import java.util.Map;
+import java.util.Objects;
+
 // AI 出题结果转换
 public class QuestionAiConverter {
 
     private QuestionAiConverter() {
     }
 
-    // AI 题面草稿转换为管理端视图
-    public static QuestionAiDraftVO toDraftVO(AiQuestionDraftVO draft) {
+    // AI 题面草稿转换为管理端视图（建议标签由名称换成ID，已不存在的名称丢弃）
+    public static QuestionAiDraftVO toDraftVO(AiQuestionDraftVO draft, Map<String, Long> tagIdByName) {
         QuestionAiDraftVO vo = new QuestionAiDraftVO();
         vo.setTitle(draft.getTitle());
         vo.setDifficulty(draft.getDifficulty());
@@ -24,6 +28,11 @@ public class QuestionAiConverter {
         vo.setContent(draft.getContent());
         vo.setDefaultCode(draft.getDefaultCode());
         vo.setMainFunc(draft.getMainFunc());
+        vo.setTagIds(CollUtil.emptyIfNull(draft.getTags()).stream()
+                .map(tagIdByName::get)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList());
         return vo;
     }
 

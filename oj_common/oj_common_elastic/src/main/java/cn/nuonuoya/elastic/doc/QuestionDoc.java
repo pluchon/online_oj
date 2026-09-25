@@ -9,6 +9,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.annotations.KnnSimilarity;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 // 题目ES文档映射实体
 @Data
@@ -58,4 +59,8 @@ public class QuestionDoc {
     // 创建时间
     @Field(type = FieldType.Date, format = DateFormat.date_hour_minute_second)
     private LocalDateTime createTime;
+
+    // 标签ID列表（题库按标签筛选）
+    @Field(type = FieldType.Long)
+    private List<Long> tagIds;
 }

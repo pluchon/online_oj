@@ -68,4 +68,9 @@ public class QuestionAddDTO {
     @NotBlank(message = "main函数不能为空")
     @Size(max = 5000, message = "main函数长度不能超过5000个字符")
     private String mainFunc;
+
+    // 标签ID列表（可为空）
+    @Schema(description = "标签ID列表")
+    @Size(max = 5, message = "每道题最多选择5个标签")
+    private List<Long> tagIds;
 }

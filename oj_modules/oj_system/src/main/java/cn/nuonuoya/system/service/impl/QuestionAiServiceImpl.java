@@ -22,6 +22,7 @@ import cn.nuonuoya.system.dto.QuestionAiCaseDTO;
 import cn.nuonuoya.system.dto.QuestionAiDraftDTO;
 import cn.nuonuoya.system.dto.QuestionAiSolutionDTO;
 import cn.nuonuoya.system.service.QuestionAiService;
+import cn.nuonuoya.system.service.TagService;
 import cn.nuonuoya.system.vo.QuestionAiCaseItemVO;
 import cn.nuonuoya.system.vo.QuestionAiCaseVO;
 import cn.nuonuoya.system.vo.QuestionAiDraftVO;
@@ -32,7 +33,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 // AI 辅助出题实现：预期输出只来自标程在判题沙箱中的实际运行结果，不采用模型计算的答案
 @Slf4j
@@ -51,12 +54,18 @@ public class QuestionAiServiceImpl implements QuestionAiService {
     @Autowired
     private JudgeClient judgeClient;
 
-    // 生成题面草稿
+    @Autowired
+    private TagService tagService;
+
+    // 生成题面草稿：把现有标签名称交给模型挑选，返回时再换回标签ID
     @Override
     public QuestionAiDraftVO generateDraft(QuestionAiDraftDTO draftDTO) {
+        Map<String, Long> tagIdByName = new LinkedHashMap<>();
+        tagService.listAll().forEach(tag -> tagIdByName.put(tag.getTagName(), tag.getTagId()));
         AiQuestionDraftDTO request = new AiQuestionDraftDTO();
         request.setDescription(draftDTO.getDescription().trim());
-        return QuestionAiConverter.toDraftVO(aiClient.generateQuestionDraft(request));
+        request.setAvailableTags(new ArrayList<>(tagIdByName.keySet()));
+        return QuestionAiConverter.toDraftVO(aiClient.generateQuestionDraft(request), tagIdByName);
     }
 
     // 生成测试用例预览：先由模型给出输入，再用标程运行得到输出，运行失败或输出超长的组被丢弃

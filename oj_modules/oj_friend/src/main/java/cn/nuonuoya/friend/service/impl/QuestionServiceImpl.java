@@ -16,7 +16,6 @@ import cn.nuonuoya.friend.converter.QuestionConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
-import cn.nuonuoya.friend.enums.QuestionDifficultyEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.enums.UserQuestionStatusEnum;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
@@ -24,9 +23,13 @@ import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.search.QuestionSemanticSearcher;
 import cn.nuonuoya.friend.service.QuestionCaseService;
 import cn.nuonuoya.friend.service.QuestionService;
+import cn.nuonuoya.friend.service.TagService;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
+import cn.nuonuoya.friend.vo.QuestionTagVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -35,16 +38,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.client.elc.NativeQuery;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.Criteria;
-import org.springframework.data.elasticsearch.core.query.CriteriaQuery;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilterBuilder;
-import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +73,13 @@ public class QuestionServiceImpl implements QuestionService {
 
     // 计算通过率所需的最少提交数（提交太少时通过率不可靠）
     private static final int MIN_SUBMITS_FOR_PASS_RATE = 5;
+
+    // ES 题目文档字段：标题、描述、难度、标签、题目ID
+    private static final String TITLE_FIELD = "title";
+    private static final String CONTENT_FIELD = "content";
+    private static final String DIFFICULTY_FIELD = "difficulty";
+    private static final String TAG_IDS_FIELD = "tagIds";
+    private static final String QUESTION_ID_FIELD = "questionId";
 
     // 注入ES持久层仓库
     @Autowired
@@ -99,11 +108,29 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private QuestionSemanticSearcher questionSemanticSearcher;
 
-    // 分页全文检索题目列表
+    // 题目标签查询
+    @Autowired
+    private TagService tagService;
+
+    // 做题状态筛选范围：includeIds 为 null 表示不限定，excludeIds 为要排除的题目
+    private record StatusScope(Set<Long> includeIds, Set<Long> excludeIds) {
+    }
+
+    // 分页全文检索题目列表（关键词、难度、标签、做题状态）
     @Override
     public TableDataResult<QuestionVO> search(QuestionQueryDTO queryDTO) {
         if (queryDTO == null) {
             queryDTO = new QuestionQueryDTO();
+        }
+        // 做题状态只对登录用户生效；限定集合为空时直接返回空页
+        StatusScope scope = resolveStatusScope(queryDTO.getUserStatus());
+        if (scope != null && scope.includeIds() != null && scope.includeIds().isEmpty()) {
+            return TableDataResult.empty();
+        }
+        // 标签筛选：指定标签时按该标签，只指定分类时按该分类下任一标签；分类下没有标签时直接返回空页
+        Set<Long> tagFilterIds = resolveTagFilterIds(queryDTO);
+        if (tagFilterIds != null && tagFilterIds.isEmpty()) {
+            return TableDataResult.empty();
         }
 
         try {
@@ -113,51 +140,31 @@ public class QuestionServiceImpl implements QuestionService {
                 syncAllQuestionsToEs();
             }
 
-            // 构造ES全文检索条件
-            Criteria criteria = null;
-
-            // 标题或内容全文检索切词匹配
-            if (StrUtil.isNotBlank(queryDTO.getKeyword())) {
-                String kw = queryDTO.getKeyword().trim();
-                criteria = Criteria.where("title").matches(kw)
-                        .or(Criteria.where("content").matches(kw));
-            }
-
-            // 难度筛选
-            if (queryDTO.getDifficulty() != null && queryDTO.getDifficulty() > 0) {
-                Criteria diffCriteria = Criteria.where("difficulty").is(queryDTO.getDifficulty());
-                if (criteria == null) {
-                    criteria = diffCriteria;
-                } else {
-                    criteria = criteria.and(diffCriteria);
-                }
-            }
-
-            // 分页参数装配
             int pageNum = Math.max(1, queryDTO.getPageNum());
             int pageSize = Math.max(1, queryDTO.getPageSize());
+            boolean hasKeyword = StrUtil.isNotBlank(queryDTO.getKeyword());
             // 有关键字按相关度排序，无关键字与数据库降级查询保持一致（题目ID倒序）
-            Pageable pageable = StrUtil.isNotBlank(queryDTO.getKeyword())
+            Pageable pageable = hasKeyword
                     ? PageRequest.of(pageNum - 1, pageSize)
-                    : PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.DESC, "questionId"));
-
-            Query esQuery;
-            if (criteria != null) {
-                esQuery = new CriteriaQuery(criteria).setPageable(pageable);
-            } else {
-                esQuery = new CriteriaQuery(new Criteria()).setPageable(pageable);
-            }
+                    : PageRequest.of(pageNum - 1, pageSize, Sort.by(Sort.Direction.DESC, QUESTION_ID_FIELD));
+            Query keywordQuery = hasKeyword ? buildKeywordQuery(queryDTO.getKeyword().trim()) : Query.of(q -> q.matchAll(m -> m));
+            List<Query> filters = buildFilters(queryDTO, tagFilterIds, scope);
 
             // 执行ES查询（不返回向量字段）
-            esQuery.addSourceFilter(new FetchSourceFilterBuilder().withExcludes(QuestionSemanticSearcher.EMBEDDING_FIELD).build());
+            NativeQuery esQuery = NativeQuery.builder()
+                    .withQuery(q -> q.bool(b -> b.must(keywordQuery).filter(filters)))
+                    .withPageable(pageable)
+                    .withSourceFilter(new FetchSourceFilterBuilder().withExcludes(QuestionSemanticSearcher.EMBEDDING_FIELD).build())
+                    .build();
             SearchHits<QuestionDoc> searchHits = elasticsearchOperations.search(esQuery, QuestionDoc.class);
             long total = searchHits.getTotalHits();
             List<QuestionDoc> docList = searchHits.getSearchHits().stream()
                     .map(SearchHit::getContent)
                     .collect(Collectors.toList());
 
-            // 关键词无结果时，首页用语义检索补充推荐
-            if (total == 0 && pageNum == 1 && StrUtil.isNotBlank(queryDTO.getKeyword())) {
+            // 只按关键词检索且无结果时，首页用语义检索补充推荐（带标签或状态筛选时不推荐，避免结果不符合筛选条件）
+            boolean onlyKeyword = tagFilterIds == null && scope == null;
+            if (total == 0 && pageNum == 1 && hasKeyword && onlyKeyword) {
                 List<QuestionDoc> semanticDocs = questionSemanticSearcher.search(
                         queryDTO.getKeyword(), queryDTO.getDifficulty(), pageSize);
                 if (!semanticDocs.isEmpty()) {
@@ -176,7 +183,7 @@ public class QuestionServiceImpl implements QuestionService {
         } catch (Exception e) {
             // ES异常时降级至MySQL查询保证可用性
             log.error("Elasticsearch题目检索异常，执行MySQL降级查询: {}", e.getMessage(), e);
-            return searchFromMySQL(queryDTO);
+            return searchFromMySQL(queryDTO, tagFilterIds, scope);
         }
     }
 
@@ -209,9 +216,15 @@ public class QuestionServiceImpl implements QuestionService {
         if (vo == null) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
-        populateSingleUserStatusAndTags(vo);
+        populateUserStatusAndTags(Collections.singletonList(vo));
         vo.setSampleCases(QuestionCaseConverter.toSampleVOList(questionCaseService.listSamples(questionId)));
         return vo;
+    }
+
+    // 查询全部题目标签（题库筛选用）
+    @Override
+    public List<QuestionTagVO> listTags() {
+        return tagService.listTags();
     }
 
     // 获取题库总题数与当前学员解题统计信息
@@ -228,26 +241,9 @@ public class QuestionServiceImpl implements QuestionService {
             return statsVO;
         }
 
-        List<TbUserSubmit> userSubmits = userSubmitMapper.selectList(
-                new LambdaQueryWrapper<TbUserSubmit>()
-                        .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
-                        .eq(TbUserSubmit::getUserId, userId)
-        );
-
         Set<Long> solvedQuestionIds = new HashSet<>();
         Set<Long> attemptedQuestionIds = new HashSet<>();
-        if (CollUtil.isNotEmpty(userSubmits)) {
-            for (TbUserSubmit submit : userSubmits) {
-                Long qId = submit.getQuestionId();
-                if (qId == null) {
-                    continue;
-                }
-                attemptedQuestionIds.add(qId);
-                if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
-                    solvedQuestionIds.add(qId);
-                }
-            }
-        }
+        collectUserQuestionIds(userId, attemptedQuestionIds, solvedQuestionIds);
         statsVO.setSolvedCount((long) solvedQuestionIds.size());
         statsVO.setInProgressCount((long) (attemptedQuestionIds.size() - solvedQuestionIds.size()));
         return statsVO;
@@ -321,10 +317,13 @@ public class QuestionServiceImpl implements QuestionService {
         }
     }
 
-    // 全量同步MySQL题目数据至ES索引（附带题目向量），并移除MySQL中已不存在的文档
+    // 全量同步MySQL题目数据至ES索引（附带标签ID与题目向量），并移除MySQL中已不存在的文档
     private int syncAllQuestionsToEs() {
         List<TbQuestion> list = questionMapper.selectList(null);
         List<QuestionDoc> docList = QuestionConverter.toDocList(list);
+        Map<Long, List<Long>> tagIdMap = tagService.mapQuestionTagIds(
+                docList.stream().map(QuestionDoc::getQuestionId).toList());
+        docList.forEach(doc -> doc.setTagIds(tagIdMap.getOrDefault(doc.getQuestionId(), Collections.emptyList())));
         questionSemanticSearcher.ensureMapping();
         questionSemanticSearcher.fillEmbeddings(docList);
         if (CollUtil.isNotEmpty(docList)) {
@@ -345,9 +344,92 @@ public class QuestionServiceImpl implements QuestionService {
         return docList.size();
     }
 
-    // MySQL数据库降级分页检索
-    private TableDataResult<QuestionVO> searchFromMySQL(QuestionQueryDTO queryDTO) {
-        PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
+    // 关键词检索条件：标题或描述任一匹配
+    private Query buildKeywordQuery(String keyword) {
+        return Query.of(q -> q.bool(b -> b
+                .should(s -> s.match(m -> m.field(TITLE_FIELD).query(keyword)))
+                .should(s -> s.match(m -> m.field(CONTENT_FIELD).query(keyword)))
+                .minimumShouldMatch("1")));
+    }
+
+    // 标签筛选范围：指定标签时只含该标签，只指定分类时为该分类下的全部标签，都未指定时为 null（不筛选）
+    private Set<Long> resolveTagFilterIds(QuestionQueryDTO queryDTO) {
+        if (queryDTO.getTagId() != null) {
+            return Collections.singleton(queryDTO.getTagId());
+        }
+        if (queryDTO.getTagCategory() != null) {
+            return tagService.listTagIdsByCategory(queryDTO.getTagCategory());
+        }
+        return null;
+    }
+
+    // 过滤条件：难度、标签、做题状态（不参与相关度打分）
+    private List<Query> buildFilters(QuestionQueryDTO queryDTO, Set<Long> tagFilterIds, StatusScope scope) {
+        List<Query> filters = new ArrayList<>();
+        if (queryDTO.getDifficulty() != null && queryDTO.getDifficulty() > 0) {
+            filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(queryDTO.getDifficulty()))));
+        }
+        if (tagFilterIds != null) {
+            List<FieldValue> tagValues = tagFilterIds.stream().map(FieldValue::of).toList();
+            filters.add(Query.of(q -> q.terms(t -> t.field(TAG_IDS_FIELD).terms(v -> v.value(tagValues)))));
+        }
+        if (scope != null && scope.includeIds() != null) {
+            List<String> includeIds = toIdValues(scope.includeIds());
+            filters.add(Query.of(q -> q.ids(i -> i.values(includeIds))));
+        }
+        if (scope != null && CollUtil.isNotEmpty(scope.excludeIds())) {
+            List<String> excludeIds = toIdValues(scope.excludeIds());
+            filters.add(Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(excludeIds))))));
+        }
+        return filters;
+    }
+
+    // 题目ID转为ES文档ID
+    private List<String> toIdValues(Collection<Long> questionIds) {
+        return questionIds.stream().map(String::valueOf).toList();
+    }
+
+    // 按做题状态得到题目范围：已攻克限定为通过的题，尝试中限定为提交过但未通过的题，未尝试排除提交过的题
+    private StatusScope resolveStatusScope(Integer userStatus) {
+        UserQuestionStatusEnum status = UserQuestionStatusEnum.getByCode(userStatus);
+        Long userId = SecurityUtils.getUserId();
+        if (status == null || userId == null) {
+            return null;
+        }
+        Set<Long> attemptedIds = new HashSet<>();
+        Set<Long> solvedIds = new HashSet<>();
+        collectUserQuestionIds(userId, attemptedIds, solvedIds);
+        return switch (status) {
+            case SOLVED -> new StatusScope(solvedIds, null);
+            case IN_PROGRESS -> {
+                attemptedIds.removeAll(solvedIds);
+                yield new StatusScope(attemptedIds, null);
+            }
+            case UNTOUCHED -> new StatusScope(null, attemptedIds);
+        };
+    }
+
+    // 收集用户提交过的题目与已通过的题目
+    private void collectUserQuestionIds(Long userId, Set<Long> attemptedIds, Set<Long> solvedIds) {
+        List<TbUserSubmit> userSubmits = userSubmitMapper.selectList(
+                new LambdaQueryWrapper<TbUserSubmit>()
+                        .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
+                        .eq(TbUserSubmit::getUserId, userId)
+        );
+        for (TbUserSubmit submit : userSubmits) {
+            Long qId = submit.getQuestionId();
+            if (qId == null) {
+                continue;
+            }
+            attemptedIds.add(qId);
+            if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
+                solvedIds.add(qId);
+            }
+        }
+    }
+
+    // MySQL数据库降级分页检索（筛选条件与ES检索一致）
+    private TableDataResult<QuestionVO> searchFromMySQL(QuestionQueryDTO queryDTO, Set<Long> tagFilterIds, StatusScope scope) {
         LambdaQueryWrapper<TbQuestion> lqw = new LambdaQueryWrapper<>();
         if (StrUtil.isNotBlank(queryDTO.getKeyword())) {
             String kw = queryDTO.getKeyword().trim();
@@ -356,8 +438,22 @@ public class QuestionServiceImpl implements QuestionService {
         if (queryDTO.getDifficulty() != null && queryDTO.getDifficulty() > 0) {
             lqw.eq(TbQuestion::getDifficulty, queryDTO.getDifficulty());
         }
+        if (tagFilterIds != null) {
+            Set<Long> taggedIds = tagService.listQuestionIdsByTags(tagFilterIds);
+            if (taggedIds.isEmpty()) {
+                return TableDataResult.empty();
+            }
+            lqw.in(TbQuestion::getQuestionId, taggedIds);
+        }
+        if (scope != null && scope.includeIds() != null) {
+            lqw.in(TbQuestion::getQuestionId, scope.includeIds());
+        }
+        if (scope != null && CollUtil.isNotEmpty(scope.excludeIds())) {
+            lqw.notIn(TbQuestion::getQuestionId, scope.excludeIds());
+        }
         lqw.orderByDesc(TbQuestion::getQuestionId);
 
+        PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<TbQuestion> list = questionMapper.selectList(lqw);
         if (CollUtil.isEmpty(list)) {
             return TableDataResult.empty();
@@ -388,120 +484,38 @@ public class QuestionServiceImpl implements QuestionService {
         if (CollUtil.isEmpty(voList)) {
             return;
         }
+        List<Long> questionIds = voList.stream()
+                .map(QuestionVO::getQuestionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        Map<Long, List<QuestionTagVO>> tagMap = tagService.mapQuestionTags(questionIds);
+
         Long userId = SecurityUtils.getUserId();
         Map<Long, Integer> statusMap = new HashMap<>();
-        if (userId != null) {
-            List<Long> questionIds = voList.stream()
-                    .map(QuestionVO::getQuestionId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            if (CollUtil.isNotEmpty(questionIds)) {
-                List<TbUserSubmit> submits = userSubmitMapper.selectList(
-                        new LambdaQueryWrapper<TbUserSubmit>()
-                                .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
-                                .eq(TbUserSubmit::getUserId, userId)
-                                .in(TbUserSubmit::getQuestionId, questionIds)
-                );
-                if (CollUtil.isNotEmpty(submits)) {
-                    for (TbUserSubmit submit : submits) {
-                        Long qId = submit.getQuestionId();
-                        if (qId == null) {
-                            continue;
-                        }
-                        Integer currentStatus = statusMap.get(qId);
-                        if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
-                            statusMap.put(qId, UserQuestionStatusEnum.SOLVED.getCode());
-                        } else if (currentStatus == null || !UserQuestionStatusEnum.SOLVED.getCode().equals(currentStatus)) {
-                            statusMap.put(qId, UserQuestionStatusEnum.IN_PROGRESS.getCode());
-                        }
-                    }
+        if (userId != null && CollUtil.isNotEmpty(questionIds)) {
+            List<TbUserSubmit> submits = userSubmitMapper.selectList(
+                    new LambdaQueryWrapper<TbUserSubmit>()
+                            .select(TbUserSubmit::getQuestionId, TbUserSubmit::getPass)
+                            .eq(TbUserSubmit::getUserId, userId)
+                            .in(TbUserSubmit::getQuestionId, questionIds)
+            );
+            for (TbUserSubmit submit : submits) {
+                Long qId = submit.getQuestionId();
+                if (qId == null) {
+                    continue;
+                }
+                Integer currentStatus = statusMap.get(qId);
+                if (SubmitPassEnum.PASS.getCode().equals(submit.getPass())) {
+                    statusMap.put(qId, UserQuestionStatusEnum.SOLVED.getCode());
+                } else if (currentStatus == null || !UserQuestionStatusEnum.SOLVED.getCode().equals(currentStatus)) {
+                    statusMap.put(qId, UserQuestionStatusEnum.IN_PROGRESS.getCode());
                 }
             }
         }
 
         for (QuestionVO vo : voList) {
-            Integer status = statusMap.getOrDefault(vo.getQuestionId(), UserQuestionStatusEnum.UNTOUCHED.getCode());
-            vo.setUserStatus(status);
-            vo.setTags(resolveQuestionTags(vo));
+            vo.setUserStatus(statusMap.getOrDefault(vo.getQuestionId(), UserQuestionStatusEnum.UNTOUCHED.getCode()));
+            vo.setTags(tagMap.getOrDefault(vo.getQuestionId(), Collections.emptyList()));
         }
-    }
-
-    // 单题装配题目标签与当前用户做题状态
-    private void populateSingleUserStatusAndTags(QuestionVO vo) {
-        if (vo == null) {
-            return;
-        }
-        vo.setTags(resolveQuestionTags(vo));
-        Long userId = SecurityUtils.getUserId();
-        if (userId == null || vo.getQuestionId() == null) {
-            vo.setUserStatus(UserQuestionStatusEnum.UNTOUCHED.getCode());
-            return;
-        }
-        List<TbUserSubmit> submits = userSubmitMapper.selectList(
-                new LambdaQueryWrapper<TbUserSubmit>()
-                        .select(TbUserSubmit::getPass)
-                        .eq(TbUserSubmit::getUserId, userId)
-                        .eq(TbUserSubmit::getQuestionId, vo.getQuestionId())
-        );
-        Integer status = UserQuestionStatusEnum.UNTOUCHED.getCode();
-        if (CollUtil.isNotEmpty(submits)) {
-            boolean anyPass = submits.stream().anyMatch(s -> SubmitPassEnum.PASS.getCode().equals(s.getPass()));
-            status = anyPass ? UserQuestionStatusEnum.SOLVED.getCode() : UserQuestionStatusEnum.IN_PROGRESS.getCode();
-        }
-        vo.setUserStatus(status);
-    }
-
-    // 启发式解析题目特征算法分类标签
-    private List<String> resolveQuestionTags(QuestionVO vo) {
-        if (vo == null) {
-            return Collections.emptyList();
-        }
-        String title = StrUtil.nullToEmpty(vo.getTitle());
-        String content = StrUtil.nullToEmpty(vo.getContent());
-        String combined = title + " " + content;
-
-        List<String> tags = new ArrayList<>();
-        if (title.contains("两数之和") || (combined.contains("目标值") && combined.contains("数组下标"))) {
-            tags.add("数组");
-            tags.add("哈希表");
-        } else if (title.contains("括号") || combined.contains("有效括号")) {
-            tags.add("栈");
-            tags.add("字符串");
-        } else if (title.contains("回文") || combined.contains("回文数") || combined.contains("回文字符串")) {
-            tags.add("数学");
-            tags.add("双指针");
-        } else {
-            if (combined.contains("链表")) {
-                tags.add("链表");
-            }
-            if (combined.contains("二叉树") || combined.contains("树节点")) {
-                tags.add("树");
-            }
-            if (combined.contains("动态规划") || combined.contains("最优子结构")) {
-                tags.add("动态规划");
-            }
-            if (combined.contains("二分查找") || combined.contains("有序数组")) {
-                tags.add("二分查找");
-            }
-            if (combined.contains("贪心")) {
-                tags.add("贪心");
-            }
-            if (combined.contains("图") || combined.contains("拓扑排序")) {
-                tags.add("图论");
-            }
-        }
-
-        if (tags.isEmpty()) {
-            if (QuestionDifficultyEnum.EASY.getCode().equals(vo.getDifficulty())) {
-                tags.add("基础算法");
-            } else if (QuestionDifficultyEnum.MEDIUM.getCode().equals(vo.getDifficulty())) {
-                tags.add("进阶算法");
-            } else if (QuestionDifficultyEnum.HARD.getCode().equals(vo.getDifficulty())) {
-                tags.add("高阶挑战");
-            } else {
-                tags.add("算法精选");
-            }
-        }
-        return tags;
     }
 }

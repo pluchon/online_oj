@@ -49,6 +49,10 @@ public class QuestionDetailVO {
     @Schema(description = "测试用例")
     private List<QuestionCaseVO> cases;
 
+    // 题目标签
+    @Schema(description = "题目标签")
+    private List<QuestionTagVO> tags;
+
     // 默认代码块
     @Schema(description = "默认代码块")
     private String defaultCode;

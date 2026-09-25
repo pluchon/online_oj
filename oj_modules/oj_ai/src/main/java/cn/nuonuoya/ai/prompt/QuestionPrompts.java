@@ -1,5 +1,7 @@
 package cn.nuonuoya.ai.prompt;
 
+import java.util.List;
+
 // 出题类功能的提示词（系统提示固定格式约定，用户提示只放本次输入）
 public final class QuestionPrompts {
 
@@ -28,8 +30,12 @@ public final class QuestionPrompts {
             - content：Markdown 格式的题目描述，不超过 800 个字，包含题意、方法参数与返回值含义、数据范围；不要写示例、不要写标准输入输出格式（示例由测试用例展示，输入格式由判题约定决定）。
             - defaultCode：方法签名与空实现，形如 public boolean isValid(String s) {\n    // 请在此处编写你的代码\n    return false;\n}，不超过 400 个字符。
             - mainFunc：public static void main(String[] args) throws IOException 的完整实现，用 BufferedReader 读取标准输入，先读 t，再按上面的输入格式逐组读取参数，通过 Main m = new Main(); 调用用户方法，每组输出一行；不要写 import，不超过 3000 个字符。
+            - tags：从用户提示给出的候选标签中挑 1 到 3 个最贴切的（主要考察的数据结构与算法），原样输出标签名；没有候选标签或都不贴切时输出空数组。
             只输出题目本身，不要输出参考答案。
             """;
+
+    // 建议标签的最大数量
+    public static final int MAX_DRAFT_TAGS = 3;
 
     // 用例输入的系统提示
     public static final String CASE_SYSTEM = """
@@ -57,8 +63,9 @@ public final class QuestionPrompts {
     private static final String AUTO_COUNT_HINT = "按题目复杂度自行决定组数，2 到 5 组";
 
     // 题面草稿的用户提示
-    public static String draftUser(String description) {
-        return "题目描述：" + description;
+    public static String draftUser(String description, List<String> availableTags) {
+        String tagText = availableTags.isEmpty() ? "（无）" : String.join("、", availableTags);
+        return "题目描述：" + description + "\n\n候选标签：" + tagText;
     }
 
     // 解法示例的用户提示

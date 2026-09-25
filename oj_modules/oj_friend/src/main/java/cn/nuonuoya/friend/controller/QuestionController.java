@@ -16,6 +16,7 @@ import cn.nuonuoya.friend.vo.CodeDraftVO;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
 import cn.nuonuoya.friend.vo.QuestionRunResultVO;
 import cn.nuonuoya.friend.vo.QuestionStatsVO;
+import cn.nuonuoya.friend.vo.QuestionTagVO;
 import cn.nuonuoya.friend.vo.QuestionVO;
 import cn.nuonuoya.friend.vo.SubmitHistoryVO;
 import cn.nuonuoya.friend.vo.UserSubmitResultVO;
@@ -65,6 +66,13 @@ public class QuestionController extends BaseController {
     public OJResult<QuestionVO> detail(@PathVariable("questionId") Long questionId) {
         QuestionVO vo = questionService.getDetail(questionId);
         return OJResult.ok(vo);
+    }
+
+    /** 查询全部题目标签 */
+    @GetMapping("/tags")
+    @Operation(summary = "题目标签", description = "返回全部题目标签（按分类排序），用于题库按标签筛选")
+    public OJResult<List<QuestionTagVO>> tags() {
+        return OJResult.ok(questionService.listTags());
     }
 
     /** 获取题库做题统计信息 */

@@ -295,7 +295,8 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /friend/user/send-code`、`POST /friend/user/login`、`DELETE /friend/user/logout`：短信验证码登录（新用户自动注册）与退出登录
 * `GET|PUT /friend/user/profile`、`POST /friend/user/avatar`：个人资料与头像（昵称、个人介绍、头像变更前做内容审核，审核服务不可用时放行）
 * `GET  /friend/user/profile/overview`、`GET /friend/user/profile/calendar`：做题统计、能力雷达与解题日历
-* `GET  /friend/question`：题库分页检索（关键字、难度）
+* `GET  /friend/question`：题库分页检索（关键字、难度、标签分类 `tagCategory`、标签 `tagId`、做题状态 `userStatus`；只选分类时返回该分类下任一标签的题目，做题状态只对登录用户生效）
+* `GET  /friend/question/tags`：全部题目标签（题库筛选用）
 * `GET  /friend/question/{questionId}`：单题详情与公开示例
 * `GET  /friend/question/{questionId}/neighbors`：上一题、下一题导航（可带 `examId`）
 * `GET  /friend/question/{questionId}/similar`：相似题推荐（需登录，排除当前题与已通过的题）
@@ -319,8 +320,9 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 ### 2. B端管理系统接口 (`/system/**`)
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
 * `POST /system/sysUser`、`DELETE /system/sysUser/{userId}`：新增、删除管理员
-* `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理（详情也用于管理端题目预览）
-* `POST /system/question/ai/draft`、`POST /system/question/ai/cases`、`POST /system/question/ai/solution`：AI 出题、AI 生成用例、AI 解法示例（用例的预期输出由解法在沙箱实跑得到；未传标程时先由 AI 生成解法；均不落库）
+* `GET|POST /system/question`、`GET|PUT|DELETE /system/question/{questionId}`：题目管理（列表可按标签分类或标签筛选，保存时带标签，详情也用于管理端题目预览）
+* `GET|POST /system/tag`、`PUT|DELETE /system/tag/{tagId}`：题目标签管理（删除为逻辑删除，并移除题目上的该标签）
+* `POST /system/question/ai/draft`、`POST /system/question/ai/cases`、`POST /system/question/ai/solution`：AI 出题（同时从现有标签中建议 1~3 个）、AI 生成用例、AI 解法示例（用例的预期输出由解法在沙箱实跑得到；未传标程时先由 AI 生成解法；均不落库）
 * `POST /system/exam/ai/plan`：AI 帮建竞赛（按描述、难度倾向与题目数量生成竞赛名称和题目，不落库）
 * `GET|POST /system/exam`、`GET|PUT|DELETE /system/exam/{examId}`：竞赛管理
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛

@@ -47,12 +47,24 @@ public class AiQuestionServiceImpl implements AiQuestionService {
     @Autowired
     private AiStructuredCaller aiStructuredCaller;
 
-    // 生成题面草稿，并把难度与时空限制收敛到合法范围
+    // 生成题面草稿，并把难度与时空限制收敛到合法范围；建议标签只保留候选中的名称
     @Override
     public AiQuestionDraftVO generateQuestionDraft(AiQuestionDraftDTO draftDTO) {
+        List<String> availableTags = CollUtil.emptyIfNull(draftDTO.getAvailableTags()).stream()
+                .filter(StrUtil::isNotBlank)
+                .map(String::trim)
+                .distinct()
+                .toList();
         AiQuestionDraftVO draft = callForEntity("题面草稿", QuestionPrompts.DRAFT_SYSTEM,
-                QuestionPrompts.draftUser(draftDTO.getDescription().trim()),
+                QuestionPrompts.draftUser(draftDTO.getDescription().trim(), availableTags),
                 aiProperties.getDraftTemperature(), AiQuestionDraftVO.class);
+        draft.setTags(CollUtil.emptyIfNull(draft.getTags()).stream()
+                .filter(StrUtil::isNotBlank)
+                .map(String::trim)
+                .filter(availableTags::contains)
+                .distinct()
+                .limit(QuestionPrompts.MAX_DRAFT_TAGS)
+                .toList());
         if (StrUtil.isBlank(draft.getTitle()) || StrUtil.isBlank(draft.getContent())) {
             throw new AiModelException("题面草稿缺少标题或描述");
         }

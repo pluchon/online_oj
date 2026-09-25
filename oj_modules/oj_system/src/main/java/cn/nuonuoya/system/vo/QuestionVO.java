@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 // 题目列表项视图对象
 @Getter
@@ -34,6 +35,10 @@ public class QuestionVO {
     // 创建人昵称（通过联查用户表获得）
     @Schema(description = "创建人")
     private String creatorName;
+
+    // 题目标签
+    @Schema(description = "题目标签")
+    private List<QuestionTagVO> tags;
 
     // 创建时间
     @Schema(description = "创建时间")

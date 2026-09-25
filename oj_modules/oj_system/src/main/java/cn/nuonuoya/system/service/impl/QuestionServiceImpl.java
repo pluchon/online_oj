@@ -16,8 +16,10 @@ import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.mapper.QuestionCaseMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.service.QuestionService;
+import cn.nuonuoya.system.service.TagService;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.QuestionDetailVO;
+import cn.nuonuoya.system.vo.QuestionTagVO;
 import cn.nuonuoya.system.vo.QuestionVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
@@ -26,7 +28,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 // 题目业务实现类
@@ -43,6 +47,9 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private QuestionCaseMapper questionCaseMapper;
 
+    @Autowired
+    private TagService tagService;
+
     // 分页查询题目列表实现
     @Override
     public List<QuestionVO> list(QuestionDTO queryDTO) {
@@ -54,9 +61,12 @@ public class QuestionServiceImpl implements QuestionService {
         // 执行联表查询，PageHelper 会自动拦截生成 COUNT 语句与物理 LIMIT 分页
         List<QuestionVO> list = questionMapper.selectQuestionList(queryDTO);
         if (CollUtil.isNotEmpty(list)) {
-            // 通过业务枚举为视图对象补充难度描述文案
+            // 补充难度描述文案，并批量装配当前页题目的标签
+            Map<Long, List<QuestionTagVO>> tagMap = tagService.mapQuestionTags(
+                    list.stream().map(QuestionVO::getQuestionId).toList());
             for (QuestionVO vo : list) {
                 vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(vo.getDifficulty()));
+                vo.setTags(tagMap.getOrDefault(vo.getQuestionId(), Collections.emptyList()));
             }
         }
         return list;
@@ -76,6 +86,7 @@ public class QuestionServiceImpl implements QuestionService {
         TbQuestion question = QuestionConverter.toEntity(addDTO);
         int rows = questionMapper.insert(question);
         saveCases(question.getQuestionId(), addDTO.getCases());
+        tagService.replaceQuestionTags(question.getQuestionId(), addDTO.getTagIds());
         notifyQuestionChanged(rows);
         return rows;
     }
@@ -93,6 +104,7 @@ public class QuestionServiceImpl implements QuestionService {
         }
         QuestionDetailVO vo = QuestionConverter.toDetailVO(question);
         vo.setCases(QuestionConverter.toCaseVOList(listCases(questionId)));
+        vo.setTags(tagService.listQuestionTags(questionId));
         return vo;
     }
 
@@ -122,6 +134,7 @@ public class QuestionServiceImpl implements QuestionService {
         questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
                 .eq(TbQuestionCase::getQuestionId, editDTO.getQuestionId()));
         saveCases(editDTO.getQuestionId(), editDTO.getCases());
+        tagService.replaceQuestionTags(editDTO.getQuestionId(), editDTO.getTagIds());
         notifyQuestionChanged(rows);
         return rows;
     }
@@ -141,6 +154,7 @@ public class QuestionServiceImpl implements QuestionService {
         int rows = questionMapper.deleteById(questionId);
         questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
                 .eq(TbQuestionCase::getQuestionId, questionId));
+        tagService.removeQuestionTags(questionId);
         notifyQuestionChanged(rows);
         return rows;
     }

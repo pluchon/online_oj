@@ -1,8 +1,12 @@
 package cn.nuonuoya.system.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.List;
 
 // AI 题面草稿（回填题目表单，不自动保存）
 @Getter
@@ -37,4 +41,9 @@ public class QuestionAiDraftVO {
     // main函数
     @Schema(description = "main函数")
     private String mainFunc;
+
+    // 建议标签ID（序列化为字符串防止前端精度丢失）
+    @Schema(description = "建议标签ID")
+    @JsonSerialize(contentUsing = ToStringSerializer.class)
+    private List<Long> tagIds;
 }

@@ -18,6 +18,23 @@
             <if test="query.title != null and query.title != ''">
                 AND q.title LIKE CONCAT('%', #{query.title}, '%')
             </if>
+            <if test="query.tagCategory != null">
+                AND EXISTS (
+                    SELECT 1 FROM tb_question_tag qt
+                    INNER JOIN tb_tag t ON t.tag_id = qt.tag_id AND t.delete_state = 0
+                    WHERE qt.question_id = q.question_id
+                      AND t.category = #{query.tagCategory}
+                      AND qt.delete_state = 0
+                )
+            </if>
+            <if test="query.tagId != null">
+                AND EXISTS (
+                    SELECT 1 FROM tb_question_tag qt
+                    WHERE qt.question_id = q.question_id
+                      AND qt.tag_id = #{query.tagId}
+                      AND qt.delete_state = 0
+                )
+            </if>
         </where>
         ORDER BY q.create_time DESC, q.question_id DESC
     </select>
