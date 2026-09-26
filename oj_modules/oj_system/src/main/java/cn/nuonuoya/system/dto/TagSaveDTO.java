@@ -18,7 +18,7 @@ public class TagSaveDTO {
     // 标签名称
     @Schema(description = "标签名称", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "标签名称不能为空")
-    @Size(max = 20, message = "标签名称不能超过20个字符")
+    @Size(max = 10, message = "标签名称不能超过10个字符")
     private String tagName;
 
     // 标签分类（1:数据结构 2:算法 3:数学 4:其他）

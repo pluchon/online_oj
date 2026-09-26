@@ -115,7 +115,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         TbUserSubmit latest = latestFinishedSubmit(userId, questionId);
         vo.setLatestJudgeStatus(latest == null ? null : latest.getJudgeStatus());
         vo.setAccepted(latestAcceptedSubmit(userId, questionId) != null);
-        vo.setAvailable(!examService.isExamOngoing(examId));
+        vo.setAvailable(!isInOngoingExam(questionId, examId));
         return vo;
     }
 
@@ -132,7 +132,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         if (action == AiTutorActionEnum.CHAT && content.isEmpty()) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE, "请输入问题");
         }
-        if (examService.isExamOngoing(askDTO.getExamId())) {
+        if (isInOngoingExam(questionId, askDTO.getExamId())) {
             throw new ServiceException(ResultCode.FAILED_AI_IN_EXAM);
         }
 
@@ -146,6 +146,11 @@ public class AiTutorServiceImpl implements AiTutorService {
 
         String userMessage = content.isEmpty() ? action.getLabel() : content;
         return relay(userId, sessionId, action, userMessage, chatDTO);
+    }
+
+    // 是否处于进行中的竞赛：带进行中竞赛的 examId，或题目本身正被进行中的竞赛使用（防止从题库入口绕过）
+    private boolean isInOngoingExam(Long questionId, Long examId) {
+        return examService.isExamOngoing(examId) || examService.isQuestionInOngoingExam(questionId);
     }
 
     // 发给模型的代码：优化代码思路读取已保存的草稿（前端会先自动保存），其余使用编辑器当前代码

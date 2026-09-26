@@ -65,13 +65,16 @@ services:
     image: redis:latest
     container_name: oj-redis
     restart: unless-stopped
+    environment:
+      # 健康检查从容器环境变量取密码，不把密码写进检查命令
+      REDIS_PASSWORD: ${OJ_REDIS_PASSWORD:-123456}
     ports:
       - "6379:6379"
-    command: ["redis-server", "--requirepass", "123456"]
+    command: ["redis-server", "--requirepass", "${OJ_REDIS_PASSWORD:-123456}"]
     volumes:
       - oj_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "123456", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -137,7 +140,7 @@ services:
       - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: "123456"
+      RABBITMQ_DEFAULT_PASS: ${OJ_RABBITMQ_PASSWORD:-123456}
     volumes:
       - oj_rabbitmq_data:/var/lib/rabbitmq
     networks:

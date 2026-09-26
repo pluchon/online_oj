@@ -74,8 +74,9 @@ public class QuestionAddDTO {
     @Size(max = 5, message = "每道题最多选择5个标签")
     private List<Long> tagIds;
 
-    // 官方题解（Markdown，可为空；为空时删除已有题解）
-    @Schema(description = "官方题解（Markdown，可为空）")
+    // 官方题解（Markdown，必填）
+    @Schema(description = "官方题解（Markdown）", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "官方题解不能为空")
     @Size(max = 10000, message = "题解长度不能超过10000个字符")
     private String editorial;
 }
