@@ -32,6 +32,13 @@ public class QuestionAddDTO {
     @Max(value = 3, message = "题目难度值不合法")
     private Integer difficulty;
 
+    // 题目用途（1:刷题 2:竞赛）
+    @Schema(description = "题目用途（1:刷题 2:竞赛）", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "题目用途不能为空")
+    @Min(value = 1, message = "题目用途不合法")
+    @Max(value = 2, message = "题目用途不合法")
+    private Integer purpose;
+
     // 时间限制（毫秒）
     @Schema(description = "时间限制（毫秒）", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "时间限制不能为空")

@@ -15,11 +15,13 @@ import cn.nuonuoya.system.dto.ExamEditDTO;
 import cn.nuonuoya.system.dto.ExamQuestionAddDTO;
 import cn.nuonuoya.system.enums.ExamStatus;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
+import cn.nuonuoya.system.enums.QuestionPurpose;
 import cn.nuonuoya.system.mapper.ExamMapper;
 import cn.nuonuoya.system.mapper.ExamQuestionMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.mapper.SysUserMapper;
 import cn.nuonuoya.system.service.ExamService;
+import cn.nuonuoya.system.service.QuestionService;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.ExamDetailVO;
 import cn.nuonuoya.system.vo.ExamVO;
@@ -55,6 +57,9 @@ public class ExamServiceImpl implements ExamService {
 
     @Autowired
     private QuestionMapper questionMapper;
+
+    @Autowired
+    private QuestionService questionService;
 
     @Autowired
     private FriendExamClient friendExamClient;
@@ -216,11 +221,21 @@ public class ExamServiceImpl implements ExamService {
         if (CollUtil.isEmpty(toAddIds)) {
             throw new ServiceException(ResultCode.FAILED_EXAM_QUESTION_EXISTS);
         }
-        // 待绑定的题目必须全部存在
+        // 待绑定的题目必须全部存在，且都是竞赛题
         Long foundCount = questionMapper.selectCount(new LambdaQueryWrapper<TbQuestion>()
                 .in(TbQuestion::getQuestionId, toAddIds));
         if (foundCount == null || foundCount != toAddIds.size()) {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
+        }
+        Long contestCount = questionMapper.selectCount(new LambdaQueryWrapper<TbQuestion>()
+                .in(TbQuestion::getQuestionId, toAddIds)
+                .eq(TbQuestion::getPurpose, QuestionPurpose.CONTEST.getValue()));
+        if (contestCount == null || contestCount != toAddIds.size()) {
+            throw new ServiceException(ResultCode.FAILED_EXAM_QUESTION_NOT_CONTEST);
+        }
+        // 已在结束的竞赛中公开过的题不能再用于新竞赛（学员可能已经看过题解）
+        if (!questionService.listPublishedQuestionIds(toAddIds).isEmpty()) {
+            throw new ServiceException(ResultCode.FAILED_EXAM_QUESTION_PUBLISHED);
         }
         // 获取当前最大排序号
         int currentOrder = existingList.isEmpty() ? 0 : (existingList.get(0).getQuestionOrder() == null ? 0 : existingList.get(0).getQuestionOrder());

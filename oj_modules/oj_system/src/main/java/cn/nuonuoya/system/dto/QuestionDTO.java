@@ -17,6 +17,9 @@ public class QuestionDTO extends PageQuery {
     // 题目标题（支持模糊查询）
     private String title;
 
+    // 题目用途（1:刷题 2:竞赛，竞赛选题时传 2）
+    private Integer purpose;
+
     // 标签分类（只看带该分类下任一标签的题目）
     private Integer tagCategory;
 

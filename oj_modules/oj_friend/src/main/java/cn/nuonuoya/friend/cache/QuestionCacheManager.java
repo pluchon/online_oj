@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.friend.domain.TbExamQuestion;
 import cn.nuonuoya.friend.domain.TbQuestion;
+import cn.nuonuoya.friend.enums.QuestionPurposeEnum;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.vo.QuestionPreNextVO;
@@ -39,9 +40,10 @@ public class QuestionCacheManager {
         redisService.deleteObject(listKey);
 
         if (examId == null) {
-            // 普通日常题库：按题目ID升序排布
+            // 普通日常题库：只含刷题题，按题目ID升序排布
             List<TbQuestion> list = questionMapper.selectList(new LambdaQueryWrapper<TbQuestion>()
                     .select(TbQuestion::getQuestionId)
+                    .ne(TbQuestion::getPurpose, QuestionPurposeEnum.CONTEST.getCode())
                     .orderByAsc(TbQuestion::getQuestionId));
             if (CollUtil.isNotEmpty(list)) {
                 List<Long> idList = list.stream().map(TbQuestion::getQuestionId).collect(Collectors.toList());

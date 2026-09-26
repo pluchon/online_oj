@@ -68,9 +68,10 @@ public class QuestionController extends BaseController {
 
     /** 获取题目详情 */
     @GetMapping("/{questionId}")
-    @Operation(summary = "题目详情", description = "根据题目ID获取详细信息")
-    public OJResult<QuestionVO> detail(@PathVariable("questionId") Long questionId) {
-        QuestionVO vo = questionService.getDetail(questionId);
+    @Operation(summary = "题目详情", description = "竞赛题只能从竞赛进入：需带已开赛且包含该题的竞赛ID")
+    public OJResult<QuestionVO> detail(@PathVariable("questionId") Long questionId,
+                                       @RequestParam(value = "examId", required = false) Long examId) {
+        QuestionVO vo = questionService.getDetail(questionId, examId);
         return OJResult.ok(vo);
     }
 

@@ -7,6 +7,7 @@
             q.question_id AS questionId,
             q.title,
             q.difficulty,
+            q.purpose,
             u.nick_name AS creatorName,
             q.create_time AS createTime
         FROM tb_question q
@@ -14,6 +15,9 @@
         <where>
             <if test="query.difficulty != null">
                 AND q.difficulty = #{query.difficulty}
+            </if>
+            <if test="query.purpose != null">
+                AND q.purpose = #{query.purpose}
             </if>
             <if test="query.title != null and query.title != ''">
                 AND q.title LIKE CONCAT('%', #{query.title}, '%')

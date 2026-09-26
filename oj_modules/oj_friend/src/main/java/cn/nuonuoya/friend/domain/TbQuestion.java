@@ -25,6 +25,9 @@ public class TbQuestion extends BaseEntity {
     // 题目难度（1:简单 2:中等 3:困难）
     private Integer difficulty;
 
+    // 题目用途（见 QuestionPurposeEnum）
+    private Integer purpose;
+
     // 时间限制（毫秒）
     private Integer timeLimit;
 

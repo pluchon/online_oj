@@ -23,8 +23,8 @@ public interface QuestionService {
     // 相似题推荐（排除当前题与当前用户已通过的题）
     List<QuestionVO> listSimilar(Long questionId);
 
-    // 查询题目详情
-    QuestionVO getDetail(Long questionId);
+    // 查询题目详情（竞赛题需带已开赛且包含该题的竞赛ID）
+    QuestionVO getDetail(Long questionId, Long examId);
 
     // 查询全部题目标签（题库筛选用）
     List<QuestionTagVO> listTags();

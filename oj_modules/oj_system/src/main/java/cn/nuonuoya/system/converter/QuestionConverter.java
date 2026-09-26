@@ -6,6 +6,7 @@ import cn.nuonuoya.system.dto.QuestionAddDTO;
 import cn.nuonuoya.system.dto.QuestionCaseDTO;
 import cn.nuonuoya.system.dto.QuestionEditDTO;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
+import cn.nuonuoya.system.enums.QuestionPurpose;
 import cn.nuonuoya.system.vo.QuestionCaseVO;
 import cn.nuonuoya.system.vo.QuestionDetailVO;
 
@@ -79,6 +80,8 @@ public class QuestionConverter {
         vo.setTitle(question.getTitle());
         vo.setDifficulty(question.getDifficulty());
         vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(question.getDifficulty()));
+        vo.setPurpose(question.getPurpose());
+        vo.setPurposeDesc(QuestionPurpose.getDescByValue(question.getPurpose()));
         vo.setTimeLimit(question.getTimeLimit());
         vo.setSpaceLimit(question.getSpaceLimit());
         vo.setContent(question.getContent());
@@ -93,6 +96,7 @@ public class QuestionConverter {
     private static void fillEditableFields(TbQuestion question, QuestionAddDTO dto) {
         question.setTitle(dto.getTitle());
         question.setDifficulty(dto.getDifficulty());
+        question.setPurpose(dto.getPurpose());
         question.setTimeLimit(dto.getTimeLimit());
         question.setSpaceLimit(dto.getSpaceLimit());
         question.setContent(dto.getContent());

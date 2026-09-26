@@ -15,6 +15,7 @@ import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.AiTutorAskDTO;
 import cn.nuonuoya.friend.enums.AiChatRoleEnum;
+import cn.nuonuoya.friend.enums.QuestionPurposeEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.AiChatMessageMapper;
 import cn.nuonuoya.friend.mapper.AiChatSessionMapper;
@@ -104,7 +105,7 @@ public class AiTutorServiceImpl implements AiTutorService {
     @Override
     public AiTutorSessionVO getSession(Long questionId, Long examId) {
         Long userId = requireUserId();
-        requireQuestion(questionId);
+        TbQuestion question = requireQuestion(questionId);
 
         AiTutorSessionVO vo = new AiTutorSessionVO();
         TbAiChatSession session = findSession(userId, questionId);
@@ -115,7 +116,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         TbUserSubmit latest = latestFinishedSubmit(userId, questionId);
         vo.setLatestJudgeStatus(latest == null ? null : latest.getJudgeStatus());
         vo.setAccepted(latestAcceptedSubmit(userId, questionId) != null);
-        vo.setAvailable(!isInOngoingExam(questionId, examId));
+        vo.setAvailable(!isTutorBlocked(question, examId));
         return vo;
     }
 
@@ -132,7 +133,7 @@ public class AiTutorServiceImpl implements AiTutorService {
         if (action == AiTutorActionEnum.CHAT && content.isEmpty()) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE, "请输入问题");
         }
-        if (isInOngoingExam(questionId, askDTO.getExamId())) {
+        if (isTutorBlocked(question, askDTO.getExamId())) {
             throw new ServiceException(ResultCode.FAILED_AI_IN_EXAM);
         }
 
@@ -148,9 +149,13 @@ public class AiTutorServiceImpl implements AiTutorService {
         return relay(userId, sessionId, action, userMessage, chatDTO);
     }
 
-    // 是否处于进行中的竞赛：带进行中竞赛的 examId，或题目本身正被进行中的竞赛使用（防止从题库入口绕过）
-    private boolean isInOngoingExam(Long questionId, Long examId) {
-        return examService.isExamOngoing(examId) || examService.isQuestionInOngoingExam(questionId);
+    // AI 辅导是否不可用：所在竞赛未全部结束的竞赛题不提供辅导；带进行中竞赛的 examId 或题目正被进行中的竞赛使用时也拒绝（兜底，防止从题库入口绕过）
+    private boolean isTutorBlocked(TbQuestion question, Long examId) {
+        boolean lockedContest = QuestionPurposeEnum.isContest(question.getPurpose())
+                && !examService.isQuestionExamsFinished(question.getQuestionId());
+        return lockedContest
+                || examService.isExamOngoing(examId)
+                || examService.isQuestionInOngoingExam(question.getQuestionId());
     }
 
     // 发给模型的代码：优化代码思路读取已保存的草稿（前端会先自动保存），其余使用编辑器当前代码

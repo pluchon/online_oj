@@ -5,6 +5,8 @@ import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.system.client.FriendQuestionClient;
 import cn.nuonuoya.system.converter.QuestionConverter;
+import cn.nuonuoya.system.domain.TbExam;
+import cn.nuonuoya.system.domain.TbExamQuestion;
 import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.domain.TbQuestionCase;
 import cn.nuonuoya.system.dto.QuestionAddDTO;
@@ -13,6 +15,9 @@ import cn.nuonuoya.system.dto.QuestionDTO;
 import cn.nuonuoya.system.dto.QuestionEditDTO;
 import cn.nuonuoya.system.enums.QuestionCaseType;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
+import cn.nuonuoya.system.enums.QuestionPurpose;
+import cn.nuonuoya.system.mapper.ExamMapper;
+import cn.nuonuoya.system.mapper.ExamQuestionMapper;
 import cn.nuonuoya.system.mapper.QuestionCaseMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.service.QuestionEditorialService;
@@ -29,10 +34,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 // 题目业务实现类
 @Slf4j
@@ -54,6 +63,12 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private QuestionEditorialService questionEditorialService;
 
+    @Autowired
+    private ExamMapper examMapper;
+
+    @Autowired
+    private ExamQuestionMapper examQuestionMapper;
+
     // 分页查询题目列表实现
     @Override
     public List<QuestionVO> list(QuestionDTO queryDTO) {
@@ -66,10 +81,13 @@ public class QuestionServiceImpl implements QuestionService {
         List<QuestionVO> list = questionMapper.selectQuestionList(queryDTO);
         if (CollUtil.isNotEmpty(list)) {
             // 补充难度描述文案，并批量装配当前页题目的标签
-            Map<Long, List<QuestionTagVO>> tagMap = tagService.mapQuestionTags(
-                    list.stream().map(QuestionVO::getQuestionId).toList());
+            List<Long> pageIds = list.stream().map(QuestionVO::getQuestionId).toList();
+            Map<Long, List<QuestionTagVO>> tagMap = tagService.mapQuestionTags(pageIds);
+            Set<Long> publishedIds = listPublishedQuestionIds(pageIds);
             for (QuestionVO vo : list) {
+                vo.setPublished(publishedIds.contains(vo.getQuestionId()));
                 vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(vo.getDifficulty()));
+                vo.setPurposeDesc(QuestionPurpose.getDescByValue(vo.getPurpose()));
                 vo.setTags(tagMap.getOrDefault(vo.getQuestionId(), Collections.emptyList()));
             }
         }
@@ -134,6 +152,7 @@ public class QuestionServiceImpl implements QuestionService {
             throw new ServiceException(ResultCode.FAILED_ALREADY_EXISTS);
         }
         checkCases(editDTO.getCases());
+        checkPurposeChange(oldQuestion, editDTO.getPurpose());
         // 转换更新字段并入库，用例整体替换（旧用例逻辑删除）
         TbQuestion question = QuestionConverter.toEntity(editDTO);
         int rows = questionMapper.updateById(question);
@@ -165,6 +184,107 @@ public class QuestionServiceImpl implements QuestionService {
         questionEditorialService.remove(questionId);
         notifyQuestionChanged(rows);
         return rows;
+    }
+
+    // 已公开的题目：取这些题目所在的竞赛，至少有一场已结束的题即为已公开
+    @Override
+    public Set<Long> listPublishedQuestionIds(Collection<Long> questionIds) {
+        if (CollUtil.isEmpty(questionIds)) {
+            return Collections.emptySet();
+        }
+        List<TbExamQuestion> relations = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
+                .select(TbExamQuestion::getExamId, TbExamQuestion::getQuestionId)
+                .in(TbExamQuestion::getQuestionId, questionIds));
+        if (relations.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<Long> endedExamIds = examMapper.selectList(new LambdaQueryWrapper<TbExam>()
+                        .select(TbExam::getExamId)
+                        .in(TbExam::getExamId, relations.stream().map(TbExamQuestion::getExamId).collect(Collectors.toSet()))
+                        .le(TbExam::getEndTime, LocalDateTime.now()))
+                .stream()
+                .map(TbExam::getExamId)
+                .collect(Collectors.toSet());
+        return relations.stream()
+                .filter(relation -> endedExamIds.contains(relation.getExamId()))
+                .map(TbExamQuestion::getQuestionId)
+                .collect(Collectors.toSet());
+    }
+
+    // 公开已结束竞赛的题目：竞赛题里，被竞赛用过且这些竞赛全部结束的改为刷题；改完后通知 C 端刷新题库索引
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int publishFinishedContestQuestions() {
+        List<Long> contestIds = questionMapper.selectList(new LambdaQueryWrapper<TbQuestion>()
+                        .select(TbQuestion::getQuestionId)
+                        .eq(TbQuestion::getPurpose, QuestionPurpose.CONTEST.getValue()))
+                .stream()
+                .map(TbQuestion::getQuestionId)
+                .toList();
+        if (contestIds.isEmpty()) {
+            return 0;
+        }
+        List<TbExamQuestion> relations = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
+                .select(TbExamQuestion::getExamId, TbExamQuestion::getQuestionId)
+                .in(TbExamQuestion::getQuestionId, contestIds));
+        if (relations.isEmpty()) {
+            return 0;
+        }
+        Set<Long> examIds = relations.stream().map(TbExamQuestion::getExamId).collect(Collectors.toSet());
+        Set<Long> unfinishedExamIds = examMapper.selectList(new LambdaQueryWrapper<TbExam>()
+                        .select(TbExam::getExamId)
+                        .in(TbExam::getExamId, examIds)
+                        .gt(TbExam::getEndTime, LocalDateTime.now()))
+                .stream()
+                .map(TbExam::getExamId)
+                .collect(Collectors.toSet());
+        // 只要还有一场没结束就不公开（同一道题可能同时在多场未结束的竞赛里）
+        Set<Long> blockedIds = relations.stream()
+                .filter(relation -> unfinishedExamIds.contains(relation.getExamId()))
+                .map(TbExamQuestion::getQuestionId)
+                .collect(Collectors.toSet());
+        List<Long> toPublish = relations.stream()
+                .map(TbExamQuestion::getQuestionId)
+                .distinct()
+                .filter(questionId -> !blockedIds.contains(questionId))
+                .toList();
+        if (toPublish.isEmpty()) {
+            return 0;
+        }
+        TbQuestion update = new TbQuestion();
+        update.setPurpose(QuestionPurpose.PRACTICE.getValue());
+        int rows = questionMapper.update(update, new LambdaQueryWrapper<TbQuestion>()
+                .in(TbQuestion::getQuestionId, toPublish)
+                .eq(TbQuestion::getPurpose, QuestionPurpose.CONTEST.getValue()));
+        log.info("公开已结束竞赛的题目 {} 道", rows);
+        notifyQuestionChanged(rows);
+        return rows;
+    }
+
+    // 校验用途变更：刷题题不能改为竞赛题；竞赛题改为刷题时，它所在的竞赛必须都已结束（否则会提前出现在 C 端题库）
+    private void checkPurposeChange(TbQuestion oldQuestion, Integer newPurpose) {
+        if (Objects.equals(oldQuestion.getPurpose(), newPurpose)) {
+            return;
+        }
+        if (Objects.equals(oldQuestion.getPurpose(), QuestionPurpose.PRACTICE.getValue())) {
+            throw new ServiceException(ResultCode.FAILED_QUESTION_PURPOSE_LOCKED);
+        }
+        List<Long> examIds = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
+                        .select(TbExamQuestion::getExamId)
+                        .eq(TbExamQuestion::getQuestionId, oldQuestion.getQuestionId()))
+                .stream()
+                .map(TbExamQuestion::getExamId)
+                .distinct()
+                .toList();
+        if (examIds.isEmpty()) {
+            return;
+        }
+        Long unfinished = examMapper.selectCount(new LambdaQueryWrapper<TbExam>()
+                .in(TbExam::getExamId, examIds)
+                .gt(TbExam::getEndTime, LocalDateTime.now()));
+        if (unfinished != null && unfinished > 0) {
+            throw new ServiceException(ResultCode.FAILED_QUESTION_IN_UNFINISHED_EXAM);
+        }
     }
 
     // 校验用例：至少包含一个公开示例（用于题面展示与运行）

@@ -28,6 +28,10 @@ public class QuestionDoc {
     @Field(type = FieldType.Integer)
     private Integer difficulty;
 
+    // 题目用途（1:刷题 2:竞赛，题库只出刷题题）
+    @Field(type = FieldType.Integer)
+    private Integer purpose;
+
     // 时间限制（毫秒）
     @Field(type = FieldType.Integer)
     private Integer timeLimit;

@@ -629,6 +629,45 @@ public class ExamServiceImpl implements ExamService {
                 .ge(TbExam::getEndTime, now)) > 0;
     }
 
+    // 竞赛题是否已可公开：没被竞赛用过的不算；只要还有一场没结束就不算
+    @Override
+    public boolean isQuestionExamsFinished(Long questionId) {
+        if (questionId == null) {
+            return false;
+        }
+        List<Long> examIds = examQuestionMapper.selectList(new LambdaQueryWrapper<TbExamQuestion>()
+                        .select(TbExamQuestion::getExamId)
+                        .eq(TbExamQuestion::getQuestionId, questionId))
+                .stream()
+                .map(TbExamQuestion::getExamId)
+                .distinct()
+                .toList();
+        if (examIds.isEmpty()) {
+            return false;
+        }
+        return examMapper.selectCount(new LambdaQueryWrapper<TbExam>()
+                .in(TbExam::getExamId, examIds)
+                .gt(TbExam::getEndTime, LocalDateTime.now())) == 0;
+    }
+
+    // 竞赛已发布、已开赛且包含该题
+    @Override
+    public boolean isExamStartedWithQuestion(Long examId, Long questionId) {
+        if (examId == null || questionId == null) {
+            return false;
+        }
+        Long bound = examQuestionMapper.selectCount(new LambdaQueryWrapper<TbExamQuestion>()
+                .eq(TbExamQuestion::getExamId, examId)
+                .eq(TbExamQuestion::getQuestionId, questionId));
+        if (bound == null || bound == 0) {
+            return false;
+        }
+        return examMapper.selectCount(new LambdaQueryWrapper<TbExam>()
+                .eq(TbExam::getExamId, examId)
+                .eq(TbExam::getStatus, ExamPublishStatusEnum.PUBLISHED.getCode())
+                .le(TbExam::getStartTime, LocalDateTime.now())) > 0;
+    }
+
     // 题目是否被正在进行的竞赛使用：先取包含该题的竞赛，再看其中是否有已发布且在比赛时间内的
     @Override
     public boolean isQuestionInOngoingExam(Long questionId) {

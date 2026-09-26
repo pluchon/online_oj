@@ -32,6 +32,18 @@ public class QuestionVO {
     @Schema(description = "题目难度描述")
     private String difficultyDesc;
 
+    // 题目用途（1:刷题 2:竞赛）
+    @Schema(description = "题目用途（1:刷题 2:竞赛）")
+    private Integer purpose;
+
+    // 题目用途描述
+    @Schema(description = "题目用途描述")
+    private String purposeDesc;
+
+    // 是否已公开（用到它的竞赛里至少有一场已结束，不能再用于新竞赛）
+    @Schema(description = "是否已公开")
+    private Boolean published;
+
     // 创建人昵称（通过联查用户表获得）
     @Schema(description = "创建人")
     private String creatorName;

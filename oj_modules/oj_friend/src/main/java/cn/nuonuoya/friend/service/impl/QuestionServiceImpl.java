@@ -16,11 +16,13 @@ import cn.nuonuoya.friend.converter.QuestionConverter;
 import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.QuestionQueryDTO;
+import cn.nuonuoya.friend.enums.QuestionPurposeEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.enums.UserQuestionStatusEnum;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.search.QuestionSemanticSearcher;
+import cn.nuonuoya.friend.service.ExamService;
 import cn.nuonuoya.friend.service.QuestionCaseService;
 import cn.nuonuoya.friend.service.QuestionService;
 import cn.nuonuoya.friend.service.TagService;
@@ -112,6 +114,10 @@ public class QuestionServiceImpl implements QuestionService {
     @Autowired
     private TagService tagService;
 
+    // 竞赛查询（竞赛题的访问校验）
+    @Autowired
+    private ExamService examService;
+
     // 做题状态筛选范围：includeIds 为 null 表示不限定，excludeIds 为要排除的题目
     private record StatusScope(Set<Long> includeIds, Set<Long> excludeIds) {
     }
@@ -187,11 +193,20 @@ public class QuestionServiceImpl implements QuestionService {
         }
     }
 
-    // 查询题目详情
+    // 查询题目详情：竞赛题只能从竞赛进入（带已开赛且包含该题的竞赛ID），题库入口打不开
     @Override
-    public QuestionVO getDetail(Long questionId) {
+    public QuestionVO getDetail(Long questionId, Long examId) {
         if (questionId == null) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        TbQuestion purposeRow = questionMapper.selectOne(new LambdaQueryWrapper<TbQuestion>()
+                .select(TbQuestion::getPurpose)
+                .eq(TbQuestion::getQuestionId, questionId));
+        if (purposeRow == null) {
+            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
+        }
+        if (QuestionPurposeEnum.isContest(purposeRow.getPurpose()) && !examService.isExamStartedWithQuestion(examId, questionId)) {
+            throw new ServiceException(ResultCode.FAILED_QUESTION_CONTEST_ONLY);
         }
 
         QuestionVO vo = null;
@@ -231,8 +246,14 @@ public class QuestionServiceImpl implements QuestionService {
     @Override
     public QuestionStatsVO getStats() {
         QuestionStatsVO statsVO = new QuestionStatsVO();
-        long totalCount = questionMapper.selectCount(null);
-        statsVO.setTotalCount(totalCount);
+        // 只统计题库里的刷题题
+        Set<Long> practiceIds = questionMapper.selectList(new LambdaQueryWrapper<TbQuestion>()
+                        .select(TbQuestion::getQuestionId)
+                        .ne(TbQuestion::getPurpose, QuestionPurposeEnum.CONTEST.getCode()))
+                .stream()
+                .map(TbQuestion::getQuestionId)
+                .collect(Collectors.toSet());
+        statsVO.setTotalCount((long) practiceIds.size());
 
         Long userId = SecurityUtils.getUserId();
         if (userId == null) {
@@ -244,6 +265,8 @@ public class QuestionServiceImpl implements QuestionService {
         Set<Long> solvedQuestionIds = new HashSet<>();
         Set<Long> attemptedQuestionIds = new HashSet<>();
         collectUserQuestionIds(userId, attemptedQuestionIds, solvedQuestionIds);
+        attemptedQuestionIds.retainAll(practiceIds);
+        solvedQuestionIds.retainAll(practiceIds);
         statsVO.setSolvedCount((long) solvedQuestionIds.size());
         statsVO.setInProgressCount((long) (attemptedQuestionIds.size() - solvedQuestionIds.size()));
         return statsVO;
@@ -366,6 +389,8 @@ public class QuestionServiceImpl implements QuestionService {
     // 过滤条件：难度、标签、做题状态（不参与相关度打分）
     private List<Query> buildFilters(QuestionQueryDTO queryDTO, Set<Long> tagFilterIds, StatusScope scope) {
         List<Query> filters = new ArrayList<>();
+        // 题库只出刷题题
+        filters.add(QuestionSemanticSearcher.excludeContest());
         if (queryDTO.getDifficulty() != null && queryDTO.getDifficulty() > 0) {
             filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(queryDTO.getDifficulty()))));
         }
@@ -431,6 +456,7 @@ public class QuestionServiceImpl implements QuestionService {
     // MySQL数据库降级分页检索（筛选条件与ES检索一致）
     private TableDataResult<QuestionVO> searchFromMySQL(QuestionQueryDTO queryDTO, Set<Long> tagFilterIds, StatusScope scope) {
         LambdaQueryWrapper<TbQuestion> lqw = new LambdaQueryWrapper<>();
+        lqw.ne(TbQuestion::getPurpose, QuestionPurposeEnum.CONTEST.getCode());
         if (StrUtil.isNotBlank(queryDTO.getKeyword())) {
             String kw = queryDTO.getKeyword().trim();
             lqw.and(w -> w.like(TbQuestion::getTitle, kw).or().like(TbQuestion::getContent, kw));

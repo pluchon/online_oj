@@ -1,7 +1,7 @@
 -- =============================================================
 -- 墨衡 OJ 数据库初始化脚本（业务库 bitoj_dev + 调度库 xxl_job）
 -- 用法：docker compose 首次创建 MySQL 数据卷时自动执行；也可手动执行，重复执行不会覆盖已有数据
--- 内容：16 张业务表、测试数据（15 道题与用例、题目标签、示例题解、5 场竞赛、8 个用户、提交记录与站内消息）、XXL-JOB 表与任务
+-- 内容：16 张业务表、测试数据（15 道题与用例、题目标签、示例题解、题目用途、5 场竞赛、8 个用户、提交记录与站内消息）、XXL-JOB 表与任务
 -- 测试账号：管理端 admin / 123456；用户端手机号 13800000001 ~ 13800000007（模拟发码模式下验证码输出在 oj-friend 控制台）
 -- 竞赛时间以执行时刻为基准：1 场已结算、1 场已结束待结算、1 场进行中、1 场未开始、1 场未发布
 -- 主键为雪花 ID（测试数据用固定值），题目用例表 case_id 为自增
@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `tb_question` (
   `question_id` bigint unsigned NOT NULL COMMENT '题目id(主键)',
   `title` varchar(50) NOT NULL COMMENT '题目标题',
   `difficulty` tinyint NOT NULL COMMENT '题目难度 1: 简单 2: 中等 3: 困难',
+  `purpose` tinyint NOT NULL DEFAULT '1' COMMENT '题目用途 1: 刷题 2: 竞赛',
   `time_limit` int NOT NULL COMMENT '时间限制(ms)',
   `space_limit` int NOT NULL COMMENT '空间限制(MB)',
   `content` varchar(1000) NOT NULL COMMENT '题目描述(Markdown)',
@@ -572,6 +573,16 @@ INSERT IGNORE INTO `tb_exam_question` (`exam_question_id`, `question_id`, `exam_
 (1830000000000000015, 1795000000000000115, 1800000000000000004, 5, 1, DATE_SUB(NOW(), INTERVAL 0 MINUTE)),
 (1830000000000000016, 2102360449353351170, 1800000000000000005, 1, 1, DATE_ADD(NOW(), INTERVAL 10080 MINUTE));
 
+-- 被尚未结束的竞赛使用的题目标为竞赛题（竞赛题不出现在 C 端题库）
+UPDATE `tb_question` q
+SET q.`purpose` = 2
+WHERE q.`purpose` = 1
+  AND EXISTS (
+    SELECT 1 FROM `tb_exam_question` eq
+    INNER JOIN `tb_exam` e ON e.`exam_id` = eq.`exam_id`
+    WHERE eq.`question_id` = q.`question_id` AND e.`end_time` > NOW()
+  );
+
 -- 提交记录（竞赛提交与练习提交；AC 为参考解，WA 为默认模板，CE 为缺分号）
 INSERT IGNORE INTO `tb_user_submit` (`submit_id`, `user_id`, `question_id`, `exam_id`, `program_type`, `user_code`, `pass`, `exe_message`, `score`, `judge_status`, `pass_count`, `total_count`, `time_cost`, `fail_case_id`, `fail_output`, `case_states`, `create_by`, `create_time`) VALUES
 (1820000000000000001, 1700000000000000002, 1794933791345602562, 1800000000000000001, 0, 'public int[] twoSum(int[] nums, int target) {\n    Map<Integer, Integer> seen = new HashMap<>();\n    for (int i = 0; i < nums.length; i++) {\n        Integer j = seen.get(target - nums[i]);\n        if (j != null) {\n            return new int[]{j, i};\n        }\n        seen.put(nums[i], i);\n    }\n    return new int[0];\n}', 1, '', 100, 1, 5, 5, 30, NULL, NULL, '11111', 1700000000000000002, DATE_SUB(NOW(), INTERVAL 43188 MINUTE)),
@@ -767,7 +778,8 @@ INSERT IGNORE INTO `xxl_job_group` (`id`, `app_name`, `title`, `address_type`, `
 INSERT IGNORE INTO `xxl_job_info` (`id`, `job_group`, `job_desc`, `add_time`, `update_time`, `author`, `alarm_email`, `schedule_type`, `schedule_conf`, `misfire_strategy`, `executor_route_strategy`, `executor_handler`, `executor_param`, `executor_block_strategy`, `executor_timeout`, `executor_fail_retry_count`, `glue_type`, `glue_source`, `glue_remark`, `glue_updatetime`, `child_jobid`, `trigger_status`) VALUES
 (1, 1, '测试任务1', NOW(), NOW(), 'XXL', '', 'CRON', '0 0 0 * * ? *', 'DO_NOTHING', 'FIRST', 'demoJobHandler', '', 'SERIAL_EXECUTION', 0, 0, 'BEAN', '', 'GLUE代码初始化', NOW(), '', 0),
 (2, 2, '刷新竞赛列表缓存（未完赛/已完赛）', NOW(), NOW(), '墨衡', '', 'CRON', '0 */10 * * * ?', 'DO_NOTHING', 'FIRST', 'examListOrganizeHandler', '', 'SERIAL_EXECUTION', 0, 0, 'BEAN', '', 'GLUE代码初始化', NOW(), '', 1),
-(3, 2, '结算已结束竞赛的排名', NOW(), NOW(), '墨衡', '', 'CRON', '0 */5 * * * ?', 'DO_NOTHING', 'FIRST', 'examRankSettlementHandler', '', 'SERIAL_EXECUTION', 0, 0, 'BEAN', '', 'GLUE代码初始化', NOW(), '', 1);
+(3, 2, '结算已结束竞赛的排名', NOW(), NOW(), '墨衡', '', 'CRON', '0 */5 * * * ?', 'DO_NOTHING', 'FIRST', 'examRankSettlementHandler', '', 'SERIAL_EXECUTION', 0, 0, 'BEAN', '', 'GLUE代码初始化', NOW(), '', 1),
+(4, 2, '公开已结束竞赛的题目（竞赛题转为刷题）', NOW(), NOW(), '墨衡', '', 'CRON', '30 */5 * * * ?', 'DO_NOTHING', 'FIRST', 'questionPublishHandler', '', 'SERIAL_EXECUTION', 0, 0, 'BEAN', '', 'GLUE代码初始化', NOW(), '', 1);
 
 -- 调度中心账号 admin / 123456（xxl-job 默认 MD5）
 INSERT IGNORE INTO `xxl_job_user` (`id`, `username`, `password`, `role`, `permission`) VALUES (1, 'admin', 'e10adc3949ba59abbe56e057f20f883e', 1, NULL);

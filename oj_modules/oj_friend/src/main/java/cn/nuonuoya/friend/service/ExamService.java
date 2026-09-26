@@ -40,6 +40,12 @@ public interface ExamService {
     // 题目是否被某场已发布且正在进行的竞赛使用
     boolean isQuestionInOngoingExam(Long questionId);
 
+    // 竞赛是否已发布、已开赛（进行中或已结束）且包含该题（竞赛题从竞赛入口访问时校验）
+    boolean isExamStartedWithQuestion(Long examId, Long questionId);
+
+    // 竞赛题是否已可公开：被竞赛用过，且这些竞赛全部结束（此时开放题解与 AI 辅导）
+    boolean isQuestionExamsFinished(Long questionId);
+
     // 竞赛状态统计（mine 为 true 时只统计当前用户已报名的竞赛）
     ExamStatsVO getStats(boolean mine);
 }

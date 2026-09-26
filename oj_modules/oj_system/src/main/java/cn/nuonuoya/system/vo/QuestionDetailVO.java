@@ -33,6 +33,14 @@ public class QuestionDetailVO {
     @Schema(description = "题目难度描述")
     private String difficultyDesc;
 
+    // 题目用途（1:刷题 2:竞赛）
+    @Schema(description = "题目用途（1:刷题 2:竞赛）")
+    private Integer purpose;
+
+    // 题目用途描述
+    @Schema(description = "题目用途描述")
+    private String purposeDesc;
+
     // 时间限制（毫秒）
     @Schema(description = "时间限制（毫秒）")
     private Integer timeLimit;

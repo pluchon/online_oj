@@ -85,7 +85,7 @@ public class ExamAiServiceImpl implements ExamAiService {
             }
         }
         if (pool.isEmpty()) {
-            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS, "题库中没有符合条件的题目");
+            throw new ServiceException(ResultCode.FAILED_NOT_EXISTS, "没有符合条件的竞赛题，请先在题目管理中添加竞赛题");
         }
 
         List<FriendQuestionCandidateVO> selected = select(description, need, pool);
@@ -94,7 +94,7 @@ public class ExamAiServiceImpl implements ExamAiService {
         vo.setPlannedCount(total);
         vo.setQuestions(selected.stream().map(this::toQuestionVO).toList());
         if (selected.size() < total) {
-            vo.setMessage("题库中符合条件的题目不足，计划 " + total + " 道，实际选出 " + selected.size() + " 道");
+            vo.setMessage("符合条件的竞赛题不足，计划 " + total + " 道，实际选出 " + selected.size() + " 道");
         }
         log.info("AI 帮建竞赛完成, 计划 = {}, 选出 = {}, 候选 = {}", total, selected.size(), pool.size());
         return vo;

@@ -45,20 +45,25 @@ public enum ResultCode {
     FAILED_EXAM_NOT_STARTED (3212, "竞赛尚未开始"),
     FAILED_EXAM_QUESTION_NOT_IN (3213, "该题目不属于此竞赛"),
     FAILED_EXAM_RANK_NOT_PUBLISHED (3214, "竞赛结束后公布排名"),
+    FAILED_EXAM_QUESTION_NOT_CONTEST (3215, "竞赛只能添加竞赛题"),
+    FAILED_EXAM_QUESTION_PUBLISHED (3216, "该题已在结束的竞赛中公开，不能再用于新竞赛"),
 
     // 判题相关
     FAILED_QUESTION_NO_CASE (3301, "题目尚未配置测试用例"),
     FAILED_QUESTION_NO_SAMPLE (3302, "请至少设置一组公开示例用例"),
     FAILED_TAG_NOT_EXISTS (3303, "所选标签不存在或已被删除，请刷新后重试"),
     FAILED_TAG_EXISTS (3304, "标签名称已存在"),
-    FAILED_EDITORIAL_IN_EXAM (3305, "该题正在竞赛中使用，结束后才能查看题解"),
+    FAILED_EDITORIAL_IN_EXAM (3305, "该题目已经添加为竞赛题，目前暂不可查看题解"),
+    FAILED_QUESTION_PURPOSE_LOCKED (3306, "刷题题目不能改为竞赛题"),
+    FAILED_QUESTION_IN_UNFINISHED_EXAM (3307, "该题所在的竞赛尚未结束，结束后才能改为刷题"),
+    FAILED_QUESTION_CONTEST_ONLY (3308, "该题目是竞赛题，请从竞赛中进入"),
 
     // AI 相关（34xx）
     FAILED_AI_BUSY (3401, "AI 服务繁忙，请稍后重试"),
     FAILED_AI_STANDARD_CODE_ERROR (3402, "标程编译或运行失败"),
     FAILED_AI_NO_VALID_CASE (3403, "未能生成可用的测试用例，请检查题面、main函数与标程后重试"),
     FAILED_AI_QUOTA_EXCEEDED (3404, "今日 AI 辅导次数已用完，明天再来吧"),
-    FAILED_AI_IN_EXAM (3405, "竞赛进行中，AI 辅导暂不可用"),
+    FAILED_AI_IN_EXAM (3405, "该题目已经添加为竞赛题，目前暂不可用 AI 辅导"),
     FAILED_AI_ACTION_UNAVAILABLE (3406, "当前没有可供分析的提交"),
     FAILED_AI_CONTENT_REJECTED (3407, "内容未通过审核，请修改后重试");
 

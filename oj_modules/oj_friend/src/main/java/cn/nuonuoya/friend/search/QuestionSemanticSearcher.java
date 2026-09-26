@@ -6,6 +6,7 @@ import cn.hutool.crypto.SecureUtil;
 import cn.nuonuoya.elastic.doc.QuestionDoc;
 import cn.nuonuoya.elastic.repository.QuestionRepository;
 import cn.nuonuoya.friend.client.AiSearchClient;
+import cn.nuonuoya.friend.enums.QuestionPurposeEnum;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,9 @@ public class QuestionSemanticSearcher {
 
     // 难度字段名（语义检索的难度过滤）
     private static final String DIFFICULTY_FIELD = "difficulty";
+
+    // 用途字段名（题库只出刷题题，AI 帮建竞赛只用竞赛题）
+    public static final String PURPOSE_FIELD = "purpose";
 
     // 单次向量计算的最大条数（DashScope 文本向量接口限制）
     private static final int EMBED_BATCH_SIZE = 10;
@@ -137,6 +141,7 @@ public class QuestionSemanticSearcher {
             return Collections.emptyList();
         }
         List<Query> filters = new ArrayList<>();
+        filters.add(excludeContest());
         if (difficulty != null && difficulty > 0) {
             filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(difficulty))));
         }
@@ -153,12 +158,13 @@ public class QuestionSemanticSearcher {
         excluded.add(String.valueOf(questionId));
         excludeIds.forEach(id -> excluded.add(String.valueOf(id)));
         Query exclude = Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(excluded)))));
-        return knn(doc.getEmbedding(), List.of(exclude), size, similarMinSimilarity);
+        return knn(doc.getEmbedding(), List.of(exclude, excludeContest()), size, similarMinSimilarity);
     }
 
     // 候选检索：向量与关键词两路结果按排名倒数融合（RRF），不足时同难度补齐；只取标题、难度、描述
     public List<QuestionDoc> candidates(String query, Integer difficulty, int size, Collection<Long> excludeIds) {
         List<Query> filters = new ArrayList<>();
+        filters.add(Query.of(q -> q.term(t -> t.field(PURPOSE_FIELD).value(QuestionPurposeEnum.CONTEST.getCode()))));
         if (difficulty != null) {
             filters.add(Query.of(q -> q.term(t -> t.field(DIFFICULTY_FIELD).value(difficulty))));
         }
@@ -186,6 +192,11 @@ public class QuestionSemanticSearcher {
             merged.addAll(filterOnly(topUpFilters, size - merged.size()));
         }
         return merged.size() > size ? merged.subList(0, size) : merged;
+    }
+
+    // 排除竞赛题（用 must_not 而不是 term=刷题：旧索引里还没有用途字段的文档按刷题题处理）
+    public static Query excludeContest() {
+        return Query.of(q -> q.bool(b -> b.mustNot(m -> m.term(t -> t.field(PURPOSE_FIELD).value(QuestionPurposeEnum.CONTEST.getCode())))));
     }
 
     // 按排名倒数累加融合分数
