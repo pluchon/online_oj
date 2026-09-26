@@ -68,6 +68,9 @@ public class ExamServiceImpl implements ExamService {
     // 系统消息发送方标识
     private static final Long SYSTEM_SENDER_ID = 0L;
 
+    // 结算前等待评测中提交回写的最长时长（分钟）
+    private static final long PENDING_JUDGE_WAIT_MINUTES = 10L;
+
     @Autowired
     private ExamMapper examMapper;
 
@@ -373,6 +376,11 @@ public class ExamServiceImpl implements ExamService {
                 .le(TbExam::getEndTime, LocalDateTime.now()));
         int settled = 0;
         for (TbExam exam : exams) {
+            // 还有刚投递（含重判）尚未回写结果的提交时本轮先不结算，避免按评测中的结论计分
+            if (hasPendingJudge(exam.getExamId())) {
+                log.info("竞赛仍有评测中的提交，推迟结算, examId = {}", exam.getExamId());
+                continue;
+            }
             try {
                 if (Boolean.TRUE.equals(transactionTemplate.execute(status -> settleExam(exam)))) {
                     settled++;
@@ -382,6 +390,16 @@ public class ExamServiceImpl implements ExamService {
             }
         }
         return settled;
+    }
+
+    // 竞赛中是否有近期投递、尚未回写结果的提交（超过等待时长仍未回写的视为消息丢失，不再阻塞结算）
+    private boolean hasPendingJudge(Long examId) {
+        LocalDateTime since = LocalDateTime.now().minusMinutes(PENDING_JUDGE_WAIT_MINUTES);
+        Long pending = userSubmitMapper.selectCount(new LambdaQueryWrapper<TbUserSubmit>()
+                .eq(TbUserSubmit::getExamId, examId)
+                .eq(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode())
+                .and(w -> w.ge(TbUserSubmit::getCreateTime, since).or().ge(TbUserSubmit::getUpdateTime, since)));
+        return pending != null && pending > 0;
     }
 
     // 结算单场竞赛：先抢占结算标记保证只执行一次，再落库排名并发送战报

@@ -1,7 +1,10 @@
 package cn.nuonuoya.friend.converter;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
+import cn.nuonuoya.api.friend.vo.FriendSubmitVO;
 import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
@@ -9,7 +12,6 @@ import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.vo.SubmitHistoryVO;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -31,26 +33,26 @@ public class UserSubmitConverter {
     // 逐用例状态：未执行
     private static final char CASE_SKIPPED = '-';
 
-    // 将提交记录实体列表转换为本题提交记录视图列表
+    // 将提交记录实体列表转换为本题提交记录视图列表（判题结论字段名不同，单独赋值）
     public static List<SubmitHistoryVO> toHistoryVOList(List<TbUserSubmit> submitList) {
         if (CollUtil.isEmpty(submitList)) {
             return Collections.emptyList();
         }
-        List<SubmitHistoryVO> voList = new ArrayList<>(submitList.size());
-        for (TbUserSubmit submit : submitList) {
-            SubmitHistoryVO vo = new SubmitHistoryVO();
-            vo.setSubmitId(submit.getSubmitId());
-            vo.setPass(submit.getPass());
-            vo.setStatus(submit.getJudgeStatus());
-            vo.setPassCount(submit.getPassCount());
-            vo.setTotalCount(submit.getTotalCount());
-            vo.setTimeCost(submit.getTimeCost());
-            vo.setScore(submit.getScore());
-            vo.setUserCode(submit.getUserCode());
-            vo.setCreateTime(submit.getCreateTime());
-            voList.add(vo);
+        List<SubmitHistoryVO> voList = BeanUtil.copyToList(submitList, SubmitHistoryVO.class);
+        for (int i = 0; i < voList.size(); i++) {
+            voList.get(i).setStatus(submitList.get(i).getJudgeStatus());
         }
         return voList;
+    }
+
+    // 将提交记录实体列表转换为管理端列表项
+    public static List<FriendSubmitVO> toManageVOList(List<TbUserSubmit> submitList) {
+        return CollUtil.isEmpty(submitList) ? Collections.emptyList() : BeanUtil.copyToList(submitList, FriendSubmitVO.class);
+    }
+
+    // 将提交记录实体转换为管理端详情（含代码与判题回显）
+    public static FriendSubmitDetailVO toManageDetailVO(TbUserSubmit submit) {
+        return BeanUtil.copyProperties(submit, FriendSubmitDetailVO.class);
     }
 
     // 将判题结果转换为提交记录更新实体（超长文本按表字段长度截断）

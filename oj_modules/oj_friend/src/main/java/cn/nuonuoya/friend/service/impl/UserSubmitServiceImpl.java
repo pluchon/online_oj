@@ -1,13 +1,21 @@
 package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.nuonuoya.api.friend.dto.FriendSubmitQueryDTO;
+import cn.nuonuoya.api.friend.vo.FriendRejudgeExamVO;
+import cn.nuonuoya.api.friend.vo.FriendRejudgePreviewVO;
+import cn.nuonuoya.api.friend.vo.FriendRejudgeResultVO;
+import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
+import cn.nuonuoya.api.friend.vo.FriendSubmitPageVO;
 import cn.nuonuoya.api.judge.constants.JudgeMqConstants;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.enums.ProgramTypeEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
+import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.client.JudgeClient;
@@ -23,6 +31,7 @@ import cn.nuonuoya.friend.dto.QuestionRunDTO;
 import cn.nuonuoya.friend.dto.SubmitHistoryQueryDTO;
 import cn.nuonuoya.friend.dto.UserSubmitDTO;
 import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
+import cn.nuonuoya.friend.enums.ExamRankSettledEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
@@ -34,6 +43,7 @@ import cn.nuonuoya.friend.service.UserSubmitService;
 import cn.nuonuoya.friend.vo.QuestionRunResultVO;
 import cn.nuonuoya.friend.vo.SubmitHistoryVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import cn.nuonuoya.friend.vo.UserSubmitResultVO;
@@ -48,8 +58,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 // 用户代码提交业务实现类（集成 RabbitMQ 异步判题）
 @Slf4j
@@ -58,6 +75,12 @@ public class UserSubmitServiceImpl implements UserSubmitService {
 
     // 运行示例用例限流窗口（秒）
     private static final long RUN_LIMIT_SECONDS = 2L;
+
+    // 重判时每批读取的提交数
+    private static final int REJUDGE_BATCH_SIZE = 200;
+
+    // 判题消息投递失败时写入的回显
+    private static final String DELIVER_FAILED_MESSAGE = "系统异常：判题任务队列投递失败";
 
     @Autowired
     private UserSubmitMapper userSubmitMapper;
@@ -143,21 +166,11 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         requestDTO.setSubmitId(submit.getSubmitId());
         requestDTO.setProgramType(submit.getProgramType());
 
-        // 异步发送至 RabbitMQ 交换机与队列
-        try {
-            rabbitTemplate.convertAndSend(
-                    JudgeMqConstants.JUDGE_EXCHANGE,
-                    JudgeMqConstants.JUDGE_ROUTING_KEY,
-                    requestDTO
-            );
-            log.info("成功投递判题消息到 RabbitMQ: submitId = {}, questionId = {}",
-                    submit.getSubmitId(), question.getQuestionId());
-        } catch (Exception e) {
-            log.error("投递 RabbitMQ 判题消息失败, submitId = {}, error: {}", submit.getSubmitId(), e.getMessage(), e);
+        // 异步发送至 RabbitMQ 交换机与队列，失败时记录已标记为系统错误
+        if (!deliverJudgeRequest(requestDTO)) {
             submit.setPass(SubmitPassEnum.NOT_PASS.getCode());
             submit.setJudgeStatus(JudgeStatusEnum.SE.getCode());
-            submit.setExeMessage("系统异常：判题任务队列投递失败");
-            transactionTemplate.executeWithoutResult(status -> userSubmitMapper.updateById(submit));
+            submit.setExeMessage(DELIVER_FAILED_MESSAGE);
         }
 
         return toResultVO(submit);
@@ -252,6 +265,216 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         }
         long total = new PageInfo<>(submitList).getTotal();
         return TableDataResult.success(UserSubmitConverter.toHistoryVOList(submitList), total);
+    }
+
+    // 管理端按条件分页查询提交记录（按提交时间倒序，不查代码与回显等大字段）
+    @Override
+    public FriendSubmitPageVO listForManage(FriendSubmitQueryDTO queryDTO) {
+        FriendSubmitPageVO page = new FriendSubmitPageVO();
+        page.setRows(Collections.emptyList());
+        if (queryDTO == null) {
+            queryDTO = new FriendSubmitQueryDTO();
+        }
+        // 调用方按昵称没有匹配到用户时直接返回空页
+        if (queryDTO.getUserIds() != null && queryDTO.getUserIds().isEmpty()) {
+            return page;
+        }
+        LambdaQueryWrapper<TbUserSubmit> wrapper = new LambdaQueryWrapper<TbUserSubmit>()
+                .select(TbUserSubmit::getSubmitId, TbUserSubmit::getUserId, TbUserSubmit::getQuestionId,
+                        TbUserSubmit::getExamId, TbUserSubmit::getProgramType, TbUserSubmit::getPass,
+                        TbUserSubmit::getJudgeStatus, TbUserSubmit::getScore, TbUserSubmit::getPassCount,
+                        TbUserSubmit::getTotalCount, TbUserSubmit::getTimeCost, TbUserSubmit::getCreateTime,
+                        TbUserSubmit::getUpdateTime)
+                .eq(queryDTO.getQuestionId() != null, TbUserSubmit::getQuestionId, queryDTO.getQuestionId())
+                .in(CollUtil.isNotEmpty(queryDTO.getUserIds()), TbUserSubmit::getUserId, queryDTO.getUserIds())
+                .eq(queryDTO.getExamId() != null, TbUserSubmit::getExamId, queryDTO.getExamId())
+                .isNull(Boolean.TRUE.equals(queryDTO.getPracticeOnly()), TbUserSubmit::getExamId);
+        if (Boolean.TRUE.equals(queryDTO.getJudging())) {
+            wrapper.eq(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode());
+        } else if (queryDTO.getJudgeStatus() != null) {
+            wrapper.eq(TbUserSubmit::getJudgeStatus, queryDTO.getJudgeStatus());
+        }
+        wrapper.orderByDesc(TbUserSubmit::getCreateTime).orderByDesc(TbUserSubmit::getSubmitId);
+
+        // 复用公共分页参数的纠正规则（默认值与每页上限）
+        PageQuery pageQuery = new PageQuery();
+        pageQuery.setPageNum(queryDTO.getPageNum());
+        pageQuery.setPageSize(queryDTO.getPageSize());
+        PageHelper.startPage(pageQuery.getPageNum(), pageQuery.getPageSize());
+        List<TbUserSubmit> submitList = userSubmitMapper.selectList(wrapper);
+        if (CollUtil.isEmpty(submitList)) {
+            return page;
+        }
+        page.setTotal(new PageInfo<>(submitList).getTotal());
+        page.setRows(UserSubmitConverter.toManageVOList(submitList));
+        return page;
+    }
+
+    // 管理端查询单条提交详情（含代码），不存在返回 null
+    @Override
+    public FriendSubmitDetailVO getForManage(Long submitId) {
+        if (submitId == null) {
+            return null;
+        }
+        TbUserSubmit submit = userSubmitMapper.selectById(submitId);
+        return submit == null ? null : UserSubmitConverter.toManageDetailVO(submit);
+    }
+
+    // 预览按题重判的影响范围（与重判使用同一套范围规则）
+    @Override
+    public FriendRejudgePreviewVO previewRejudge(Long questionId) {
+        RejudgeScope scope = resolveRejudgeScope(questionId);
+        FriendRejudgePreviewVO vo = new FriendRejudgePreviewVO();
+        vo.setRejudgeCount(scope.targetIds().size());
+        vo.setPracticeCount(scope.practiceCount());
+        vo.setSettledCount(scope.settledCount());
+        vo.setJudgingCount(scope.judgingCount());
+        LocalDateTime now = LocalDateTime.now();
+        List<FriendRejudgeExamVO> exams = new ArrayList<>(scope.examCounts().size());
+        scope.examCounts().forEach((examId, count) -> {
+            TbExam exam = scope.unsettledExams().get(examId);
+            FriendRejudgeExamVO examVO = new FriendRejudgeExamVO();
+            examVO.setExamId(examId);
+            examVO.setTitle(exam.getTitle());
+            examVO.setFinished(exam.getEndTime() != null && !now.isBefore(exam.getEndTime()));
+            examVO.setCount(count);
+            exams.add(examVO);
+        });
+        vo.setExams(exams);
+        return vo;
+    }
+
+    // 按题重判（D-015）：练习提交与未结算竞赛的提交逐条抢占为评测中再投递，已在评测中的跳过，保证重复点击不重复投递
+    @Override
+    public FriendRejudgeResultVO rejudge(Long questionId) {
+        FriendRejudgeResultVO result = new FriendRejudgeResultVO();
+        result.setQueuedCount(0);
+        result.setDeliverFailed(false);
+        TbQuestion question = questionId == null ? null : questionMapper.selectById(questionId);
+        if (question == null) {
+            return result;
+        }
+        List<TbQuestionCase> caseList = questionCaseService.listAll(questionId);
+        if (CollUtil.isEmpty(caseList)) {
+            return result;
+        }
+        RejudgeScope scope = resolveRejudgeScope(questionId);
+        int queued = 0;
+        outer:
+        for (List<Long> batchIds : ListUtil.partition(scope.targetIds(), REJUDGE_BATCH_SIZE)) {
+            List<TbUserSubmit> batch = userSubmitMapper.selectList(new LambdaQueryWrapper<TbUserSubmit>()
+                    .select(TbUserSubmit::getSubmitId, TbUserSubmit::getUserId, TbUserSubmit::getUserCode,
+                            TbUserSubmit::getProgramType)
+                    .in(TbUserSubmit::getSubmitId, batchIds));
+            for (TbUserSubmit submit : batch) {
+                if (!claimForRejudge(submit.getSubmitId(), caseList.size())) {
+                    continue;
+                }
+                JudgeRequestDTO requestDTO = buildJudgeRequest(question, submit.getUserId(), submit.getUserCode(), caseList);
+                requestDTO.setSubmitId(submit.getSubmitId());
+                requestDTO.setProgramType(submit.getProgramType());
+                if (!deliverJudgeRequest(requestDTO)) {
+                    // 队列不可用时停止，避免把剩余记录都改成系统错误；剩余记录保持原结论，恢复后可再次重判
+                    result.setDeliverFailed(true);
+                    break outer;
+                }
+                queued++;
+            }
+        }
+        result.setQueuedCount(queued);
+        // 排名缓存按新结论重新计算
+        scope.examCounts().keySet().forEach(examId -> redisService.deleteObject(FriendCacheConstants.EXAM_RANK_LIST_KEY + examId));
+        log.info("按题重判完成, questionId = {}, 投递 = {}, 投递失败中止 = {}", questionId, queued, result.getDeliverFailed());
+        return result;
+    }
+
+    // 读取该题全部提交的竞赛归属与状态，按重判范围归类（练习与未结算竞赛重判，已结算或已删除的竞赛与评测中的跳过）
+    private RejudgeScope resolveRejudgeScope(Long questionId) {
+        if (questionId == null) {
+            return new RejudgeScope(Collections.emptyList(), 0, 0, 0, Collections.emptyMap(), Collections.emptyMap());
+        }
+        List<TbUserSubmit> submits = userSubmitMapper.selectList(new LambdaQueryWrapper<TbUserSubmit>()
+                .select(TbUserSubmit::getSubmitId, TbUserSubmit::getExamId, TbUserSubmit::getPass)
+                .eq(TbUserSubmit::getQuestionId, questionId)
+                .orderByAsc(TbUserSubmit::getSubmitId));
+        Set<Long> examIds = submits.stream()
+                .map(TbUserSubmit::getExamId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, TbExam> unsettledExams = examIds.isEmpty()
+                ? Collections.emptyMap()
+                : examMapper.selectList(new LambdaQueryWrapper<TbExam>()
+                        .in(TbExam::getExamId, examIds)
+                        .eq(TbExam::getRankSettled, ExamRankSettledEnum.UNSETTLED.getCode()))
+                .stream()
+                .collect(Collectors.toMap(TbExam::getExamId, exam -> exam));
+
+        List<Long> targetIds = new ArrayList<>();
+        Map<Long, Integer> examCounts = new LinkedHashMap<>();
+        int practiceCount = 0;
+        int settledCount = 0;
+        int judgingCount = 0;
+        for (TbUserSubmit submit : submits) {
+            if (SubmitPassEnum.JUDGING.getCode().equals(submit.getPass())) {
+                judgingCount++;
+            } else if (submit.getExamId() == null) {
+                practiceCount++;
+                targetIds.add(submit.getSubmitId());
+            } else if (unsettledExams.containsKey(submit.getExamId())) {
+                examCounts.merge(submit.getExamId(), 1, Integer::sum);
+                targetIds.add(submit.getSubmitId());
+            } else {
+                settledCount++;
+            }
+        }
+        return new RejudgeScope(targetIds, practiceCount, settledCount, judgingCount, examCounts, unsettledExams);
+    }
+
+    // 抢占式把提交改回评测中并清空上次结论（条件更新，已在评测中的返回 false）
+    private boolean claimForRejudge(Long submitId, int totalCount) {
+        Integer rows = transactionTemplate.execute(status -> userSubmitMapper.update(null, new LambdaUpdateWrapper<TbUserSubmit>()
+                .set(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode())
+                .set(TbUserSubmit::getJudgeStatus, null)
+                .set(TbUserSubmit::getScore, 0)
+                .set(TbUserSubmit::getPassCount, 0)
+                .set(TbUserSubmit::getTotalCount, totalCount)
+                .set(TbUserSubmit::getTimeCost, null)
+                .set(TbUserSubmit::getExeMessage, "")
+                .set(TbUserSubmit::getFailCaseId, null)
+                .set(TbUserSubmit::getFailOutput, null)
+                .set(TbUserSubmit::getCaseStates, null)
+                .set(TbUserSubmit::getUpdateTime, LocalDateTime.now())
+                .eq(TbUserSubmit::getSubmitId, submitId)
+                .ne(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode())));
+        return rows != null && rows > 0;
+    }
+
+    // 投递判题消息，失败时把该提交标记为系统错误；投递成功返回 true
+    private boolean deliverJudgeRequest(JudgeRequestDTO requestDTO) {
+        try {
+            rabbitTemplate.convertAndSend(
+                    JudgeMqConstants.JUDGE_EXCHANGE,
+                    JudgeMqConstants.JUDGE_ROUTING_KEY,
+                    requestDTO
+            );
+            log.info("成功投递判题消息到 RabbitMQ: submitId = {}, questionId = {}",
+                    requestDTO.getSubmitId(), requestDTO.getQuestionId());
+            return true;
+        } catch (Exception e) {
+            log.error("投递 RabbitMQ 判题消息失败, submitId = {}, error: {}", requestDTO.getSubmitId(), e.getMessage(), e);
+            transactionTemplate.executeWithoutResult(status -> userSubmitMapper.update(null, new LambdaUpdateWrapper<TbUserSubmit>()
+                    .set(TbUserSubmit::getPass, SubmitPassEnum.NOT_PASS.getCode())
+                    .set(TbUserSubmit::getJudgeStatus, JudgeStatusEnum.SE.getCode())
+                    .set(TbUserSubmit::getExeMessage, DELIVER_FAILED_MESSAGE)
+                    .set(TbUserSubmit::getUpdateTime, LocalDateTime.now())
+                    .eq(TbUserSubmit::getSubmitId, requestDTO.getSubmitId())));
+            return false;
+        }
+    }
+
+    // 按题重判的范围：待重判的提交、各类计数与涉及的未结算竞赛
+    private record RejudgeScope(List<Long> targetIds, int practiceCount, int settledCount, int judgingCount,
+                                Map<Long, Integer> examCounts, Map<Long, TbExam> unsettledExams) {
     }
 
     // 校验竞赛提交资格（赛后练习不带竞赛ID提交，不影响排名）

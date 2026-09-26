@@ -65,7 +65,11 @@ public enum ResultCode {
     FAILED_AI_QUOTA_EXCEEDED (3404, "今日 AI 辅导次数已用完，明天再来吧"),
     FAILED_AI_IN_EXAM (3405, "该题目已经添加为竞赛题，目前暂不可用 AI 辅导"),
     FAILED_AI_ACTION_UNAVAILABLE (3406, "当前没有可供分析的提交"),
-    FAILED_AI_CONTENT_REJECTED (3407, "内容未通过审核，请修改后重试");
+    FAILED_AI_CONTENT_REJECTED (3407, "内容未通过审核，请修改后重试"),
+
+    // 提交记录相关（35xx）
+    FAILED_SUBMIT_SERVICE_UNAVAILABLE (3501, "提交记录服务暂不可用，请稍后重试"),
+    FAILED_REJUDGE_DELIVER (3502, "判题队列暂不可用，重判已中止，请稍后重试");
 
     private final int code;
     private final String msg;

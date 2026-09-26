@@ -329,6 +329,8 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排（只能添加竞赛题，已在结束的竞赛中公开过的题不能再用）
 * `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
+* `GET  /system/submit`、`GET /system/submit/{submitId}`：提交记录（按题目、用户昵称、判题结论、练习或竞赛筛选；详情含代码、逐用例结果与首个未通过用例）
+* `GET|POST /system/submit/rejudge/{questionId}`：按题重判的影响范围预览与执行（重判练习提交和未结算竞赛的提交，已结算竞赛与评测中的跳过）
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
@@ -341,7 +343,9 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /friend/internal/question/refresh`：system 题目变更后刷新题目缓存与 ES
 * `POST /friend/internal/question/candidates`：system AI 帮建竞赛时混合检索候选题目（向量 + 关键词）
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
-* `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛
+* `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛（竞赛里还有 10 分钟内投递、尚未回写的提交时推迟到下一轮）
+* `POST /friend/internal/submit/list`、`GET /friend/internal/submit/{submitId}`：system 查询提交记录（提交记录归 friend，system 不直接读表）
+* `GET /friend/internal/submit/rejudge/preview`、`POST /friend/internal/submit/rejudge`：system 按题重判（逐条改回评测中再投递判题队列，重复点击不会重复投递）
 * `POST /system/internal/question/publish`：job 定时公开已结束竞赛的题目（所在竞赛全部结束的竞赛题改为刷题，进入 C 端题库）
 
 
