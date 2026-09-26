@@ -2,6 +2,7 @@ package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.nuonuoya.friend.converter.UserConverter;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.common.domain.LoginUser;
 import cn.nuonuoya.common.enums.ResultCode;
@@ -153,7 +154,7 @@ public class UserServiceImpl implements UserService {
             sendSuccess = smsService.sendCode(phone, code, expireMin);
         } else {
             // 模拟发码模式：不发短信，在日志中输出验证码供本地登录使用（真实发码模式绝不输出验证码）
-            log.info("[模拟发码] 手机号: {}, 验证码: {}（有效期 {} 分钟，未真实发送短信）", maskPhone(phone), code, expireMin);
+            log.info("[模拟发码] 手机号: {}, 验证码: {}（有效期 {} 分钟，未真实发送短信）", UserConverter.maskPhone(phone), code, expireMin);
             sendSuccess = true;
         }
 
@@ -596,12 +597,5 @@ public class UserServiceImpl implements UserService {
             throw new ServiceException(ResultCode.FAILED_AI_CONTENT_REJECTED,
                     target + "可能涉及「" + result.getCategory() + "」，请修改后重试");
         }
-    }
-
-    private String maskPhone(String phone) {
-        if (phone == null || phone.length() < 7) {
-            return "****";
-        }
-        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 }

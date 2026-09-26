@@ -4,10 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 import lombok.Setter;
 
-// 提交记录详情视图对象（含代码、判题回显与首个未通过用例）
+// 提交记录详情视图对象（公共字段见 SubmitBaseVO，另含代码、判题回显与首个未通过用例）
 @Getter
 @Setter
-public class SubmitDetailVO extends SubmitVO {
+public class SubmitDetailVO extends SubmitBaseVO {
 
     // 用户代码
     @Schema(description = "用户代码")

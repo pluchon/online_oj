@@ -9,6 +9,7 @@ import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.system.dto.SubmitQueryDTO;
 import cn.nuonuoya.system.vo.RejudgeExamVO;
 import cn.nuonuoya.system.vo.RejudgePreviewVO;
+import cn.nuonuoya.system.vo.SubmitBaseVO;
 import cn.nuonuoya.system.vo.SubmitDetailVO;
 import cn.nuonuoya.system.vo.SubmitVO;
 
@@ -44,7 +45,7 @@ public class SubmitConverter {
     }
 
     // 按判题结论编码补充描述
-    private static void fillJudgeStatusDesc(SubmitVO vo) {
+    private static void fillJudgeStatusDesc(SubmitBaseVO vo) {
         JudgeStatusEnum status = JudgeStatusEnum.getByCode(vo.getJudgeStatus());
         vo.setJudgeStatusDesc(status == null ? null : status.getDesc());
     }

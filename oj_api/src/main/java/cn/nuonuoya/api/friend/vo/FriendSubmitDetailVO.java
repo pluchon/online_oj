@@ -6,11 +6,11 @@ import lombok.ToString;
 
 import java.io.Serial;
 
-// 提交记录详情（在列表项基础上含代码与判题回显）
+// 提交记录详情（公共字段见 FriendSubmitBaseVO，另含代码与判题回显）
 @Getter
 @Setter
 @ToString(callSuper = true)
-public class FriendSubmitDetailVO extends FriendSubmitVO {
+public class FriendSubmitDetailVO extends FriendSubmitBaseVO {
 
     @Serial
     private static final long serialVersionUID = 1L;

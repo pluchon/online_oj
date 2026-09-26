@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.ai.dto.AiExamCandidateDTO;
 import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
@@ -11,13 +12,13 @@ import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.system.client.AiClient;
 import cn.nuonuoya.system.client.FriendQuestionClient;
+import cn.nuonuoya.system.converter.ExamConverter;
 import cn.nuonuoya.system.dto.ExamAiPlanDTO;
 import cn.nuonuoya.system.enums.ExamAiCountLevel;
 import cn.nuonuoya.system.enums.ExamAiTendency;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.service.ExamAiService;
 import cn.nuonuoya.system.vo.ExamAiPlanVO;
-import cn.nuonuoya.system.vo.ExamAiQuestionVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -92,7 +93,7 @@ public class ExamAiServiceImpl implements ExamAiService {
         ExamAiPlanVO vo = new ExamAiPlanVO();
         vo.setTitle(intent.getTitle());
         vo.setPlannedCount(total);
-        vo.setQuestions(selected.stream().map(this::toQuestionVO).toList());
+        vo.setQuestions(selected.stream().map(ExamConverter::toAiQuestionVO).toList());
         if (selected.size() < total) {
             vo.setMessage("符合条件的竞赛题不足，计划 " + total + " 道，实际选出 " + selected.size() + " 道");
         }
@@ -146,12 +147,9 @@ public class ExamAiServiceImpl implements ExamAiService {
         List<AiExamCandidateDTO> candidates = new ArrayList<>(pool.size());
         for (int i = 0; i < pool.size(); i++) {
             FriendQuestionCandidateVO source = pool.get(i);
-            AiExamCandidateDTO candidate = new AiExamCandidateDTO();
+            // 候选只带序号不带题目ID，由 AI 按序号挑题
+            AiExamCandidateDTO candidate = BeanUtil.copyProperties(source, AiExamCandidateDTO.class);
             candidate.setIndex(i + 1);
-            candidate.setTitle(source.getTitle());
-            candidate.setDifficulty(source.getDifficulty());
-            candidate.setSummary(source.getSummary());
-            candidate.setPassRate(source.getPassRate());
             candidates.add(candidate);
         }
         request.setCandidates(candidates);
@@ -193,15 +191,5 @@ public class ExamAiServiceImpl implements ExamAiService {
             }
         }
         return -1;
-    }
-
-    // 候选转换为结果题目
-    private ExamAiQuestionVO toQuestionVO(FriendQuestionCandidateVO candidate) {
-        ExamAiQuestionVO vo = new ExamAiQuestionVO();
-        vo.setQuestionId(candidate.getQuestionId());
-        vo.setTitle(candidate.getTitle());
-        vo.setDifficulty(candidate.getDifficulty());
-        vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(candidate.getDifficulty()));
-        return vo;
     }
 }

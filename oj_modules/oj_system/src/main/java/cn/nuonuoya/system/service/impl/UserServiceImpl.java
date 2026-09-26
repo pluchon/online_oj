@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.service.impl;
 
+import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.system.client.FriendUserClient;
@@ -15,6 +16,7 @@ import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.system.vo.UserVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -34,9 +36,9 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private FriendUserClient friendUserClient;
 
-    // 分页多条件查询用户列表实现
+    // 分页多条件查询用户列表实现（总数取自分页查询结果，转换成 VO 后会丢失）
     @Override
-    public List<UserVO> list(UserDTO queryDTO) {
+    public TableDataResult<UserVO> list(UserDTO queryDTO) {
         if (queryDTO == null) {
             queryDTO = new UserDTO();
         }
@@ -45,7 +47,7 @@ public class UserServiceImpl implements UserService {
         }
         PageHelper.startPage(queryDTO.getPageNum(), queryDTO.getPageSize());
         List<TbUser> list = userMapper.selectUserList(queryDTO);
-        return UserConverter.toVOList(list);
+        return TableDataResult.success(UserConverter.toVOList(list), new PageInfo<>(list).getTotal());
     }
 
     // 编辑用户资料实现（手机号为C端登录凭据，需全局唯一）

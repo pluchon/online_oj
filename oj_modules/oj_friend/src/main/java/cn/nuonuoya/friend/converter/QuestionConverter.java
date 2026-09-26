@@ -7,7 +7,6 @@ import cn.nuonuoya.friend.domain.TbQuestion;
 import cn.nuonuoya.friend.enums.QuestionDifficultyEnum;
 import cn.nuonuoya.friend.vo.QuestionVO;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -16,69 +15,33 @@ public class QuestionConverter {
 
     // 将ES题目文档转换为VO
     public static QuestionVO toVO(QuestionDoc doc) {
-        if (doc == null) {
-            return null;
-        }
-        QuestionVO vo = new QuestionVO();
-        vo.setQuestionId(doc.getQuestionId());
-        vo.setTitle(doc.getTitle());
-        vo.setDifficulty(doc.getDifficulty());
-        vo.setDifficultyDesc(QuestionDifficultyEnum.getDescByCode(doc.getDifficulty()));
-        vo.setTimeLimit(doc.getTimeLimit());
-        vo.setSpaceLimit(doc.getSpaceLimit());
-        vo.setContent(doc.getContent());
-        vo.setDefaultCode(doc.getDefaultCode());
-        vo.setCreateTime(doc.getCreateTime());
-        return vo;
+        return doc == null ? null : toVO(doc, doc.getDifficulty());
+    }
+
+    // 将MySQL实体转换为VO
+    public static QuestionVO toVO(TbQuestion entity) {
+        return entity == null ? null : toVO(entity, entity.getDifficulty());
     }
 
     // 批量将ES题目文档转换为VO列表
     public static List<QuestionVO> toVOListFromDoc(List<QuestionDoc> docList) {
-        if (CollUtil.isEmpty(docList)) {
-            return Collections.emptyList();
-        }
-        List<QuestionVO> voList = new ArrayList<>(docList.size());
-        for (QuestionDoc doc : docList) {
-            voList.add(toVO(doc));
-        }
-        return voList;
+        return CollUtil.isEmpty(docList) ? Collections.emptyList() : docList.stream().map(QuestionConverter::toVO).toList();
     }
 
     // 将MySQL实体转换为ES题目文档（字段同名同类型、无派生字段，直接拷贝）
     public static QuestionDoc toDoc(TbQuestion entity) {
-        if (entity == null) {
-            return null;
-        }
         return BeanUtil.copyProperties(entity, QuestionDoc.class);
     }
 
     // 批量将MySQL实体转换为ES题目文档列表
     public static List<QuestionDoc> toDocList(List<TbQuestion> entityList) {
-        if (CollUtil.isEmpty(entityList)) {
-            return Collections.emptyList();
-        }
-        List<QuestionDoc> docList = new ArrayList<>(entityList.size());
-        for (TbQuestion entity : entityList) {
-            docList.add(toDoc(entity));
-        }
-        return docList;
+        return CollUtil.isEmpty(entityList) ? Collections.emptyList() : BeanUtil.copyToList(entityList, QuestionDoc.class);
     }
 
-    // 将MySQL实体转换为VO
-    public static QuestionVO toVO(TbQuestion entity) {
-        if (entity == null) {
-            return null;
-        }
-        QuestionVO vo = new QuestionVO();
-        vo.setQuestionId(entity.getQuestionId());
-        vo.setTitle(entity.getTitle());
-        vo.setDifficulty(entity.getDifficulty());
-        vo.setDifficultyDesc(QuestionDifficultyEnum.getDescByCode(entity.getDifficulty()));
-        vo.setTimeLimit(entity.getTimeLimit());
-        vo.setSpaceLimit(entity.getSpaceLimit());
-        vo.setContent(entity.getContent());
-        vo.setDefaultCode(entity.getDefaultCode());
-        vo.setCreateTime(entity.getCreateTime());
+    // ES文档与MySQL实体共用的VO转换：同名字段直接拷贝（main函数等不在VO里的字段不会带出），补难度描述
+    private static QuestionVO toVO(Object source, Integer difficulty) {
+        QuestionVO vo = BeanUtil.copyProperties(source, QuestionVO.class);
+        vo.setDifficultyDesc(QuestionDifficultyEnum.getDescByCode(difficulty));
         return vo;
     }
 }

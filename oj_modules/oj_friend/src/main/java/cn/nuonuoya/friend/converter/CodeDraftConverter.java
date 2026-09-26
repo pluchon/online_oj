@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.converter;
 
+import cn.hutool.core.util.ObjectUtil;
 import cn.nuonuoya.friend.domain.TbUserCodeDraft;
 import cn.nuonuoya.friend.vo.CodeDraftVO;
 
@@ -13,7 +14,7 @@ public class CodeDraftConverter {
     public static CodeDraftVO toVO(TbUserCodeDraft draft) {
         CodeDraftVO vo = new CodeDraftVO();
         vo.setCode(draft.getCode());
-        vo.setSavedTime(draft.getUpdateTime() != null ? draft.getUpdateTime() : draft.getCreateTime());
+        vo.setSavedTime(ObjectUtil.defaultIfNull(draft.getUpdateTime(), draft.getCreateTime()));
         return vo;
     }
 }

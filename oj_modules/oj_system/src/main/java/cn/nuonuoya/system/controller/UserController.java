@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 // 用户控制器
 @Validated
@@ -35,8 +34,7 @@ public class UserController extends BaseController {
     @GetMapping
     @Operation(summary = "用户列表", description = "支持按用户ID与昵称模糊筛选的分页查询")
     public TableDataResult<UserVO> list(@Validated UserDTO queryDTO) {
-        List<UserVO> list = userService.list(queryDTO);
-        return getTableData(list);
+        return userService.list(queryDTO);
     }
 
     /** 编辑用户资料 */

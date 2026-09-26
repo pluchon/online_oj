@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.converter;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.ai.dto.AiTutorChatDTO;
 import cn.nuonuoya.api.ai.dto.AiTutorHistoryDTO;
@@ -32,12 +33,8 @@ public class AiTutorConverter {
 
     // 消息实体转视图
     public static AiTutorMessageVO toMessageVO(TbAiChatMessage message) {
-        AiTutorMessageVO vo = new AiTutorMessageVO();
-        vo.setMessageId(message.getMessageId());
+        AiTutorMessageVO vo = BeanUtil.copyProperties(message, AiTutorMessageVO.class);
         vo.setFromUser(AiChatRoleEnum.USER.getCode().equals(message.getRole()));
-        vo.setAction(message.getAction());
-        vo.setContent(message.getContent());
-        vo.setCreateTime(message.getCreateTime());
         return vo;
     }
 

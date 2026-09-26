@@ -92,10 +92,7 @@ public class ExamServiceImpl implements ExamService {
         // 校验竞赛名称全局唯一性
         checkExamTitleUnique(addDTO.getTitle(), null);
         // 组装实体，初始发布状态必须为未发布
-        TbExam exam = new TbExam();
-        exam.setTitle(addDTO.getTitle().trim());
-        exam.setStartTime(addDTO.getStartTime());
-        exam.setEndTime(addDTO.getEndTime());
+        TbExam exam = ExamConverter.toEntity(addDTO);
         exam.setStatus(ExamStatus.UNPUBLISHED.getValue());
         // 插入记录，MyBatis-Plus 自动回填雪花算法生成的 examId
         examMapper.insert(exam);
@@ -131,12 +128,7 @@ public class ExamServiceImpl implements ExamService {
         // 校验竞赛名称唯一性（排除自身）
         checkExamTitleUnique(editDTO.getTitle(), editDTO.getExamId());
         // 更新竞赛基本信息
-        TbExam updateExam = new TbExam();
-        updateExam.setExamId(editDTO.getExamId());
-        updateExam.setTitle(editDTO.getTitle().trim());
-        updateExam.setStartTime(editDTO.getStartTime());
-        updateExam.setEndTime(editDTO.getEndTime());
-        int rows = examMapper.updateById(updateExam);
+        int rows = examMapper.updateById(ExamConverter.toEntity(editDTO));
         // 已发布的竞赛需刷新C端缓存
         if (isPublished(exam)) {
             notifyExamChanged(editDTO.getExamId());

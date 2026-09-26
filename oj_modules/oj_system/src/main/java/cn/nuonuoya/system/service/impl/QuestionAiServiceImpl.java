@@ -2,8 +2,6 @@ package cn.nuonuoya.system.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
-import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputItemVO;
@@ -79,7 +77,7 @@ public class QuestionAiServiceImpl implements QuestionAiService {
             caseDTO.setStandardCode(requestSolution(caseDTO.getTitle(), caseDTO.getContent(), caseDTO.getDefaultCode()));
         }
         List<AiCaseInputItemVO> inputs = CollUtil.emptyIfNull(
-                aiClient.generateCaseInputs(toCaseInputRequest(caseDTO)).getCases());
+                aiClient.generateCaseInputs(QuestionAiConverter.toCaseInputRequest(caseDTO)).getCases());
         if (inputs.isEmpty()) {
             throw new ServiceException(ResultCode.FAILED_AI_NO_VALID_CASE);
         }
@@ -116,12 +114,7 @@ public class QuestionAiServiceImpl implements QuestionAiService {
     // 生成题解草稿：有 AI 解法示例时作为参考解法，题解围绕它讲解
     @Override
     public QuestionAiEditorialVO generateEditorial(QuestionAiEditorialDTO editorialDTO) {
-        AiEditorialDTO request = new AiEditorialDTO();
-        request.setTitle(editorialDTO.getTitle().trim());
-        request.setContent(editorialDTO.getContent());
-        request.setDefaultCode(editorialDTO.getDefaultCode());
-        request.setReferenceCode(StrUtil.trimToNull(editorialDTO.getReferenceCode()));
-        return QuestionAiConverter.toEditorialVO(aiClient.generateEditorial(request));
+        return QuestionAiConverter.toEditorialVO(aiClient.generateEditorial(QuestionAiConverter.toEditorialRequest(editorialDTO)));
     }
 
     // 请求 AI 生成解法代码
@@ -131,18 +124,6 @@ public class QuestionAiServiceImpl implements QuestionAiService {
         request.setContent(content);
         request.setDefaultCode(defaultCode);
         return aiClient.generateSolution(request).getCode();
-    }
-
-    // 组装用例输入生成请求
-    private AiCaseInputDTO toCaseInputRequest(QuestionAiCaseDTO caseDTO) {
-        AiCaseInputDTO request = new AiCaseInputDTO();
-        request.setTitle(caseDTO.getTitle());
-        request.setContent(caseDTO.getContent());
-        request.setDefaultCode(caseDTO.getDefaultCode());
-        request.setMainFunc(caseDTO.getMainFunc());
-        request.setCount(caseDTO.getCount());
-        request.setExistingInputs(caseDTO.getExistingInputs());
-        return request;
     }
 
     // 用标程运行全部输入，返回与输入一一对应的输出（运行失败的位置为 null）；整批失败时逐组重跑以保留可用的组

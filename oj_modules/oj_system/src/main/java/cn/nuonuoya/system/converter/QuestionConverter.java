@@ -1,10 +1,11 @@
 package cn.nuonuoya.system.converter;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.domain.TbQuestionCase;
-import cn.nuonuoya.system.dto.QuestionAddDTO;
+import cn.nuonuoya.system.dto.QuestionBaseDTO;
 import cn.nuonuoya.system.dto.QuestionCaseDTO;
-import cn.nuonuoya.system.dto.QuestionEditDTO;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.enums.QuestionPurpose;
 import cn.nuonuoya.system.vo.QuestionCaseVO;
@@ -16,25 +17,9 @@ import java.util.List;
 // 题目对象转换器
 public class QuestionConverter {
 
-    // 新增请求转换为题目实体
-    public static TbQuestion toEntity(QuestionAddDTO addDTO) {
-        if (addDTO == null) {
-            return null;
-        }
-        TbQuestion question = new TbQuestion();
-        fillEditableFields(question, addDTO);
-        return question;
-    }
-
-    // 修改请求转换为题目实体（仅携带主键与可编辑字段）
-    public static TbQuestion toEntity(QuestionEditDTO editDTO) {
-        if (editDTO == null) {
-            return null;
-        }
-        TbQuestion question = new TbQuestion();
-        question.setQuestionId(editDTO.getQuestionId());
-        fillEditableFields(question, editDTO);
-        return question;
+    // 新增或修改请求转换为题目实体（修改请求会带上主键；用例、标签、题解由调用方另存）
+    public static TbQuestion toEntity(QuestionBaseDTO dto) {
+        return BeanUtil.copyProperties(dto, TbQuestion.class);
     }
 
     // 用例请求列表转换为实体列表（排序号按提交顺序生成）
@@ -57,50 +42,20 @@ public class QuestionConverter {
 
     // 用例实体列表转换为视图列表
     public static List<QuestionCaseVO> toCaseVOList(List<TbQuestionCase> cases) {
-        List<QuestionCaseVO> voList = new ArrayList<>(cases.size());
-        for (TbQuestionCase entity : cases) {
-            QuestionCaseVO vo = new QuestionCaseVO();
-            vo.setDisplayInput(entity.getDisplayInput());
-            vo.setDisplayOutput(entity.getDisplayOutput());
-            vo.setJudgeInput(entity.getJudgeInput());
-            vo.setJudgeOutput(entity.getJudgeOutput());
-            vo.setIsSample(entity.getIsSample());
-            voList.add(vo);
-        }
-        return voList;
+        return BeanUtil.copyToList(cases, QuestionCaseVO.class);
     }
 
-    // 题目实体转换为详情视图对象
+    // 题目实体转换为详情视图对象（用例、标签、题解由调用方补充）
     public static QuestionDetailVO toDetailVO(TbQuestion question) {
         if (question == null) {
             return null;
         }
-        QuestionDetailVO vo = new QuestionDetailVO();
-        vo.setQuestionId(question.getQuestionId());
-        vo.setTitle(question.getTitle());
-        vo.setDifficulty(question.getDifficulty());
+        QuestionDetailVO vo = BeanUtil.copyProperties(question, QuestionDetailVO.class);
         vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(question.getDifficulty()));
-        vo.setPurpose(question.getPurpose());
         vo.setPurposeDesc(QuestionPurpose.getDescByValue(question.getPurpose()));
-        vo.setTimeLimit(question.getTimeLimit());
-        vo.setSpaceLimit(question.getSpaceLimit());
-        vo.setContent(question.getContent());
         // 代码块防空处理，避免前端代码编辑器因 null 抛出异常
-        vo.setDefaultCode(question.getDefaultCode() == null ? "" : question.getDefaultCode());
-        vo.setMainFunc(question.getMainFunc() == null ? "" : question.getMainFunc());
-        vo.setCreateTime(question.getCreateTime());
+        vo.setDefaultCode(StrUtil.nullToEmpty(question.getDefaultCode()));
+        vo.setMainFunc(StrUtil.nullToEmpty(question.getMainFunc()));
         return vo;
-    }
-
-    // 填充新增与修改共用的可编辑字段
-    private static void fillEditableFields(TbQuestion question, QuestionAddDTO dto) {
-        question.setTitle(dto.getTitle());
-        question.setDifficulty(dto.getDifficulty());
-        question.setPurpose(dto.getPurpose());
-        question.setTimeLimit(dto.getTimeLimit());
-        question.setSpaceLimit(dto.getSpaceLimit());
-        question.setContent(dto.getContent());
-        question.setDefaultCode(dto.getDefaultCode());
-        question.setMainFunc(dto.getMainFunc());
     }
 }

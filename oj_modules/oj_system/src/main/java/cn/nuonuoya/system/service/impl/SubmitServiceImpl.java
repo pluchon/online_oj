@@ -3,7 +3,6 @@ package cn.nuonuoya.system.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.friend.dto.FriendSubmitQueryDTO;
-import cn.nuonuoya.api.friend.vo.FriendRejudgePreviewVO;
 import cn.nuonuoya.api.friend.vo.FriendRejudgeResultVO;
 import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
 import cn.nuonuoya.api.friend.vo.FriendSubmitPageVO;
@@ -23,6 +22,7 @@ import cn.nuonuoya.system.mapper.QuestionMapper;
 import cn.nuonuoya.system.mapper.UserMapper;
 import cn.nuonuoya.system.service.SubmitService;
 import cn.nuonuoya.system.vo.RejudgePreviewVO;
+import cn.nuonuoya.system.vo.SubmitBaseVO;
 import cn.nuonuoya.system.vo.SubmitDetailVO;
 import cn.nuonuoya.system.vo.SubmitVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -79,7 +79,7 @@ public class SubmitServiceImpl implements SubmitService {
         }
 
         FriendSubmitPageVO page = friendSubmitClient.listSubmits(friendQuery);
-        if (page == null || CollUtil.isEmpty(page.getRows())) {
+        if (CollUtil.isEmpty(page.getRows())) {
             return TableDataResult.empty();
         }
         List<SubmitVO> voList = SubmitConverter.toVOList(page.getRows());
@@ -110,11 +110,7 @@ public class SubmitServiceImpl implements SubmitService {
     @Override
     public RejudgePreviewVO previewRejudge(Long questionId) {
         checkQuestionExists(questionId);
-        FriendRejudgePreviewVO preview = friendSubmitClient.previewRejudge(questionId);
-        if (preview == null) {
-            throw new ServiceException(ResultCode.FAILED_SUBMIT_SERVICE_UNAVAILABLE);
-        }
-        return SubmitConverter.toPreviewVO(preview);
+        return SubmitConverter.toPreviewVO(friendSubmitClient.previewRejudge(questionId));
     }
 
     // 按题重判：题目须存在且配置了用例；判题队列投递失败时返回 3502（已投递的会正常判完）
@@ -127,13 +123,10 @@ public class SubmitServiceImpl implements SubmitService {
             throw new ServiceException(ResultCode.FAILED_QUESTION_NO_CASE);
         }
         FriendRejudgeResultVO result = friendSubmitClient.rejudge(questionId);
-        if (result == null) {
-            throw new ServiceException(ResultCode.FAILED_SUBMIT_SERVICE_UNAVAILABLE);
-        }
         if (Boolean.TRUE.equals(result.getDeliverFailed())) {
             throw new ServiceException(ResultCode.FAILED_REJUDGE_DELIVER);
         }
-        return result.getQueuedCount() == null ? 0 : result.getQueuedCount();
+        return result.getQueuedCount();
     }
 
     // 校验题目存在
@@ -144,10 +137,10 @@ public class SubmitServiceImpl implements SubmitService {
     }
 
     // 批量补充用户昵称、题目标题与竞赛标题，避免 N+1
-    private void fillNames(List<? extends SubmitVO> voList) {
-        Set<Long> userIds = collectIds(voList, SubmitVO::getUserId);
-        Set<Long> questionIds = collectIds(voList, SubmitVO::getQuestionId);
-        Set<Long> examIds = collectIds(voList, SubmitVO::getExamId);
+    private void fillNames(List<? extends SubmitBaseVO> voList) {
+        Set<Long> userIds = collectIds(voList, SubmitBaseVO::getUserId);
+        Set<Long> questionIds = collectIds(voList, SubmitBaseVO::getQuestionId);
+        Set<Long> examIds = collectIds(voList, SubmitBaseVO::getExamId);
         Map<Long, String> nickNames = userIds.isEmpty() ? Collections.emptyMap()
                 : userMapper.selectList(new LambdaQueryWrapper<TbUser>()
                         .select(TbUser::getUserId, TbUser::getNickName)
@@ -167,7 +160,7 @@ public class SubmitServiceImpl implements SubmitService {
                         .in(TbExam::getExamId, examIds))
                 .stream()
                 .collect(Collectors.toMap(TbExam::getExamId, TbExam::getTitle));
-        for (SubmitVO vo : voList) {
+        for (SubmitBaseVO vo : voList) {
             vo.setNickName(nickNames.get(vo.getUserId()));
             vo.setQuestionTitle(questionTitles.get(vo.getQuestionId()));
             vo.setExamTitle(vo.getExamId() == null ? null : examTitles.get(vo.getExamId()));
@@ -175,7 +168,7 @@ public class SubmitServiceImpl implements SubmitService {
     }
 
     // 收集列表中非空的ID
-    private Set<Long> collectIds(List<? extends SubmitVO> voList, Function<SubmitVO, Long> getter) {
+    private Set<Long> collectIds(List<? extends SubmitBaseVO> voList, Function<SubmitBaseVO, Long> getter) {
         return voList.stream().map(getter).filter(Objects::nonNull).collect(Collectors.toSet());
     }
 }

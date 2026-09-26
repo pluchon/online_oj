@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.converter;
 
+import cn.hutool.core.util.ObjectUtil;
 import cn.nuonuoya.friend.domain.TbQuestionEditorial;
 import cn.nuonuoya.friend.vo.QuestionEditorialVO;
 
@@ -13,7 +14,7 @@ public class QuestionEditorialConverter {
     public static QuestionEditorialVO toVO(TbQuestionEditorial editorial) {
         QuestionEditorialVO vo = new QuestionEditorialVO();
         vo.setContent(editorial.getContent());
-        vo.setUpdateTime(editorial.getUpdateTime() != null ? editorial.getUpdateTime() : editorial.getCreateTime());
+        vo.setUpdateTime(ObjectUtil.defaultIfNull(editorial.getUpdateTime(), editorial.getCreateTime()));
         return vo;
     }
 }

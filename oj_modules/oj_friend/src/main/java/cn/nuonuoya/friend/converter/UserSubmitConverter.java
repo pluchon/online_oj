@@ -7,9 +7,12 @@ import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
 import cn.nuonuoya.api.friend.vo.FriendSubmitVO;
 import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
+import cn.nuonuoya.friend.domain.TbQuestionCase;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
+import cn.nuonuoya.friend.vo.QuestionRunResultVO;
 import cn.nuonuoya.friend.vo.SubmitHistoryVO;
+import cn.nuonuoya.friend.vo.UserSubmitResultVO;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -43,6 +46,20 @@ public class UserSubmitConverter {
             voList.get(i).setStatus(submitList.get(i).getJudgeStatus());
         }
         return voList;
+    }
+
+    // 将提交记录转换为评测结果视图（判题结论字段名不同，单独赋值；首个未通过用例由调用方补充）
+    public static UserSubmitResultVO toResultVO(TbUserSubmit submit) {
+        UserSubmitResultVO vo = BeanUtil.copyProperties(submit, UserSubmitResultVO.class);
+        vo.setStatus(submit.getJudgeStatus());
+        return vo;
+    }
+
+    // 将示例用例运行结果转换为视图（逐用例结果与示例按顺序合并）
+    public static QuestionRunResultVO toRunResultVO(JudgeResultVO judgeResult, List<TbQuestionCase> sampleList) {
+        QuestionRunResultVO vo = BeanUtil.copyProperties(judgeResult, QuestionRunResultVO.class, "caseResults");
+        vo.setCaseResults(QuestionCaseConverter.toCaseResultVOList(sampleList, judgeResult.getCaseResults()));
+        return vo;
     }
 
     // 将提交记录实体列表转换为管理端列表项
