@@ -52,27 +52,20 @@ public class QuestionAiConverter {
 
     // AI 题解草稿转换为管理端视图
     public static QuestionAiEditorialVO toEditorialVO(AiEditorialVO editorial) {
-        QuestionAiEditorialVO vo = new QuestionAiEditorialVO();
-        vo.setContent(editorial.getContent());
-        return vo;
+        return BeanUtil.copyProperties(editorial, QuestionAiEditorialVO.class);
     }
 
     // AI 解法示例转换为管理端视图
     public static QuestionAiSolutionVO toSolutionVO(AiSolutionVO solution) {
-        QuestionAiSolutionVO vo = new QuestionAiSolutionVO();
-        vo.setCode(solution.getCode());
-        return vo;
+        return BeanUtil.copyProperties(solution, QuestionAiSolutionVO.class);
     }
 
     // AI 用例输入与标程输出组装为管理端用例（默认隐藏用例，由管理员决定是否公开）
     public static QuestionAiCaseItemVO toCaseItemVO(AiCaseInputItemVO input, String output) {
-        QuestionAiCaseItemVO vo = new QuestionAiCaseItemVO();
-        vo.setDisplayInput(input.getDisplayInput());
+        QuestionAiCaseItemVO vo = BeanUtil.copyProperties(input, QuestionAiCaseItemVO.class);
         vo.setDisplayOutput(output);
-        vo.setJudgeInput(input.getJudgeInput());
         vo.setJudgeOutput(output);
         vo.setIsSample(QuestionCaseType.HIDDEN.getValue());
-        vo.setIntent(input.getIntent());
         return vo;
     }
 }

@@ -2,25 +2,37 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.nuonuoya.friend.mapper.UserExamMapper">
 
-    <select id="selectEnrollCounts" resultType="cn.nuonuoya.api.friend.vo.FriendExamStatVO">
-        SELECT
-            exam_id AS examId,
-            COUNT(*) AS enrollCount
-        FROM tb_user_exam
-        WHERE exam_id IN
+    <sql id="examIdIn">
+        exam_id IN
         <foreach collection="examIds" item="examId" open="(" separator="," close=")">
             #{examId}
         </foreach>
-        GROUP BY exam_id
+    </sql>
+
+    <!-- 报名与参赛两路计数合并到同一行；派生表第一个子查询的列都起别名，避免常量列名重复 -->
+    <select id="selectExamStats" resultType="cn.nuonuoya.api.friend.vo.FriendExamStatVO">
+        SELECT
+            t.exam_id AS examId,
+            SUM(t.enroll_count) AS enrollCount,
+            SUM(t.participant_count) AS participantCount
+        FROM (
+            SELECT exam_id, COUNT(*) AS enroll_count, 0 AS participant_count
+            FROM tb_user_exam
+            WHERE <include refid="examIdIn"/>
+            GROUP BY exam_id
+            UNION ALL
+            SELECT exam_id, 0, COUNT(DISTINCT user_id)
+            FROM tb_user_submit
+            WHERE <include refid="examIdIn"/>
+            GROUP BY exam_id
+        ) t
+        GROUP BY t.exam_id
     </select>
 
-    <select id="countDistinctEnrolled" resultType="int">
-        SELECT COUNT(DISTINCT user_id)
-        FROM tb_user_exam
-        WHERE exam_id IN
-        <foreach collection="examIds" item="examId" open="(" separator="," close=")">
-            #{examId}
-        </foreach>
+    <select id="selectExamSummary" resultType="cn.nuonuoya.api.friend.vo.FriendExamSummaryVO">
+        SELECT
+            (SELECT COUNT(DISTINCT user_id) FROM tb_user_exam WHERE <include refid="examIdIn"/>) AS enrollCount,
+            (SELECT COUNT(DISTINCT user_id) FROM tb_user_submit WHERE <include refid="examIdIn"/>) AS participantCount
     </select>
 
 </mapper>

@@ -1,7 +1,6 @@
 package cn.nuonuoya.api.ai.dto;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -9,14 +8,13 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serial;
-import java.io.Serializable;
 import java.util.List;
 
-// 做题辅导对话请求（上下文全部由调用方从数据库组装，AI 服务不读业务库）
+// 做题辅导对话请求（题面见 AiQuestionBaseDTO；上下文全部由调用方从数据库组装，AI 服务不读业务库）
 @Getter
 @Setter
-@ToString
-public class AiTutorChatDTO implements Serializable {
+@ToString(callSuper = true)
+public class AiTutorChatDTO extends AiQuestionBaseDTO {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -24,17 +22,6 @@ public class AiTutorChatDTO implements Serializable {
     // 提问类型（见 AiTutorActionEnum）
     @NotNull(message = "提问类型不能为空")
     private Integer action;
-
-    // 题目标题
-    @NotBlank(message = "题目标题不能为空")
-    private String questionTitle;
-
-    // 题目描述
-    @NotBlank(message = "题目描述不能为空")
-    private String questionContent;
-
-    // 方法签名
-    private String defaultCode;
 
     // 公开示例
     @Valid

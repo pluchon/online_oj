@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.security.exception.ServiceException;
@@ -90,9 +91,7 @@ public class UserServiceImpl implements UserService {
         if (Objects.equals(user.getStatus(), statusDTO.getStatus())) {
             return 1;
         }
-        TbUser updateEntity = new TbUser();
-        updateEntity.setUserId(statusDTO.getUserId());
-        updateEntity.setStatus(statusDTO.getStatus());
+        TbUser updateEntity = BeanUtil.copyProperties(statusDTO, TbUser.class);
         int rows = userMapper.updateById(updateEntity);
 
         evictUserCacheAfterCommit(statusDTO.getUserId());

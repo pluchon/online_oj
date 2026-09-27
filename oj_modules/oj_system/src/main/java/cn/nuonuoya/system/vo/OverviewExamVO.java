@@ -39,9 +39,9 @@ public class OverviewExamVO {
 
     // 报名人数
     @Schema(description = "报名人数")
-    private Integer enrollCount;
+    private Integer enrollCount = 0;
 
     // 实际提交过代码的人数
     @Schema(description = "实际提交过代码的人数")
-    private Integer participantCount;
+    private Integer participantCount = 0;
 }

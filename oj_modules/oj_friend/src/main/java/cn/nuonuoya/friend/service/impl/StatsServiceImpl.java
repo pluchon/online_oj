@@ -2,7 +2,6 @@ package cn.nuonuoya.friend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
-import cn.nuonuoya.api.friend.vo.FriendExamStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
 import cn.nuonuoya.api.friend.vo.FriendPeriodStatVO;
@@ -19,8 +18,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -34,8 +31,8 @@ public class StatsServiceImpl implements StatsService {
     // 概览卡片统计的天数（含今日）
     private static final int WEEK_DAYS = 7;
 
-    // 趋势最多统计的天数
-    private static final int MAX_TREND_DAYS = 30;
+    // 趋势最多统计的天数（管理端近一年按半月汇总，最多取 366 天的每日数据）
+    private static final int MAX_TREND_DAYS = 366;
 
     // 进入难题榜所需的已出结论提交数
     private static final int HARD_QUESTION_MIN_JUDGED = 5;
@@ -61,7 +58,7 @@ public class StatsServiceImpl implements StatsService {
         return vo;
     }
 
-    // 近 N 天每日趋势，天数须在 1 ~ 30 之间
+    // 近 N 天每日趋势，天数须在 1 ~ 366 之间
     @Override
     public List<FriendDailyStatVO> getTrend(Integer days) {
         if (days == null || days < 1 || days > MAX_TREND_DAYS) {
@@ -70,38 +67,15 @@ public class StatsServiceImpl implements StatsService {
         return buildTrend(days);
     }
 
-    // 指定竞赛的报名与参赛人数：每场各自计数，汇总按用户去重
+    // 指定竞赛的报名与参赛人数：汇总按用户去重，每场各自计数（都由 SQL 算好，没有竞赛时人数为 0）
     @Override
     public FriendExamSummaryVO getExamSummary(List<Long> examIds) {
-        FriendExamSummaryVO vo = new FriendExamSummaryVO();
         if (CollUtil.isEmpty(examIds)) {
-            vo.setEnrollCount(0);
-            vo.setParticipantCount(0);
-            vo.setExams(Collections.emptyList());
-            return vo;
+            return new FriendExamSummaryVO();
         }
-        Map<Long, FriendExamStatVO> statByExam = new LinkedHashMap<>();
-        for (FriendExamStatVO enroll : userExamMapper.selectEnrollCounts(examIds)) {
-            examStat(statByExam, enroll.getExamId()).setEnrollCount(enroll.getEnrollCount());
-        }
-        for (FriendExamStatVO participant : userSubmitMapper.selectParticipantCounts(examIds)) {
-            examStat(statByExam, participant.getExamId()).setParticipantCount(participant.getParticipantCount());
-        }
-        vo.setEnrollCount(userExamMapper.countDistinctEnrolled(examIds));
-        vo.setParticipantCount(userSubmitMapper.countDistinctParticipants(examIds));
-        vo.setExams(new ArrayList<>(statByExam.values()));
+        FriendExamSummaryVO vo = userExamMapper.selectExamSummary(examIds);
+        vo.setExams(userExamMapper.selectExamStats(examIds));
         return vo;
-    }
-
-    // 取出或新建某场竞赛的计数（人数默认 0）
-    private FriendExamStatVO examStat(Map<Long, FriendExamStatVO> statByExam, Long examId) {
-        return statByExam.computeIfAbsent(examId, id -> {
-            FriendExamStatVO stat = new FriendExamStatVO();
-            stat.setExamId(id);
-            stat.setEnrollCount(0);
-            stat.setParticipantCount(0);
-            return stat;
-        });
     }
 
     // 近 N 天（含今日）每日统计，按日期升序补齐没有提交的日子
@@ -129,13 +103,10 @@ public class StatsServiceImpl implements StatsService {
         return period;
     }
 
-    // 没有提交的日子
+    // 没有提交的日子（计数默认为 0）
     private FriendDailyStatVO emptyDay(LocalDate date) {
         FriendDailyStatVO day = new FriendDailyStatVO();
         day.setDate(date);
-        day.setSubmitCount(0);
-        day.setJudgedCount(0);
-        day.setPassCount(0);
         return day;
     }
 

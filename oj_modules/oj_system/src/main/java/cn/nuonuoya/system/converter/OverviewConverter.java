@@ -2,11 +2,13 @@ package cn.nuonuoya.system.converter;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamStatVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
 import cn.nuonuoya.api.friend.vo.FriendSubmitStatBaseVO;
 import cn.nuonuoya.system.domain.TbExam;
+import cn.nuonuoya.system.enums.OverviewTrendRange;
 import cn.nuonuoya.system.vo.OverviewExamVO;
 import cn.nuonuoya.system.vo.OverviewPeriodVO;
 import cn.nuonuoya.system.vo.OverviewQuestionVO;
@@ -16,9 +18,13 @@ import cn.nuonuoya.system.vo.SubmitStatBaseVO;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.function.ToIntFunction;
 
 // 数据概览对象转换器
 public class OverviewConverter {
+
+    // 趋势横轴的日期格式
+    private static final String TREND_LABEL_PATTERN = "MM.dd";
 
     private OverviewConverter() {
     }
@@ -32,16 +38,26 @@ public class OverviewConverter {
         return vo;
     }
 
-    // 每日统计转换为趋势视图
-    public static List<OverviewTrendVO> toTrendList(List<FriendDailyStatVO> source) {
-        return toStatList(source, OverviewTrendVO.class);
+    // 一段日期内的每日统计累加为趋势中的一个点（按天的点只显示当天，按周、半月的点显示起止）
+    public static OverviewTrendVO toTrendVO(OverviewTrendRange.Bucket bucket, boolean daily, List<FriendDailyStatVO> days) {
+        OverviewTrendVO vo = new OverviewTrendVO();
+        vo.setStartDate(bucket.start());
+        vo.setEndDate(bucket.end());
+        String start = LocalDateTimeUtil.format(bucket.start(), TREND_LABEL_PATTERN);
+        vo.setLabel(daily ? start : start + "-" + LocalDateTimeUtil.format(bucket.end(), TREND_LABEL_PATTERN));
+        vo.setSubmitCount(sum(days, FriendSubmitStatBaseVO::getSubmitCount));
+        vo.setJudgedCount(sum(days, FriendSubmitStatBaseVO::getJudgedCount));
+        vo.setPassCount(sum(days, FriendSubmitStatBaseVO::getPassCount));
+        vo.setPassRate(percent(vo.getPassCount(), vo.getJudgedCount()));
+        return vo;
     }
 
-    // 竞赛信息与人数合并为视图（没有报名、没有提交的竞赛人数为 0）
+    // 竞赛信息与人数合并为视图（没有报名、没有提交的竞赛人数保持默认 0）
     public static OverviewExamVO toExamVO(TbExam exam, FriendExamStatVO stat) {
         OverviewExamVO vo = BeanUtil.copyProperties(exam, OverviewExamVO.class);
-        vo.setEnrollCount(stat == null ? 0 : stat.getEnrollCount());
-        vo.setParticipantCount(stat == null ? 0 : stat.getParticipantCount());
+        if (stat != null) {
+            BeanUtil.copyProperties(stat, vo);
+        }
         vo.setFinished(exam.getEndTime() != null && !LocalDateTime.now().isBefore(exam.getEndTime()));
         return vo;
     }
@@ -63,6 +79,11 @@ public class OverviewConverter {
         T vo = BeanUtil.copyProperties(source, targetClass);
         vo.setPassRate(percent(source.getPassCount(), source.getJudgedCount()));
         return vo;
+    }
+
+    // 对若干天的某项计数求和
+    private static int sum(List<FriendDailyStatVO> days, ToIntFunction<FriendSubmitStatBaseVO> getter) {
+        return days.stream().mapToInt(getter).sum();
     }
 
     // 计数类统计列表转换

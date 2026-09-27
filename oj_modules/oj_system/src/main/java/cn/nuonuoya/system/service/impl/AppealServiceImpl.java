@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.friend.dto.FriendAppealHandleDTO;
@@ -68,10 +69,7 @@ public class AppealServiceImpl implements AppealService {
         if (queryDTO.getDays() != null && (queryDTO.getDays() <= 0 || queryDTO.getDays() > MAX_DAYS)) {
             throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
         }
-        FriendAppealQueryDTO friendQuery = new FriendAppealQueryDTO();
-        friendQuery.setPageNum(queryDTO.getPageNum());
-        friendQuery.setPageSize(queryDTO.getPageSize());
-        friendQuery.setUserId(queryDTO.getUserId());
+        FriendAppealQueryDTO friendQuery = BeanUtil.copyProperties(queryDTO, FriendAppealQueryDTO.class);
         friendQuery.setStartTime(queryDTO.getDays() == null ? null : LocalDateTime.now().minusDays(queryDTO.getDays()));
         if (StrUtil.isNotBlank(queryDTO.getTitle())) {
             List<Long> questionIds = questionMapper.selectList(new LambdaQueryWrapper<TbQuestion>()

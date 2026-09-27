@@ -1,7 +1,6 @@
 package cn.nuonuoya.friend.mapper;
 
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
-import cn.nuonuoya.api.friend.vo.FriendExamStatVO;
 import cn.nuonuoya.api.friend.vo.FriendQuestionStatVO;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
@@ -22,12 +21,6 @@ public interface UserSubmitMapper extends BaseMapper<TbUserSubmit> {
 
     // 统计起始时间之后有提交的去重用户数
     int countDistinctUsers(@Param("startTime") LocalDateTime startTime);
-
-    // 指定竞赛各自的参赛人数（交过代码的去重用户，只返回有提交的竞赛）
-    List<FriendExamStatVO> selectParticipantCounts(@Param("examIds") List<Long> examIds);
-
-    // 指定竞赛合计的参赛人数（跨竞赛按用户去重）
-    int countDistinctParticipants(@Param("examIds") List<Long> examIds);
 
     // 已出结论提交数达到门槛的题中，按通过率升序取前若干道（已删除的题不计）
     List<FriendQuestionStatVO> selectHardQuestions(@Param("minJudged") int minJudged,

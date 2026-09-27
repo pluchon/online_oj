@@ -331,7 +331,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排（只能添加竞赛题，已在结束的竞赛中公开过的题不能再用）
 * `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
 * `GET  /system/appeal`、`GET /system/appeal/{appealId}`、`PUT /system/appeal/{appealId}/handle`：申诉管理（按用户 ID、题目名称、最近天数筛选，按申诉时间倒序；详情含申诉理由、AI 初审分析、代码与逐用例输入/预期/实际输出；裁定为存疑、通过（改判为通过并通知学员）或不通过（驳回并通知），规则见前端仓库 `.agents/DECISIONS.md` D-017）
-* `GET  /system/overview`、`GET /system/overview/trend?days=`、`GET /system/overview/exam?days=&pageNum=&pageSize=`：数据概览（今日与近 7 天的提交数、活跃用户与难题榜；近 N 天每日趋势；近 N 天内进行过的竞赛的去重报名、参赛人数与分页列表；N 为 1 ~ 30，口径见前端仓库 `.agents/DECISIONS.md` D-016、D-019）
+* `GET  /system/overview`、`GET /system/overview/trend?range=`、`GET /system/overview/exam?days=&pageNum=&pageSize=`：数据概览（今日与近 7 天的提交数、活跃用户与难题榜；提交趋势（range 为 WEEK / TWO_WEEKS / MONTH 按天，HALF_YEAR 按周，YEAR 按半月）；近 N 天（1 ~ 30）内进行过的竞赛的去重报名、参赛人数与分页列表；口径见前端仓库 `.agents/DECISIONS.md` D-016、D-019）
 * `GET|POST /system/submit/rejudge/{questionId}`：按题重判的影响范围预览与执行（入口在题目抽屉：修改用例保存后提示）（重判练习提交和未结算竞赛的提交，已结算竞赛与评测中的跳过）
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)

@@ -180,17 +180,7 @@ public class AppealServiceImpl implements AppealService {
             throw new ServiceException(ResultCode.FAILED_APPEAL_QUOTA);
         }
 
-        TbSubmitAppeal appeal = new TbSubmitAppeal();
-        appeal.setSubmitId(submit.getSubmitId());
-        appeal.setUserId(userId);
-        appeal.setQuestionId(submit.getQuestionId());
-        appeal.setExamId(submit.getExamId());
-        appeal.setReason(reason);
-        appeal.setAiAnalysis(Objects.toString(review.getAnalysis(), ""));
-        appeal.setOriginJudgeStatus(submit.getJudgeStatus());
-        appeal.setStatus(AppealStatusEnum.PENDING.getCode());
-        appeal.setCreateBy(userId);
-        appeal.setCreateTime(LocalDateTime.now());
+        TbSubmitAppeal appeal = AppealConverter.toEntity(submit, reason, Objects.toString(review.getAnalysis(), ""), userId);
         try {
             submitAppealMapper.insert(appeal);
         } catch (DuplicateKeyException e) {
@@ -237,9 +227,8 @@ public class AppealServiceImpl implements AppealService {
         if (queryDTO.getQuestionIds() != null && queryDTO.getQuestionIds().isEmpty()) {
             return page;
         }
-        PageQuery pageQuery = new PageQuery();
-        pageQuery.setPageNum(queryDTO.getPageNum());
-        pageQuery.setPageSize(queryDTO.getPageSize());
+        // 借 PageQuery 的 setter 纠正空值与越界的页码、条数
+        PageQuery pageQuery = BeanUtil.copyProperties(queryDTO, PageQuery.class);
         PageHelper.startPage(pageQuery.getPageNum(), pageQuery.getPageSize());
         List<TbSubmitAppeal> appeals = submitAppealMapper.selectList(new LambdaQueryWrapper<TbSubmitAppeal>()
                 .eq(queryDTO.getUserId() != null, TbSubmitAppeal::getUserId, queryDTO.getUserId())
@@ -422,18 +411,8 @@ public class AppealServiceImpl implements AppealService {
                 .eq(TbQuestionEditorial::getQuestionId, question.getQuestionId()));
         JudgeStatusEnum verdict = JudgeStatusEnum.getByCode(submit.getJudgeStatus());
 
-        AiAppealReviewDTO dto = new AiAppealReviewDTO();
-        dto.setQuestionTitle(question.getTitle());
-        dto.setQuestionContent(question.getContent());
-        dto.setDefaultCode(question.getDefaultCode());
-        dto.setEditorial(editorial == null ? null : editorial.getContent());
-        dto.setUserCode(submit.getUserCode());
-        dto.setVerdict(verdict == null ? "未通过" : verdict.getDesc());
-        dto.setPassCount(submit.getPassCount());
-        dto.setTotalCount(submit.getTotalCount());
-        dto.setExeMessage(submit.getExeMessage());
-        dto.setFailedCases(failedCases(submit, questionCaseService.listAll(question.getQuestionId())));
-        return dto;
+        return AppealConverter.toReviewRequest(question, submit, editorial == null ? null : editorial.getContent(),
+                verdict == null ? "未通过" : verdict.getDesc(), failedCases(submit, questionCaseService.listAll(question.getQuestionId())));
     }
 
     // 未通过用例：有逐用例结果时按记录取前几条，早期提交只有首个未通过用例；用例已被修改删除的跳过

@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.converter;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.friend.domain.TbExam;
 import cn.nuonuoya.friend.domain.TbUserExam;
@@ -8,7 +9,6 @@ import cn.nuonuoya.friend.vo.ExamVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,12 +20,7 @@ public class ExamConverter {
         if (exam == null) {
             return null;
         }
-        ExamVO vo = new ExamVO();
-        vo.setExamId(exam.getExamId());
-        vo.setTitle(exam.getTitle());
-        vo.setStartTime(exam.getStartTime());
-        vo.setEndTime(exam.getEndTime());
-        vo.setStatus(exam.getStatus());
+        ExamVO vo = BeanUtil.copyProperties(exam, ExamVO.class);
 
         ExamContestStatusEnum contestStatus = resolveContestStatus(exam);
         vo.setContestStatus(contestStatus.getCode());
@@ -36,30 +31,17 @@ public class ExamConverter {
 
     // 批量实体转换为视图对象列表
     public static List<ExamVO> toVOList(List<TbExam> examList) {
-        if (CollUtil.isEmpty(examList)) {
-            return Collections.emptyList();
-        }
-        List<ExamVO> voList = new ArrayList<>(examList.size());
-        for (TbExam exam : examList) {
-            voList.add(toVO(exam));
-        }
-        return voList;
+        return CollUtil.isEmpty(examList) ? Collections.emptyList() : examList.stream().map(ExamConverter::toVO).toList();
     }
 
-    // 组装用户已报名竞赛视图对象
+    // 组装用户已报名竞赛视图对象（createTime 是报名时间，取自报名记录而不是竞赛）
     public static UserExamVO toUserExamVO(TbExam exam, TbUserExam userExam) {
         if (exam == null) {
             return null;
         }
-        UserExamVO vo = new UserExamVO();
-        vo.setExamId(exam.getExamId());
-        vo.setTitle(exam.getTitle());
-        vo.setStartTime(exam.getStartTime());
-        vo.setEndTime(exam.getEndTime());
+        UserExamVO vo = BeanUtil.copyProperties(exam, UserExamVO.class, "createTime");
         if (userExam != null) {
-            vo.setScore(userExam.getScore());
-            vo.setExamRank(userExam.getExamRank());
-            vo.setCreateTime(userExam.getCreateTime());
+            BeanUtil.copyProperties(userExam, vo, "examId");
         }
 
         ExamContestStatusEnum contestStatus = resolveContestStatus(exam);

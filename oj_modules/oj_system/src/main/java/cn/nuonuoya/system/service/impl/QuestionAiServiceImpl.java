@@ -1,5 +1,6 @@
 package cn.nuonuoya.system.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
@@ -175,13 +176,11 @@ public class QuestionAiServiceImpl implements QuestionAiService {
 
     // 组装标程运行请求（预期输出留空，只取实际输出）
     private JudgeRequestDTO toJudgeRequest(QuestionAiCaseDTO caseDTO, List<AiCaseInputItemVO> inputs) {
-        JudgeRequestDTO requestDTO = new JudgeRequestDTO();
+        // 主函数与时空限制同名复制，标程作为待运行代码
+        JudgeRequestDTO requestDTO = BeanUtil.copyProperties(caseDTO, JudgeRequestDTO.class);
         requestDTO.setUserId(SecurityUtils.getUserId());
         requestDTO.setProgramType(ProgramTypeEnum.JAVA.getCode());
         requestDTO.setUserCode(caseDTO.getStandardCode());
-        requestDTO.setMainFunc(caseDTO.getMainFunc());
-        requestDTO.setTimeLimit(caseDTO.getTimeLimit());
-        requestDTO.setSpaceLimit(caseDTO.getSpaceLimit());
         List<JudgeCaseDTO> cases = new ArrayList<>(inputs.size());
         for (AiCaseInputItemVO input : inputs) {
             JudgeCaseDTO judgeCase = new JudgeCaseDTO();

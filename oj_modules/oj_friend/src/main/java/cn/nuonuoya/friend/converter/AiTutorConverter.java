@@ -46,9 +46,8 @@ public class AiTutorConverter {
     // 消息实体转历史对话
     public static List<AiTutorHistoryDTO> toHistoryList(List<TbAiChatMessage> messages) {
         return messages.stream().map(message -> {
-            AiTutorHistoryDTO item = new AiTutorHistoryDTO();
+            AiTutorHistoryDTO item = BeanUtil.copyProperties(message, AiTutorHistoryDTO.class);
             item.setFromUser(AiChatRoleEnum.USER.getCode().equals(message.getRole()));
-            item.setContent(message.getContent());
             return item;
         }).toList();
     }
@@ -56,11 +55,8 @@ public class AiTutorConverter {
     // 组装发给 AI 服务的上下文（题面、公开示例、当前代码、可选的被分析提交）
     public static AiTutorChatDTO toChatDTO(TbQuestion question, List<TbQuestionCase> allCases, AiTutorActionEnum action,
                                            String content, String userCode, TbUserSubmit submit) {
-        AiTutorChatDTO dto = new AiTutorChatDTO();
+        AiTutorChatDTO dto = AiQuestionConverter.fillQuestion(question, new AiTutorChatDTO());
         dto.setAction(action.getCode());
-        dto.setQuestionTitle(question.getTitle());
-        dto.setQuestionContent(question.getContent());
-        dto.setDefaultCode(question.getDefaultCode());
         dto.setUserCode(StrUtil.isBlank(userCode) ? null : userCode);
         dto.setMessage(StrUtil.isBlank(content) ? null : content);
         dto.setSamples(allCases.stream()
@@ -79,14 +75,12 @@ public class AiTutorConverter {
         return dto;
     }
 
-    // 提交记录转换为 AI 上下文：隐藏用例只给序号，不给输入与预期输出
+    // 提交记录转换为 AI 上下文（通过数同名复制）：隐藏用例只给序号，不给输入与预期输出
     private static AiTutorSubmissionDTO toSubmissionDTO(TbUserSubmit submit, List<TbQuestionCase> allCases) {
-        AiTutorSubmissionDTO dto = new AiTutorSubmissionDTO();
+        AiTutorSubmissionDTO dto = BeanUtil.copyProperties(submit, AiTutorSubmissionDTO.class);
         dto.setCode(submit.getUserCode());
         JudgeStatusEnum status = JudgeStatusEnum.getByCode(submit.getJudgeStatus());
         dto.setVerdict(status == null ? null : status.getDesc());
-        dto.setPassCount(submit.getPassCount());
-        dto.setTotalCount(submit.getTotalCount());
         dto.setExeMessage(StrUtil.maxLength(submit.getExeMessage(), EXE_MESSAGE_LIMIT));
         if (submit.getFailCaseId() == null) {
             return dto;

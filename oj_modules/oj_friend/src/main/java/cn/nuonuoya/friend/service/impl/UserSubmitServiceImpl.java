@@ -144,13 +144,10 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         }
 
         // 初始化提交记录（状态为评测中）
-        TbUserSubmit submit = new TbUserSubmit();
+        TbUserSubmit submit = BeanUtil.copyProperties(submitDTO, TbUserSubmit.class);
         submit.setUserId(userId);
-        submit.setQuestionId(submitDTO.getQuestionId());
-        submit.setExamId(submitDTO.getExamId());
         // 目前只支持 Java，不采信客户端传入的语言类型
         submit.setProgramType(ProgramTypeEnum.JAVA.getCode());
-        submit.setUserCode(submitDTO.getUserCode());
         submit.setPass(SubmitPassEnum.JUDGING.getCode());
         submit.setScore(0);
         submit.setPassCount(0);

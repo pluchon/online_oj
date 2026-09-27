@@ -5,26 +5,16 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.io.Serial;
-import java.io.Serializable;
 import java.util.List;
 
-// 申诉 AI 初审请求（题面、学员代码、判题结论与失败用例）
+// 申诉 AI 初审请求（题面见 AiQuestionBaseDTO；学员代码、判题结论与失败用例）
 @Getter
 @Setter
-@ToString
-public class AiAppealReviewDTO implements Serializable {
+@ToString(callSuper = true)
+public class AiAppealReviewDTO extends AiQuestionBaseDTO {
 
     @Serial
     private static final long serialVersionUID = 1L;
-
-    // 题目标题
-    private String questionTitle;
-
-    // 题目描述
-    private String questionContent;
-
-    // 需要实现的方法（默认代码块）
-    private String defaultCode;
 
     // 官方题解（参考解法，可为空）
     private String editorial;

@@ -20,27 +20,6 @@
         WHERE create_time &gt;= #{startTime}
     </select>
 
-    <select id="selectParticipantCounts" resultType="cn.nuonuoya.api.friend.vo.FriendExamStatVO">
-        SELECT
-            exam_id AS examId,
-            COUNT(DISTINCT user_id) AS participantCount
-        FROM tb_user_submit
-        WHERE exam_id IN
-        <foreach collection="examIds" item="examId" open="(" separator="," close=")">
-            #{examId}
-        </foreach>
-        GROUP BY exam_id
-    </select>
-
-    <select id="countDistinctParticipants" resultType="int">
-        SELECT COUNT(DISTINCT user_id)
-        FROM tb_user_submit
-        WHERE exam_id IN
-        <foreach collection="examIds" item="examId" open="(" separator="," close=")">
-            #{examId}
-        </foreach>
-    </select>
-
     <select id="selectHardQuestions" resultType="cn.nuonuoya.api.friend.vo.FriendQuestionStatVO">
         SELECT
             s.question_id AS questionId,

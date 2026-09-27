@@ -35,11 +35,11 @@ public class OverviewController extends BaseController {
         return OJResult.ok(overviewService.getOverview());
     }
 
-    /** 查询近 N 天的每日提交趋势 */
+    /** 按时间范围查询提交趋势 */
     @GetMapping("/trend")
-    @Operation(summary = "提交趋势", description = "近 N 天（含今日，1 ~ 30）每日提交数、通过数与通过率，没有提交的日子为 0")
+    @Operation(summary = "提交趋势", description = "近七天、近十四天、近一个月按天，近半年按周，近一年按半月；每个点含提交数、通过数与通过率，没有提交时为 0")
     public OJResult<List<OverviewTrendVO>> trend(@Validated OverviewTrendQueryDTO queryDTO) {
-        return OJResult.ok(overviewService.getTrend(queryDTO.getDays()));
+        return OJResult.ok(overviewService.getTrend(queryDTO.getRange()));
     }
 
     /** 查询近 N 天内进行过的竞赛统计 */

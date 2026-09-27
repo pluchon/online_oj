@@ -1,6 +1,8 @@
 package cn.nuonuoya.system.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
 import cn.nuonuoya.system.client.FriendStatsClient;
@@ -9,6 +11,7 @@ import cn.nuonuoya.system.domain.TbExam;
 import cn.nuonuoya.system.domain.TbQuestion;
 import cn.nuonuoya.system.dto.OverviewExamQueryDTO;
 import cn.nuonuoya.system.enums.ExamStatus;
+import cn.nuonuoya.system.enums.OverviewTrendRange;
 import cn.nuonuoya.system.enums.QuestionDifficulty;
 import cn.nuonuoya.system.mapper.ExamMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
@@ -25,9 +28,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,10 +56,21 @@ public class OverviewServiceImpl implements OverviewService {
         return vo;
     }
 
-    // 近 N 天每日提交趋势（天数范围已由参数校验保证）
+    // 按时间范围分段汇总提交趋势：取覆盖全部分段的每日统计，再逐段累加
     @Override
-    public List<OverviewTrendVO> getTrend(Integer days) {
-        return OverviewConverter.toTrendList(friendStatsClient.getTrend(days));
+    public List<OverviewTrendVO> getTrend(OverviewTrendRange range) {
+        LocalDate today = LocalDate.now();
+        List<OverviewTrendRange.Bucket> buckets = range.buckets(today);
+        int days = (int) ChronoUnit.DAYS.between(buckets.get(0).start(), today) + 1;
+        Map<LocalDate, FriendDailyStatVO> statByDate = friendStatsClient.getTrend(days).stream()
+                .collect(Collectors.toMap(FriendDailyStatVO::getDate, Function.identity()));
+        return buckets.stream()
+                .map(bucket -> OverviewConverter.toTrendVO(bucket, range.isDaily(), bucket.start()
+                        .datesUntil(bucket.end().plusDays(1))
+                        .map(statByDate::get)
+                        .filter(Objects::nonNull)
+                        .toList()))
+                .toList();
     }
 
     // 时间段内进行过的已发布竞赛：汇总人数覆盖全部竞赛，列表按开始时间倒序分页
@@ -68,17 +83,11 @@ public class OverviewServiceImpl implements OverviewService {
                 .map(TbExam::getExamId)
                 .toList();
 
-        OverviewExamSummaryVO vo = new OverviewExamSummaryVO();
         if (examIds.isEmpty()) {
-            vo.setEnrollCount(0);
-            vo.setParticipantCount(0);
-            vo.setTotal(0L);
-            vo.setRows(Collections.emptyList());
-            return vo;
+            return new OverviewExamSummaryVO();
         }
         FriendExamSummaryVO summary = friendStatsClient.getExamSummary(examIds);
-        vo.setEnrollCount(summary.getEnrollCount());
-        vo.setParticipantCount(summary.getParticipantCount());
+        OverviewExamSummaryVO vo = BeanUtil.copyProperties(summary, OverviewExamSummaryVO.class);
         vo.setParticipationRate(OverviewConverter.percent(summary.getParticipantCount(), summary.getEnrollCount()));
 
         Map<Long, FriendExamStatVO> statByExam = summary.getExams().stream()
@@ -103,7 +112,7 @@ public class OverviewServiceImpl implements OverviewService {
                 .ge(TbExam::getEndTime, periodStart);
     }
 
-    // 批量补题目标题与难度
+    // 批量补题目标题与难度（同名复制，难度描述由枚举换算）
     private void fillQuestionInfo(List<OverviewQuestionVO> questions) {
         if (CollUtil.isEmpty(questions)) {
             return;
@@ -116,8 +125,7 @@ public class OverviewServiceImpl implements OverviewService {
         for (OverviewQuestionVO vo : questions) {
             TbQuestion question = questionMap.get(vo.getQuestionId());
             if (question != null) {
-                vo.setTitle(question.getTitle());
-                vo.setDifficulty(question.getDifficulty());
+                BeanUtil.copyProperties(question, vo);
                 vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(question.getDifficulty()));
             }
         }

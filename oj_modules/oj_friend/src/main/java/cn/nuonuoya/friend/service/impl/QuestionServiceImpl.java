@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.nuonuoya.security.utils.SecurityUtils;
@@ -302,10 +303,7 @@ public class QuestionServiceImpl implements QuestionService {
                 });
         List<FriendQuestionCandidateVO> result = new ArrayList<>(docs.size());
         for (QuestionDoc doc : docs) {
-            FriendQuestionCandidateVO vo = new FriendQuestionCandidateVO();
-            vo.setQuestionId(doc.getQuestionId());
-            vo.setTitle(doc.getTitle());
-            vo.setDifficulty(doc.getDifficulty());
+            FriendQuestionCandidateVO vo = BeanUtil.copyProperties(doc, FriendQuestionCandidateVO.class);
             vo.setSummary(StrUtil.maxLength(StrUtil.nullToEmpty(doc.getContent()).replaceAll("\\s+", " "), SUMMARY_LENGTH));
             int[] stat = submitStats.get(doc.getQuestionId());
             vo.setPassRate(stat != null && stat[0] >= MIN_SUBMITS_FOR_PASS_RATE ? (double) stat[1] / stat[0] : null);
