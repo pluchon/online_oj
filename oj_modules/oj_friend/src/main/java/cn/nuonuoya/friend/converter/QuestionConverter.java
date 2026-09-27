@@ -28,12 +28,7 @@ public class QuestionConverter {
         return CollUtil.isEmpty(docList) ? Collections.emptyList() : docList.stream().map(QuestionConverter::toVO).toList();
     }
 
-    // 将MySQL实体转换为ES题目文档（字段同名同类型、无派生字段，直接拷贝）
-    public static QuestionDoc toDoc(TbQuestion entity) {
-        return BeanUtil.copyProperties(entity, QuestionDoc.class);
-    }
-
-    // 批量将MySQL实体转换为ES题目文档列表
+    // 批量将MySQL实体转换为ES题目文档列表（字段同名同类型、无派生字段，直接拷贝）
     public static List<QuestionDoc> toDocList(List<TbQuestion> entityList) {
         return CollUtil.isEmpty(entityList) ? Collections.emptyList() : BeanUtil.copyToList(entityList, QuestionDoc.class);
     }
