@@ -22,10 +22,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-// 题目语义检索：维护题目向量，并在关键词无结果时与相似题推荐中做 kNN 检索
+// 题目语义检索：维护题目向量，在关键词无结果、长句检索与相似题推荐中做 kNN 检索
 @Slf4j
 @Component
 public class QuestionSemanticSearcher {
@@ -173,16 +174,15 @@ public class QuestionSemanticSearcher {
             filters.add(Query.of(q -> q.bool(b -> b.mustNot(m -> m.ids(i -> i.values(excluded))))));
         }
         Map<Long, Double> scores = new HashMap<>();
-        Map<Long, QuestionDoc> docs = new HashMap<>();
+        Map<Long, QuestionDoc> docs = new LinkedHashMap<>();
         if (StrUtil.isNotBlank(query)) {
             float[] vector = aiSearchClient.embedQuery(StrUtil.maxLength(query.trim(), EMBED_TEXT_LIMIT));
             if (vector != null) {
-                fuse(knn(vector, filters, size, NO_SIMILARITY_LIMIT), scores, docs);
+                accumulate(knn(vector, filters, size, NO_SIMILARITY_LIMIT), scores, docs);
             }
-            fuse(keyword(query.trim(), filters, size), scores, docs);
+            accumulate(keyword(query.trim(), filters, size), scores, docs);
         }
-        List<QuestionDoc> merged = new ArrayList<>(docs.values());
-        merged.sort((x, y) -> Double.compare(scores.get(y.getQuestionId()), scores.get(x.getQuestionId())));
+        List<QuestionDoc> merged = rankByScore(docs, scores);
         if (merged.size() < size) {
             List<Query> topUpFilters = new ArrayList<>(filters);
             if (!merged.isEmpty()) {
@@ -194,18 +194,38 @@ public class QuestionSemanticSearcher {
         return merged.size() > size ? merged.subList(0, size) : merged;
     }
 
+    // 长句检索：调用方给出的关键词结果与语义结果（只取相似度达标的）按排名倒数融合，两路都命中的排在前面；向量服务不可用时原样返回关键词结果
+    public List<QuestionDoc> fuseWithKeyword(List<QuestionDoc> keywordDocs, String query, List<Query> filters, int size) {
+        float[] vector = aiSearchClient.embedQuery(StrUtil.maxLength(query.trim(), EMBED_TEXT_LIMIT));
+        if (vector == null) {
+            return keywordDocs;
+        }
+        Map<Long, Double> scores = new HashMap<>();
+        Map<Long, QuestionDoc> docs = new LinkedHashMap<>();
+        accumulate(knn(vector, filters, size, minSimilarity), scores, docs);
+        accumulate(keywordDocs, scores, docs);
+        return rankByScore(docs, scores);
+    }
+
     // 排除竞赛题（用 must_not 而不是 term=刷题：旧索引里还没有用途字段的文档按刷题题处理）
     public static Query excludeContest() {
         return Query.of(q -> q.bool(b -> b.mustNot(m -> m.term(t -> t.field(PURPOSE_FIELD).value(QuestionPurposeEnum.CONTEST.getCode())))));
     }
 
     // 按排名倒数累加融合分数
-    private void fuse(List<QuestionDoc> ranked, Map<Long, Double> scores, Map<Long, QuestionDoc> docs) {
+    private void accumulate(List<QuestionDoc> ranked, Map<Long, Double> scores, Map<Long, QuestionDoc> docs) {
         for (int rank = 0; rank < ranked.size(); rank++) {
             QuestionDoc doc = ranked.get(rank);
             scores.merge(doc.getQuestionId(), 1.0 / (RRF_K + rank + 1), Double::sum);
             docs.putIfAbsent(doc.getQuestionId(), doc);
         }
+    }
+
+    // 按融合分数从高到低排列（同分保持先加入的顺序）
+    private List<QuestionDoc> rankByScore(Map<Long, QuestionDoc> docs, Map<Long, Double> scores) {
+        List<QuestionDoc> ranked = new ArrayList<>(docs.values());
+        ranked.sort((x, y) -> Double.compare(scores.get(y.getQuestionId()), scores.get(x.getQuestionId())));
+        return ranked;
     }
 
     // 关键词检索（标题权重更高）

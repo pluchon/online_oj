@@ -17,6 +17,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -31,6 +33,13 @@ public class GlobalExceptionHandler {
     public OJResult<Void> handleMethodNotSupported(HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
         log.warn("请求地址'{}'不支持'{}'请求", request.getRequestURI(), e.getMethod());
         return OJResult.fail(ResultCode.FAILED.getCode(), "不支持的请求方式");
+    }
+
+    // 请求的路径不存在：返回「资源不存在」语义，只记一行 warn，不打堆栈
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public OJResult<Void> handleNotFound(Exception e, HttpServletRequest request) {
+        log.warn("请求地址'{}'不存在", request.getRequestURI());
+        return OJResult.fail(ResultCode.FAILED_NOT_EXISTS.getCode(), "请求的接口不存在");
     }
 
     // 业务异常

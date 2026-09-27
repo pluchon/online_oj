@@ -38,6 +38,7 @@ import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Pageable;
@@ -67,6 +68,9 @@ public class QuestionServiceImpl implements QuestionService {
 
     // 相似题推荐数量
     private static final int SIMILAR_LIMIT = 5;
+
+    // 长句检索时关键词与语义两路各取的题数（融合后在这个范围内分页）
+    private static final int FUSION_LIMIT = 50;
 
     // 候选检索单次最多返回的数量
     private static final int CANDIDATE_LIMIT = 60;
@@ -110,6 +114,10 @@ public class QuestionServiceImpl implements QuestionService {
     // 题目语义检索
     @Autowired
     private QuestionSemanticSearcher questionSemanticSearcher;
+
+    // 按长句处理的最少字数（达到后关键词结果与语义结果融合），可在 Nacos 中覆盖
+    @Value("${oj.ai.search.long-query-length:10}")
+    private int longQueryLength;
 
     // 题目标签查询
     @Autowired
@@ -157,6 +165,11 @@ public class QuestionServiceImpl implements QuestionService {
             Query keywordQuery = hasKeyword ? buildKeywordQuery(queryDTO.getKeyword().trim()) : Query.of(q -> q.matchAll(m -> m));
             List<Query> filters = buildFilters(queryDTO, tagFilterIds, scope);
 
+            // 长句：常用词都能匹配上，只按关键词相关度会把不相干的题排在前面，改为与语义结果融合
+            if (hasKeyword && isLongQuery(queryDTO.getKeyword())) {
+                return searchLongQuery(keywordQuery, queryDTO.getKeyword().trim(), filters, pageNum, pageSize);
+            }
+
             // 执行ES查询（不返回向量字段）
             NativeQuery esQuery = NativeQuery.builder()
                     .withQuery(q -> q.bool(b -> b.must(keywordQuery).filter(filters)))
@@ -192,6 +205,29 @@ public class QuestionServiceImpl implements QuestionService {
             log.error("Elasticsearch题目检索异常，执行MySQL降级查询: {}", e.getMessage(), e);
             return searchFromMySQL(queryDTO, tagFilterIds, scope);
         }
+    }
+
+    // 是否按长句处理（字数达到配置的门槛，短关键词仍只走关键词检索）
+    private boolean isLongQuery(String keyword) {
+        String text = keyword.trim();
+        return text.codePointCount(0, text.length()) >= longQueryLength;
+    }
+
+    // 长句检索：关键词与语义两路各取前若干道按排名融合，在融合结果上分页（融合结果不标语义推荐，那个标记只给关键词零结果时的兜底）
+    private TableDataResult<QuestionVO> searchLongQuery(Query keywordQuery, String keyword, List<Query> filters, int pageNum, int pageSize) {
+        NativeQuery esQuery = NativeQuery.builder()
+                .withQuery(q -> q.bool(b -> b.must(keywordQuery).filter(filters)))
+                .withMaxResults(FUSION_LIMIT)
+                .withSourceFilter(new FetchSourceFilterBuilder().withExcludes(QuestionSemanticSearcher.EMBEDDING_FIELD).build())
+                .build();
+        List<QuestionDoc> keywordDocs = elasticsearchOperations.search(esQuery, QuestionDoc.class).getSearchHits().stream()
+                .map(SearchHit::getContent)
+                .toList();
+        List<QuestionDoc> merged = questionSemanticSearcher.fuseWithKeyword(keywordDocs, keyword, filters, FUSION_LIMIT);
+        int from = (pageNum - 1) * pageSize;
+        List<QuestionVO> voList = QuestionConverter.toVOListFromDoc(CollUtil.sub(merged, from, from + pageSize));
+        populateUserStatusAndTags(voList);
+        return TableDataResult.success(voList, merged.size());
     }
 
     // 查询题目详情：竞赛题只能从竞赛进入（带已开赛且包含该题的竞赛ID），题库入口打不开
