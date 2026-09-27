@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.nuonuoya.friend.mapper.UserSubmitMapper">
+
+    <select id="selectDailyStats" resultType="cn.nuonuoya.api.friend.vo.FriendDailyStatVO">
+        SELECT
+            DATE(create_time) AS date,
+            COUNT(*) AS submitCount,
+            SUM(pass != #{judging}) AS judgedCount,
+            SUM(pass = #{pass}) AS passCount
+        FROM tb_user_submit
+        WHERE create_time &gt;= #{startTime}
+        GROUP BY DATE(create_time)
+        ORDER BY date
+    </select>
+
+    <select id="countDistinctUsers" resultType="int">
+        SELECT COUNT(DISTINCT user_id)
+        FROM tb_user_submit
+        <where>
+            <if test="startTime != null">
+                AND create_time &gt;= #{startTime}
+            </if>
+            <if test="examId != null">
+                AND exam_id = #{examId}
+            </if>
+        </where>
+    </select>
+
+    <select id="selectHardQuestions" resultType="cn.nuonuoya.api.friend.vo.FriendQuestionStatVO">
+        SELECT
+            s.question_id AS questionId,
+            COUNT(*) AS submitCount,
+            SUM(s.pass != #{judging}) AS judgedCount,
+            SUM(s.pass = #{pass}) AS passCount
+        FROM tb_user_submit s
+        INNER JOIN tb_question q ON q.question_id = s.question_id
+        GROUP BY s.question_id
+        HAVING judgedCount &gt;= #{minJudged}
+        ORDER BY passCount / judgedCount, judgedCount DESC, s.question_id
+        LIMIT #{limit}
+    </select>
+
+</mapper>
