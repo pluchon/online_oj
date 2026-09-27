@@ -52,6 +52,10 @@ public class QuestionVO {
     @Schema(description = "题目标签")
     private List<QuestionTagVO> tags;
 
+    // 申诉成立、待修题的数量
+    @Schema(description = "申诉成立、待修题的数量（裁定为通过的申诉晚于用例最后修改；0 表示没有）")
+    private Integer upheldAppealCount;
+
     // 创建时间
     @Schema(description = "创建时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

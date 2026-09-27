@@ -290,7 +290,7 @@ public class UserServiceImpl implements UserService {
             changedTexts.add(introduce);
         }
         if (!changedTexts.isEmpty()) {
-            rejectIfViolated(aiModerationClient.moderateText(changedTexts), "昵称或个人介绍");
+            aiModerationClient.checkTexts(changedTexts, "昵称或个人介绍");
         }
 
         // 构造更新实体
@@ -338,7 +338,7 @@ public class UserServiceImpl implements UserService {
 
         // 校验文件后先做图片审核，再上传至OSS
         ossService.validateAvatar(file);
-        rejectIfViolated(moderateAvatar(file), "头像");
+        aiModerationClient.rejectIfViolated(moderateAvatar(file), "头像");
         String avatarUrl = ossService.uploadAvatar(file);
 
         // 同步持久化至用户表
@@ -578,7 +578,6 @@ public class UserServiceImpl implements UserService {
         userCacheManager.deleteUserCache(userId);
     }
 
-    // 手机号脱敏（保留前3后4）
     // 审核头像图片，读取失败或审核服务不可用时返回 null
     private AiModerationVO moderateAvatar(MultipartFile file) {
         String contentType = StringUtils.hasText(file.getContentType()) ? file.getContentType() : MediaType.IMAGE_PNG_VALUE;
@@ -587,15 +586,6 @@ public class UserServiceImpl implements UserService {
         } catch (IOException e) {
             log.warn("读取头像内容失败，跳过图片审核: {}", e.getMessage());
             return null;
-        }
-    }
-
-    // 审核不通过时拒绝本次操作；审核服务不可用（结论为空）时放行
-    private void rejectIfViolated(AiModerationVO result, String target) {
-        if (result != null && Boolean.FALSE.equals(result.getPass())) {
-            log.info("内容审核未通过, target = {}, category = {}", target, result.getCategory());
-            throw new ServiceException(ResultCode.FAILED_AI_CONTENT_REJECTED,
-                    target + "可能涉及「" + result.getCategory() + "」，请修改后重试");
         }
     }
 }

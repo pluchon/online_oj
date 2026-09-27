@@ -67,10 +67,16 @@ public enum ResultCode {
     FAILED_AI_ACTION_UNAVAILABLE (3406, "当前没有可供分析的提交"),
     FAILED_AI_CONTENT_REJECTED (3407, "内容未通过审核，请修改后重试"),
 
-    // 提交记录与统计相关（35xx）
+    // 提交记录、统计与申诉相关（35xx）
     FAILED_SUBMIT_SERVICE_UNAVAILABLE (3501, "提交记录服务暂不可用，请稍后重试"),
     FAILED_REJUDGE_DELIVER (3502, "判题队列暂不可用，重判已中止，请稍后重试"),
-    FAILED_STATS_UNAVAILABLE (3503, "统计数据暂不可用，请稍后重试");
+    FAILED_STATS_UNAVAILABLE (3503, "统计数据暂不可用，请稍后重试"),
+    FAILED_APPEAL_NOT_ALLOWED (3504, "这条提交不能申诉"),
+    FAILED_APPEAL_REVIEW_QUOTA (3505, "今日 AI 初审次数已用完，明天再来吧"),
+    FAILED_APPEAL_QUOTA (3506, "今日申诉次数已用完，明天再来吧"),
+    FAILED_APPEAL_NOT_REVIEWED (3507, "请先通过 AI 初审再提交申诉"),
+    FAILED_APPEAL_EXISTS (3508, "这条提交已经申诉过了"),
+    FAILED_APPEAL_HANDLED (3509, "该申诉刚被其他管理员裁定，请刷新后再试");
 
     private final int code;
     private final String msg;

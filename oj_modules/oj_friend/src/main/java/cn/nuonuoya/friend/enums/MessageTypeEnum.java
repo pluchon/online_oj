@@ -10,7 +10,10 @@ public enum MessageTypeEnum {
     SYSTEM(1, "系统通知"),
 
     // 竞赛通知（如赛后排名战报）
-    EXAM(2, "竞赛通知");
+    EXAM(2, "竞赛通知"),
+
+    // 审核通知（如提交申诉的裁定结果）
+    AUDIT(3, "审核通知");
 
     // 类型编码
     private final Integer code;

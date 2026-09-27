@@ -3,8 +3,7 @@ package cn.nuonuoya.friend.converter;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
-import cn.nuonuoya.api.friend.vo.FriendSubmitVO;
+import cn.nuonuoya.api.friend.vo.FriendCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.domain.TbQuestionCase;
@@ -13,8 +12,10 @@ import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.vo.QuestionRunResultVO;
 import cn.nuonuoya.friend.vo.SubmitHistoryVO;
 import cn.nuonuoya.friend.vo.UserSubmitResultVO;
+import com.alibaba.fastjson2.JSON;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,6 +27,9 @@ public class UserSubmitConverter {
 
     // 逐用例状态串最大长度（与表字段 varchar(500) 对齐）
     private static final int MAX_CASE_STATES_LENGTH = 500;
+
+    // 单个用例实际输出最多保存的字数
+    private static final int MAX_CASE_OUTPUT_LENGTH = 300;
 
     // 逐用例状态：通过
     private static final char CASE_PASS = '1';
@@ -62,16 +66,6 @@ public class UserSubmitConverter {
         return vo;
     }
 
-    // 将提交记录实体列表转换为管理端列表项
-    public static List<FriendSubmitVO> toManageVOList(List<TbUserSubmit> submitList) {
-        return CollUtil.isEmpty(submitList) ? Collections.emptyList() : BeanUtil.copyToList(submitList, FriendSubmitVO.class);
-    }
-
-    // 将提交记录实体转换为管理端详情（含代码与判题回显）
-    public static FriendSubmitDetailVO toManageDetailVO(TbUserSubmit submit) {
-        return BeanUtil.copyProperties(submit, FriendSubmitDetailVO.class);
-    }
-
     // 将判题结果转换为提交记录更新实体（超长文本按表字段长度截断）
     public static TbUserSubmit toJudgedEntity(JudgeResultVO resultVO) {
         TbUserSubmit submit = new TbUserSubmit();
@@ -86,6 +80,7 @@ public class UserSubmitConverter {
         submit.setFailCaseId(resultVO.getFailCaseId());
         submit.setFailOutput(resultVO.getFailOutput() == null ? null : StrUtil.sub(resultVO.getFailOutput(), 0, MAX_TEXT_LENGTH));
         submit.setCaseStates(buildCaseStates(resultVO));
+        submit.setCaseOutputs(buildCaseOutputs(resultVO));
         submit.setUpdateTime(LocalDateTime.now());
         return submit;
     }
@@ -98,15 +93,38 @@ public class UserSubmitConverter {
         }
         StringBuilder sb = new StringBuilder(caseResults.size());
         for (JudgeCaseResultVO caseResult : caseResults) {
-            if (Boolean.TRUE.equals(caseResult.getPass())) {
-                sb.append(CASE_PASS);
-            } else if (caseResult.getActualOutput() != null
-                    || (caseResult.getCaseId() != null && caseResult.getCaseId().equals(resultVO.getFailCaseId()))) {
-                sb.append(CASE_FAIL);
-            } else {
-                sb.append(CASE_SKIPPED);
-            }
+            Boolean pass = casePass(caseResult, resultVO.getFailCaseId());
+            sb.append(pass == null ? CASE_SKIPPED : (pass ? CASE_PASS : CASE_FAIL));
         }
         return StrUtil.sub(sb.toString(), 0, MAX_CASE_STATES_LENGTH);
+    }
+
+    // 将逐用例结果编码为 JSON：[{caseId, pass, output}]，只保存未通过用例的实际输出（截断），供申诉时逐个用例查看
+    private static String buildCaseOutputs(JudgeResultVO resultVO) {
+        List<JudgeCaseResultVO> caseResults = resultVO.getCaseResults();
+        if (CollUtil.isEmpty(caseResults)) {
+            return null;
+        }
+        List<FriendCaseResultVO> items = new ArrayList<>(caseResults.size());
+        for (JudgeCaseResultVO caseResult : caseResults) {
+            FriendCaseResultVO item = new FriendCaseResultVO();
+            item.setCaseId(caseResult.getCaseId());
+            item.setPass(casePass(caseResult, resultVO.getFailCaseId()));
+            if (Boolean.FALSE.equals(item.getPass()) && caseResult.getActualOutput() != null) {
+                item.setOutput(StrUtil.maxLength(caseResult.getActualOutput(), MAX_CASE_OUTPUT_LENGTH));
+            }
+            items.add(item);
+        }
+        return JSON.toJSONString(items);
+    }
+
+    // 单个用例是否通过：通过为 true，有实际输出或是首个失败用例为 false，其余视为未执行（null）
+    private static Boolean casePass(JudgeCaseResultVO caseResult, Long failCaseId) {
+        if (Boolean.TRUE.equals(caseResult.getPass())) {
+            return true;
+        }
+        boolean failed = caseResult.getActualOutput() != null
+                || (caseResult.getCaseId() != null && caseResult.getCaseId().equals(failCaseId));
+        return failed ? false : null;
     }
 }

@@ -16,10 +16,10 @@ import lombok.ToString;
 @Schema(description = "站内消息分页查询参数")
 public class MessageQueryDTO extends PageQuery {
 
-    // 消息类型（1: 系统通知 2: 竞赛通知，不传为全部）
+    // 消息类型（1: 系统通知 2: 竞赛通知 3: 审核通知，不传为全部）
     @Min(value = 1, message = "消息类型不合法")
-    @Max(value = 2, message = "消息类型不合法")
-    @Schema(description = "消息类型（1: 系统通知 2: 竞赛通知，不传为全部）")
+    @Max(value = 3, message = "消息类型不合法")
+    @Schema(description = "消息类型（1: 系统通知 2: 竞赛通知 3: 审核通知，不传为全部）")
     private Integer type;
 
     // 关键词（匹配标题或内容）

@@ -8,8 +8,11 @@ import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.dto.MessageQueryDTO;
 import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.friend.domain.TbMessage;
+import cn.nuonuoya.friend.domain.TbMessageText;
+import cn.nuonuoya.friend.enums.MessageTypeEnum;
 import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.mapper.MessageMapper;
+import cn.nuonuoya.friend.mapper.MessageTextMapper;
 import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.MessageVO;
 import cn.nuonuoya.security.utils.SecurityUtils;
@@ -31,8 +34,14 @@ import java.util.Objects;
 @Service
 public class MessageServiceImpl implements MessageService {
 
+    // 系统消息发送方标识
+    private static final Long SYSTEM_SENDER_ID = 0L;
+
     @Autowired
     private MessageMapper messageMapper;
+
+    @Autowired
+    private MessageTextMapper messageTextMapper;
 
     @Autowired
     private MessageCacheManager messageCacheManager;
@@ -115,5 +124,28 @@ public class MessageServiceImpl implements MessageService {
 
         // 事务提交后清空缓存中的未读计数
         TransactionUtils.afterCommit(() -> messageCacheManager.clearUnreadCount(userId));
+    }
+
+    // 以系统身份写入消息正文与投递记录，事务提交后给收件人未读数加一
+    @Override
+    public void sendSystemMessage(Long recId, MessageTypeEnum type, String title, String content) {
+        LocalDateTime now = LocalDateTime.now();
+        TbMessageText text = new TbMessageText();
+        text.setMessageType(type.getCode());
+        text.setMessageTitle(title);
+        text.setMessageContent(content);
+        text.setCreateBy(SYSTEM_SENDER_ID);
+        text.setCreateTime(now);
+        messageTextMapper.insert(text);
+
+        TbMessage message = new TbMessage();
+        message.setTextId(text.getTextId());
+        message.setSendId(SYSTEM_SENDER_ID);
+        message.setRecId(recId);
+        message.setIsRead(MessageReadStatusEnum.UNREAD.getCode());
+        message.setCreateBy(SYSTEM_SENDER_ID);
+        message.setCreateTime(now);
+        messageMapper.insert(message);
+        TransactionUtils.afterCommit(() -> messageCacheManager.incrementUnreadCount(recId));
     }
 }

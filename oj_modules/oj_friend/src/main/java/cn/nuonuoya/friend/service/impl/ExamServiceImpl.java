@@ -5,37 +5,31 @@ import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.cache.ExamCacheManager;
-import cn.nuonuoya.friend.cache.MessageCacheManager;
 import cn.nuonuoya.friend.cache.QuestionCacheManager;
 import cn.nuonuoya.friend.cache.UserCacheManager;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
 import cn.nuonuoya.friend.converter.ExamConverter;
 import cn.nuonuoya.friend.domain.TbExam;
 import cn.nuonuoya.friend.domain.TbExamQuestion;
-import cn.nuonuoya.friend.domain.TbMessage;
-import cn.nuonuoya.friend.domain.TbMessageText;
 import cn.nuonuoya.friend.domain.TbUserExam;
 import cn.nuonuoya.friend.domain.TbUserSubmit;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
 import cn.nuonuoya.friend.enums.ExamListTypeEnum;
 import cn.nuonuoya.friend.enums.ExamPublishStatusEnum;
 import cn.nuonuoya.friend.enums.ExamRankSettledEnum;
-import cn.nuonuoya.friend.enums.MessageReadStatusEnum;
 import cn.nuonuoya.friend.enums.MessageTypeEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
-import cn.nuonuoya.friend.mapper.MessageMapper;
-import cn.nuonuoya.friend.mapper.MessageTextMapper;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
 import cn.nuonuoya.friend.service.ExamService;
+import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.ExamRankVO;
 import cn.nuonuoya.friend.vo.ExamStatsVO;
 import cn.nuonuoya.friend.vo.ExamVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
 import cn.nuonuoya.friend.vo.UserVO;
-import cn.nuonuoya.mybatis.utils.TransactionUtils;
 import cn.nuonuoya.redis.service.RedisService;
 import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.security.utils.SecurityUtils;
@@ -65,9 +59,6 @@ import java.util.stream.Collectors;
 @Service
 public class ExamServiceImpl implements ExamService {
 
-    // 系统消息发送方标识
-    private static final Long SYSTEM_SENDER_ID = 0L;
-
     // 结算前等待评测中提交回写的最长时长（分钟）
     private static final long PENDING_JUDGE_WAIT_MINUTES = 10L;
 
@@ -93,13 +84,7 @@ public class ExamServiceImpl implements ExamService {
     private RedisService redisService;
 
     @Autowired
-    private MessageTextMapper messageTextMapper;
-
-    @Autowired
-    private MessageMapper messageMapper;
-
-    @Autowired
-    private MessageCacheManager messageCacheManager;
+    private MessageService messageService;
 
     @Autowired
     private QuestionCacheManager questionCacheManager;
@@ -613,24 +598,9 @@ public class ExamServiceImpl implements ExamService {
     private void sendRankNotices(TbExam exam, List<ExamRankVO> rankList) {
         int totalParticipants = rankList.size();
         for (ExamRankVO vo : rankList) {
-            TbMessageText text = new TbMessageText();
-            text.setMessageType(MessageTypeEnum.EXAM.getCode());
-            text.setMessageTitle("竞赛结果通知");
-            text.setMessageContent("您参与的竞赛：" + exam.getTitle() + "：本次共参赛" + totalParticipants + "人，您排名：第" + vo.getExamRank() + "名！");
-            text.setCreateBy(SYSTEM_SENDER_ID);
-            text.setCreateTime(LocalDateTime.now());
-            messageTextMapper.insert(text);
-
-            TbMessage message = new TbMessage();
-            message.setTextId(text.getTextId());
-            message.setSendId(SYSTEM_SENDER_ID);
-            message.setRecId(vo.getUserId());
-            message.setIsRead(MessageReadStatusEnum.UNREAD.getCode());
-            message.setCreateBy(SYSTEM_SENDER_ID);
-            message.setCreateTime(LocalDateTime.now());
-            messageMapper.insert(message);
+            messageService.sendSystemMessage(vo.getUserId(), MessageTypeEnum.EXAM, "竞赛结果通知",
+                    "您参与的竞赛：" + exam.getTitle() + "：本次共参赛" + totalParticipants + "人，您排名：第" + vo.getExamRank() + "名！");
         }
-        TransactionUtils.afterCommit(() -> rankList.forEach(vo -> messageCacheManager.incrementUnreadCount(vo.getUserId())));
     }
 
     // 竞赛是否已发布且正在进行

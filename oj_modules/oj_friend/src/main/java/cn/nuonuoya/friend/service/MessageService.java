@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.service;
 
+import cn.nuonuoya.friend.enums.MessageTypeEnum;
 import cn.nuonuoya.friend.dto.MessageQueryDTO;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.vo.MessageVO;
@@ -18,4 +19,7 @@ public interface MessageService {
 
     // 一键全部标记为已读
     void readAll();
+
+    // 以系统身份给用户发一条站内消息（在调用方事务内写入，未读数在事务提交后更新）
+    void sendSystemMessage(Long recId, MessageTypeEnum type, String title, String content);
 }

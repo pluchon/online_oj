@@ -8,11 +8,11 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
-// 提交记录分页结果
+// 分页结果（C端内部接口通用）
 @Getter
 @Setter
 @ToString
-public class FriendSubmitPageVO implements Serializable {
+public class FriendPageVO<T> implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
@@ -21,5 +21,5 @@ public class FriendSubmitPageVO implements Serializable {
     private long total;
 
     // 当前页数据
-    private List<FriendSubmitVO> rows;
+    private List<T> rows;
 }

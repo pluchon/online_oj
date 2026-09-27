@@ -8,7 +8,7 @@ import cn.nuonuoya.api.judge.enums.JudgePassEnum;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.vo.JudgeCaseResultVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
-import cn.nuonuoya.judge.enums.QuestionDifficultyScoreEnum;
+import cn.nuonuoya.api.judge.enums.QuestionDifficultyScoreEnum;
 import cn.nuonuoya.judge.pool.DockerContainerPool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

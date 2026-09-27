@@ -20,6 +20,7 @@ import cn.nuonuoya.system.mapper.ExamMapper;
 import cn.nuonuoya.system.mapper.ExamQuestionMapper;
 import cn.nuonuoya.system.mapper.QuestionCaseMapper;
 import cn.nuonuoya.system.mapper.QuestionMapper;
+import cn.nuonuoya.system.service.AppealService;
 import cn.nuonuoya.system.service.QuestionEditorialService;
 import cn.nuonuoya.system.service.QuestionService;
 import cn.nuonuoya.system.service.TagService;
@@ -58,6 +59,9 @@ public class QuestionServiceImpl implements QuestionService {
     private QuestionCaseMapper questionCaseMapper;
 
     @Autowired
+    private AppealService appealService;
+
+    @Autowired
     private TagService tagService;
 
     @Autowired
@@ -84,7 +88,9 @@ public class QuestionServiceImpl implements QuestionService {
             List<Long> pageIds = list.stream().map(QuestionVO::getQuestionId).toList();
             Map<Long, List<QuestionTagVO>> tagMap = tagService.mapQuestionTags(pageIds);
             Set<Long> publishedIds = listPublishedQuestionIds(pageIds);
+            Map<Long, Integer> upheldToFix = appealService.countUpheldToFix(pageIds);
             for (QuestionVO vo : list) {
+                vo.setUpheldAppealCount(upheldToFix.getOrDefault(vo.getQuestionId(), 0));
                 vo.setPublished(publishedIds.contains(vo.getQuestionId()));
                 vo.setDifficultyDesc(QuestionDifficulty.getDescByValue(vo.getDifficulty()));
                 vo.setPurposeDesc(QuestionPurpose.getDescByValue(vo.getPurpose()));
@@ -126,7 +132,7 @@ public class QuestionServiceImpl implements QuestionService {
             throw new ServiceException(ResultCode.FAILED_NOT_EXISTS);
         }
         QuestionDetailVO vo = QuestionConverter.toDetailVO(question);
-        vo.setCases(QuestionConverter.toCaseVOList(listCases(questionId)));
+        vo.setCases(QuestionConverter.toCaseVOList(questionCaseMapper.selectJudgeOrdered(questionId)));
         vo.setTags(tagService.listQuestionTags(questionId));
         vo.setEditorial(questionEditorialService.getContent(questionId));
         return vo;
@@ -153,12 +159,15 @@ public class QuestionServiceImpl implements QuestionService {
         }
         checkCases(editDTO.getCases());
         checkPurposeChange(oldQuestion, editDTO.getPurpose());
-        // 转换更新字段并入库，用例整体替换（旧用例逻辑删除）
+        // 转换更新字段并入库；用例有变化时才整体替换（旧用例逻辑删除），用例ID保持稳定，
+        // 提交记录里按用例ID保存的逐用例结果与「申诉成立、待修题」标记才不会因普通编辑失效
         TbQuestion question = QuestionConverter.toEntity(editDTO);
         int rows = questionMapper.updateById(question);
-        questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
-                .eq(TbQuestionCase::getQuestionId, editDTO.getQuestionId()));
-        saveCases(editDTO.getQuestionId(), editDTO.getCases());
+        if (casesChanged(editDTO.getQuestionId(), editDTO.getCases())) {
+            questionCaseMapper.delete(new LambdaQueryWrapper<TbQuestionCase>()
+                    .eq(TbQuestionCase::getQuestionId, editDTO.getQuestionId()));
+            saveCases(editDTO.getQuestionId(), editDTO.getCases());
+        }
         tagService.replaceQuestionTags(editDTO.getQuestionId(), editDTO.getTagIds());
         questionEditorialService.save(editDTO.getQuestionId(), editDTO.getEditorial());
         notifyQuestionChanged(rows);
@@ -303,12 +312,23 @@ public class QuestionServiceImpl implements QuestionService {
         }
     }
 
-    // 查询题目的全部用例（公开示例在前）
-    private List<TbQuestionCase> listCases(Long questionId) {
-        return questionCaseMapper.selectList(new LambdaQueryWrapper<TbQuestionCase>()
-                .eq(TbQuestionCase::getQuestionId, questionId)
-                .orderByDesc(TbQuestionCase::getIsSample)
-                .orderByAsc(TbQuestionCase::getSortOrder, TbQuestionCase::getCaseId));
+    // 提交的用例与当前用例是否不同（按判题顺序逐项比较规范化后的内容）
+    private boolean casesChanged(Long questionId, List<QuestionCaseDTO> cases) {
+        List<TbQuestionCase> current = questionCaseMapper.selectJudgeOrdered(questionId);
+        List<TbQuestionCase> incoming = QuestionConverter.toCaseEntities(questionId, cases);
+        if (current.size() != incoming.size()) {
+            return true;
+        }
+        for (int i = 0; i < current.size(); i++) {
+            TbQuestionCase a = current.get(i);
+            TbQuestionCase b = incoming.get(i);
+            if (!Objects.equals(a.getDisplayInput(), b.getDisplayInput()) || !Objects.equals(a.getDisplayOutput(), b.getDisplayOutput())
+                    || !Objects.equals(a.getJudgeInput(), b.getJudgeInput()) || !Objects.equals(a.getJudgeOutput(), b.getJudgeOutput())
+                    || !Objects.equals(a.getIsSample(), b.getIsSample())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // 题目有变更时，事务提交后通知C端刷新题目缓存与ES索引

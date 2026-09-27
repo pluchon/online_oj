@@ -1,10 +1,7 @@
 package cn.nuonuoya.friend.service;
 
-import cn.nuonuoya.api.friend.dto.FriendSubmitQueryDTO;
 import cn.nuonuoya.api.friend.vo.FriendRejudgePreviewVO;
 import cn.nuonuoya.api.friend.vo.FriendRejudgeResultVO;
-import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
-import cn.nuonuoya.api.friend.vo.FriendSubmitPageVO;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.dto.QuestionRunDTO;
@@ -31,12 +28,6 @@ public interface UserSubmitService {
 
     // 回写异步判题结果
     void saveJudgeResult(JudgeResultVO resultVO);
-
-    // 管理端按条件分页查询提交记录（不含代码）
-    FriendSubmitPageVO listForManage(FriendSubmitQueryDTO queryDTO);
-
-    // 管理端查询单条提交详情（含代码），不存在返回 null
-    FriendSubmitDetailVO getForManage(Long submitId);
 
     // 预览按题重判的影响范围
     FriendRejudgePreviewVO previewRejudge(Long questionId);

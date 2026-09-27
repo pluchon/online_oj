@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS `tb_user_submit` (
   `fail_case_id` bigint unsigned DEFAULT NULL COMMENT '首个未通过用例id',
   `fail_output` varchar(2000) DEFAULT NULL COMMENT '首个未通过用例的实际输出',
   `case_states` varchar(500) DEFAULT NULL COMMENT '逐用例状态 1:通过 0:未通过 -:未执行',
+  `case_outputs` text DEFAULT NULL COMMENT '逐用例结果(JSON：[{caseId, pass, output}]，只保存未通过用例的实际输出，每条截断)',
   `create_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
@@ -167,7 +168,7 @@ CREATE TABLE IF NOT EXISTS `tb_user_submit` (
 -- 消息正文表
 CREATE TABLE IF NOT EXISTS `tb_message_text` (
   `text_id` bigint unsigned NOT NULL COMMENT '消息内容id(主键)',
-  `message_type` tinyint NOT NULL DEFAULT '1' COMMENT '消息类型 1: 系统通知 2: 竞赛通知',
+  `message_type` tinyint NOT NULL DEFAULT '1' COMMENT '消息类型 1: 系统通知 2: 竞赛通知 3: 审核通知',
   `message_title` varchar(50) NOT NULL COMMENT '消息标题',
   `message_content` varchar(500) NOT NULL COMMENT '消息内容',
   `create_by` bigint unsigned NOT NULL COMMENT '创建人',
@@ -285,6 +286,32 @@ CREATE TABLE IF NOT EXISTS `tb_question_editorial` (
   UNIQUE KEY `uk_active_question` (`active_question_id`),
   KEY `idx_question` (`question_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目官方题解表';
+
+-- 提交申诉表（学员认为判错时提出，AI 初审放行后才能创建；每条提交只能申诉一次）
+CREATE TABLE IF NOT EXISTS `tb_submit_appeal` (
+  `appeal_id` bigint unsigned NOT NULL COMMENT '申诉id(主键)',
+  `submit_id` bigint unsigned NOT NULL COMMENT '被申诉的提交id',
+  `user_id` bigint unsigned NOT NULL COMMENT '申诉人',
+  `question_id` bigint unsigned NOT NULL COMMENT '题目id',
+  `exam_id` bigint unsigned DEFAULT NULL COMMENT '竞赛id(为空表示练习提交)',
+  `reason` varchar(500) NOT NULL COMMENT '申诉理由',
+  `ai_analysis` varchar(2000) NOT NULL DEFAULT '' COMMENT 'AI 初审分析(只给管理员看)',
+  `origin_judge_status` tinyint DEFAULT NULL COMMENT '申诉时的判题结论',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '申诉状态 0: 待处理 1: 存疑 2: 通过 3: 不通过',
+  `handle_by` bigint unsigned DEFAULT NULL COMMENT '裁定人(管理员id)',
+  `handle_time` datetime DEFAULT NULL COMMENT '裁定时间',
+  `create_by` bigint unsigned NOT NULL COMMENT '创建人',
+  `create_time` datetime NOT NULL COMMENT '创建时间(申诉时间)',
+  `update_by` bigint unsigned DEFAULT NULL COMMENT '更新人',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  `delete_state` tinyint NOT NULL DEFAULT '0' COMMENT '0: 正常 1: 已删除',
+  `active_submit_id` bigint unsigned GENERATED ALWAYS AS (IF(`delete_state` = 0, `submit_id`, NULL)) VIRTUAL COMMENT '未删除申诉的提交id(一条提交只能申诉一次)',
+  PRIMARY KEY (`appeal_id`),
+  UNIQUE KEY `uk_active_submit` (`active_submit_id`),
+  KEY `idx_create_time` (`create_time`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_question_status` (`question_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='提交申诉表';
 
 -- -------------------------------------------------------------
 -- 二、测试数据

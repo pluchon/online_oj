@@ -9,7 +9,7 @@ public final class QuestionPrompts {
     }
 
     // 判题约定：用户只写方法，判题时与 main 函数拼进同一个类，全部用例经标准输入一次喂入
-    private static final String JUDGE_CONVENTION = """
+    static final String JUDGE_CONVENTION = """
             【判题约定】
             1. 用户只编写一个 Java 方法（不写类、不写 import），判题时该方法与 main 函数被放进同一个类 Solution，并自动追加 import java.util.*; import java.io.*; 以及 class Main extends Solution {}。
             2. 全部用例经标准输入一次性喂入：第一行是用例组数 t，其后依次是每组用例的输入；每组用例占用固定的行数与顺序。

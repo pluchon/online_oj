@@ -1,8 +1,8 @@
-package cn.nuonuoya.judge.enums;
+package cn.nuonuoya.api.judge.enums;
 
 import lombok.Getter;
 
-// 题目难度满分枚举（按难度确定全部用例通过时的得分）
+// 题目难度满分枚举（契约：判题按它计分，申诉改判为通过时按它记满分）
 @Getter
 public enum QuestionDifficultyScoreEnum {
 

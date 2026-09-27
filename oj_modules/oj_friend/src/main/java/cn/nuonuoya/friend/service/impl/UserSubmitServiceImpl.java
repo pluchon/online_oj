@@ -4,19 +4,15 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.nuonuoya.api.friend.dto.FriendSubmitQueryDTO;
 import cn.nuonuoya.api.friend.vo.FriendRejudgeExamVO;
 import cn.nuonuoya.api.friend.vo.FriendRejudgePreviewVO;
 import cn.nuonuoya.api.friend.vo.FriendRejudgeResultVO;
-import cn.nuonuoya.api.friend.vo.FriendSubmitDetailVO;
-import cn.nuonuoya.api.friend.vo.FriendSubmitPageVO;
 import cn.nuonuoya.api.judge.constants.JudgeMqConstants;
 import cn.nuonuoya.api.judge.dto.JudgeRequestDTO;
 import cn.nuonuoya.api.judge.enums.JudgeStatusEnum;
 import cn.nuonuoya.api.judge.enums.ProgramTypeEnum;
 import cn.nuonuoya.api.judge.vo.JudgeResultVO;
 import cn.nuonuoya.friend.constants.FriendCacheConstants;
-import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.client.JudgeClient;
@@ -39,6 +35,7 @@ import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
 import cn.nuonuoya.friend.mapper.QuestionMapper;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
+import cn.nuonuoya.friend.service.AppealService;
 import cn.nuonuoya.friend.service.QuestionCaseService;
 import cn.nuonuoya.friend.service.UserSubmitService;
 import cn.nuonuoya.friend.vo.QuestionRunResultVO;
@@ -113,6 +110,9 @@ public class UserSubmitServiceImpl implements UserSubmitService {
 
     @Autowired
     private TransactionTemplate transactionTemplate;
+
+    @Autowired
+    private AppealService appealService;
 
     // 提交代码、落库初始化记录并向 RabbitMQ 投递异步判题任务（全部用例）
     // 记录先独立提交再投递消息，避免判题结果先于记录提交回写而丢失
@@ -250,60 +250,9 @@ public class UserSubmitServiceImpl implements UserSubmitService {
             return TableDataResult.empty();
         }
         long total = new PageInfo<>(submitList).getTotal();
-        return TableDataResult.success(UserSubmitConverter.toHistoryVOList(submitList), total);
-    }
-
-    // 管理端按条件分页查询提交记录（按提交时间倒序，不查代码与回显等大字段）
-    @Override
-    public FriendSubmitPageVO listForManage(FriendSubmitQueryDTO queryDTO) {
-        FriendSubmitPageVO page = new FriendSubmitPageVO();
-        page.setRows(Collections.emptyList());
-        if (queryDTO == null) {
-            queryDTO = new FriendSubmitQueryDTO();
-        }
-        // 调用方按昵称没有匹配到用户时直接返回空页
-        if (queryDTO.getUserIds() != null && queryDTO.getUserIds().isEmpty()) {
-            return page;
-        }
-        LambdaQueryWrapper<TbUserSubmit> wrapper = new LambdaQueryWrapper<TbUserSubmit>()
-                .select(TbUserSubmit::getSubmitId, TbUserSubmit::getUserId, TbUserSubmit::getQuestionId,
-                        TbUserSubmit::getExamId, TbUserSubmit::getProgramType, TbUserSubmit::getPass,
-                        TbUserSubmit::getJudgeStatus, TbUserSubmit::getScore, TbUserSubmit::getPassCount,
-                        TbUserSubmit::getTotalCount, TbUserSubmit::getTimeCost, TbUserSubmit::getCreateTime,
-                        TbUserSubmit::getUpdateTime)
-                .eq(queryDTO.getQuestionId() != null, TbUserSubmit::getQuestionId, queryDTO.getQuestionId())
-                .in(CollUtil.isNotEmpty(queryDTO.getUserIds()), TbUserSubmit::getUserId, queryDTO.getUserIds())
-                .eq(queryDTO.getExamId() != null, TbUserSubmit::getExamId, queryDTO.getExamId())
-                .isNull(Boolean.TRUE.equals(queryDTO.getPracticeOnly()), TbUserSubmit::getExamId);
-        if (Boolean.TRUE.equals(queryDTO.getJudging())) {
-            wrapper.eq(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode());
-        } else if (queryDTO.getJudgeStatus() != null) {
-            wrapper.eq(TbUserSubmit::getJudgeStatus, queryDTO.getJudgeStatus());
-        }
-        wrapper.orderByDesc(TbUserSubmit::getCreateTime).orderByDesc(TbUserSubmit::getSubmitId);
-
-        // 复用公共分页参数的纠正规则（默认值与每页上限）
-        PageQuery pageQuery = new PageQuery();
-        pageQuery.setPageNum(queryDTO.getPageNum());
-        pageQuery.setPageSize(queryDTO.getPageSize());
-        PageHelper.startPage(pageQuery.getPageNum(), pageQuery.getPageSize());
-        List<TbUserSubmit> submitList = userSubmitMapper.selectList(wrapper);
-        if (CollUtil.isEmpty(submitList)) {
-            return page;
-        }
-        page.setTotal(new PageInfo<>(submitList).getTotal());
-        page.setRows(UserSubmitConverter.toManageVOList(submitList));
-        return page;
-    }
-
-    // 管理端查询单条提交详情（含代码），不存在返回 null
-    @Override
-    public FriendSubmitDetailVO getForManage(Long submitId) {
-        if (submitId == null) {
-            return null;
-        }
-        TbUserSubmit submit = userSubmitMapper.selectById(submitId);
-        return submit == null ? null : UserSubmitConverter.toManageDetailVO(submit);
+        List<SubmitHistoryVO> voList = UserSubmitConverter.toHistoryVOList(submitList);
+        appealService.fillHistoryAppeal(voList, submitList);
+        return TableDataResult.success(voList, total);
     }
 
     // 预览按题重判的影响范围（与重判使用同一套范围规则）
@@ -426,6 +375,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
                 .set(TbUserSubmit::getFailCaseId, null)
                 .set(TbUserSubmit::getFailOutput, null)
                 .set(TbUserSubmit::getCaseStates, null)
+                .set(TbUserSubmit::getCaseOutputs, null)
                 .set(TbUserSubmit::getUpdateTime, LocalDateTime.now())
                 .eq(TbUserSubmit::getSubmitId, submitId)
                 .ne(TbUserSubmit::getPass, SubmitPassEnum.JUDGING.getCode())));

@@ -3,7 +3,9 @@ package cn.nuonuoya.friend.client;
 import cn.nuonuoya.api.ai.dto.AiImageModerationDTO;
 import cn.nuonuoya.api.ai.dto.AiTextModerationDTO;
 import cn.nuonuoya.api.ai.vo.AiModerationVO;
+import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.friend.constants.SentinelResources;
+import cn.nuonuoya.security.exception.ServiceException;
 import cn.nuonuoya.sentinel.SentinelGuard;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,20 @@ public class AiModerationClient {
 
     @Autowired
     private AiModerationFeignClient aiModerationFeignClient;
+
+    // 审核文本，不通过时拒绝本次操作（审核服务不可用时放行）；target 为提示里的内容名称，如「申诉理由」
+    public void checkTexts(List<String> texts, String target) {
+        rejectIfViolated(moderateText(texts), target);
+    }
+
+    // 审核结论为不通过时拒绝本次操作；审核服务不可用（结论为空）时放行
+    public void rejectIfViolated(AiModerationVO result, String target) {
+        if (result != null && Boolean.FALSE.equals(result.getPass())) {
+            log.info("内容审核未通过, target = {}, category = {}", target, result.getCategory());
+            throw new ServiceException(ResultCode.FAILED_AI_CONTENT_REJECTED,
+                    target + "可能涉及「" + result.getCategory() + "」，请修改后重试");
+        }
+    }
 
     // 审核文本，服务不可用时返回 null
     public AiModerationVO moderateText(List<String> texts) {

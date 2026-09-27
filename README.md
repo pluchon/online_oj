@@ -317,6 +317,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
 * `GET  /friend/ai/tutor/{questionId}`：AI 辅导会话（历史消息、今日剩余次数、快捷操作所需的提交状态）
 * `POST /friend/ai/tutor/{questionId}/chat`：AI 辅导提问，SSE 流式返回（`delta` / `done` / `error`）；每人每天 50 次（剩余不超过 5 次时前端才显示），在进行中的竞赛里答题（携带 examId）时拒绝
+* `GET  /friend/appeal/quota`、`POST /friend/appeal/review/{submitId}`、`POST /friend/appeal`：提交申诉（先由 AI 初审，每天 10 次；初审认为可能判错才能正式申诉，每天 5 次，须填理由；练习提交与已结束竞赛的提交可申诉，每条提交只能申诉一次）
 
 ### 2. B端管理系统接口 (`/system/**`)
 * `POST /system/sysUser/login`、`DELETE /system/sysUser/logout`、`GET /system/sysUser/me`：管理员登录、退出与当前信息
@@ -329,13 +330,14 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排（只能添加竞赛题，已在结束的竞赛中公开过的题不能再用）
 * `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
-* `GET  /system/submit`、`GET /system/submit/{submitId}`：提交记录（按题目、用户昵称、判题结论、练习或竞赛筛选；详情含代码、逐用例结果与首个未通过用例）
+* `GET  /system/appeal`、`GET /system/appeal/{appealId}`、`PUT /system/appeal/{appealId}/handle`：申诉管理（按用户 ID、题目名称、最近天数筛选，按申诉时间倒序；详情含申诉理由、AI 初审分析、代码与逐用例输入/预期/实际输出；裁定为存疑、通过（改判为通过并通知学员）或不通过（驳回并通知），规则见前端仓库 `.agents/DECISIONS.md` D-017）
 * `GET  /system/overview`：数据概览（今日与近 7 天的提交数、通过率、活跃用户，近 7 天趋势，难题榜，最近一场竞赛的报名与参赛人数；口径见前端仓库 `.agents/DECISIONS.md` D-016）
-* `GET|POST /system/submit/rejudge/{questionId}`：按题重判的影响范围预览与执行（重判练习提交和未结算竞赛的提交，已结算竞赛与评测中的跳过）
+* `GET|POST /system/submit/rejudge/{questionId}`：按题重判的影响范围预览与执行（入口在题目抽屉：修改用例保存后提示）（重判练习提交和未结算竞赛的提交，已结算竞赛与评测中的跳过）
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
 * `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`、`POST /ai/internal/question/solution`、`POST /ai/internal/question/editorial`：system 调用 AI 生成题面草稿、用例输入、解法与题解草稿
+* `POST /ai/internal/appeal/review`：friend 发起申诉 AI 初审（只判断判题或用例是否可能有误，分析只给管理员看）
 * `POST /ai/internal/tutor/chat`：friend 以 WebClient 流式调用 AI 辅导（Feign 不支持流式，路径常量在 `AiInternalPaths`）
 * `POST /ai/internal/exam/intent`、`POST /ai/internal/exam/select`：system AI 帮建竞赛时理解需求、从候选中挑题
 * `POST /ai/internal/embedding`：friend 计算题目与查询词向量
@@ -345,7 +347,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /friend/internal/question/candidates`：system AI 帮建竞赛时混合检索候选题目（向量 + 关键词）
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
 * `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛（竞赛里还有 10 分钟内投递、尚未回写的提交时推迟到下一轮）
-* `POST /friend/internal/submit/list`、`GET /friend/internal/submit/{submitId}`：system 查询提交记录（提交记录归 friend，system 不直接读表）
+* `POST /friend/internal/appeal/list`、`GET /friend/internal/appeal/{appealId}`、`POST /friend/internal/appeal/{appealId}/handle`、`POST /friend/internal/appeal/upheld-stats`：system 申诉管理（申诉与提交归 friend，裁定为通过时由 friend 改判并发消息；统计用于题目列表的「申诉成立、待修题」标记）
 * `GET /friend/internal/stats/overview`：system 数据概览的统计汇总（提交与报名数据归 friend，system 补题目与竞赛名称）
 * `GET /friend/internal/submit/rejudge/preview`、`POST /friend/internal/submit/rejudge`：system 按题重判（逐条改回评测中再投递判题队列，重复点击不会重复投递）
 * `POST /system/internal/question/publish`：job 定时公开已结束竞赛的题目（所在竞赛全部结束的竞赛题改为刷题，进入 C 端题库）

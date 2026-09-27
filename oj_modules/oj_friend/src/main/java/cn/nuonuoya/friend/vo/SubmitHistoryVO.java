@@ -52,4 +52,12 @@ public class SubmitHistoryVO {
     @Schema(description = "提交时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
+
+    // 申诉状态（见 AppealStatusEnum，未申诉为空）
+    @Schema(description = "申诉状态 0:待处理 1:存疑 2:通过 3:不通过，未申诉为空")
+    private Integer appealStatus;
+
+    // 是否可以申诉（未通过、非系统错误、不在进行中的竞赛里、还没申诉过）
+    @Schema(description = "是否可以申诉")
+    private Boolean appealable;
 }

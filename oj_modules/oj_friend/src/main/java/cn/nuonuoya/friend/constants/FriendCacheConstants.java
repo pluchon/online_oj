@@ -44,4 +44,16 @@ public class FriendCacheConstants {
 
     // 进行中竞赛的排名缓存有效期（分钟）
     public final static long EXAM_RANK_ONGOING_TTL_MINUTES = 3;
+
+    // 申诉 AI 初审每日次数计数键前缀（appeal:review:quota:{userId}:{yyyyMMdd}）
+    public final static String APPEAL_REVIEW_QUOTA_KEY = "appeal:review:quota:";
+
+    // 正式申诉每日次数计数键前缀（appeal:quota:{userId}:{yyyyMMdd}）
+    public final static String APPEAL_QUOTA_KEY = "appeal:quota:";
+
+    // AI 初审结论缓存键前缀（appeal:review:{submitId}），初审放行后在有效期内才能正式申诉
+    public final static String APPEAL_REVIEW_RESULT_KEY = "appeal:review:";
+
+    // AI 初审结论有效期（分钟）
+    public final static long APPEAL_REVIEW_RESULT_TTL_MINUTES = 60;
 }

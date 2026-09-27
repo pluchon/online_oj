@@ -22,6 +22,9 @@ public class AiProperties {
     // 用例输入的采样温度（略高以覆盖更多情形）
     private Double caseTemperature = 0.8;
 
+    // 申诉初审的采样温度（判断类任务，取低值保证结论稳定；模型与出题共用 questionModel）
+    private Double appealTemperature = 0.1;
+
     // 做题辅导对话使用的模型
     private String tutorModel = "qwen3.7-flash";
 
