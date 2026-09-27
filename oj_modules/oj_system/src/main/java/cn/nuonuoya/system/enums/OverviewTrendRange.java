@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-// 数据概览趋势的时间范围：统计多长时间、每个点代表多长一段（D-019）
+// 数据概览趋势的时间范围：统计多长时间、每个点代表多长一段
 @AllArgsConstructor
 @Getter
 public enum OverviewTrendRange {

@@ -72,7 +72,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-// 提交申诉业务实现（D-017）：AI 初审放行后才能正式申诉；学员看到的文案由后端按结论选定，AI 分析只给管理员
+// 提交申诉业务实现：AI 初审放行后才能正式申诉；学员看到的文案由后端按结论选定，AI 分析只给管理员
 @Slf4j
 @Service
 public class AppealServiceImpl implements AppealService {
@@ -254,7 +254,7 @@ public class AppealServiceImpl implements AppealService {
         return AppealConverter.toDetailVO(appeal, userSubmitMapper.selectById(appeal.getSubmitId()));
     }
 
-    // 裁定（D-018：已裁定的也可以改）：以读到的原状态做条件更新，防止两位管理员同时改；
+    // 裁定（已裁定的也可以改）：以读到的原状态做条件更新，防止两位管理员同时改；
     // 提交结论跟随申诉状态——改为通过即改判为满分，从通过改走则恢复申诉时的原结论；结论变化或给出终态时通知学员
     @Override
     @Transactional(rollbackFor = Exception.class)

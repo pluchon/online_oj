@@ -1,5 +1,6 @@
 package cn.nuonuoya.friend.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
@@ -23,6 +24,7 @@ import cn.nuonuoya.friend.mapper.ExamMapper;
 import cn.nuonuoya.friend.mapper.ExamQuestionMapper;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
+import cn.nuonuoya.friend.service.ExamReviewService;
 import cn.nuonuoya.friend.service.ExamService;
 import cn.nuonuoya.friend.service.MessageService;
 import cn.nuonuoya.friend.vo.ExamRankVO;
@@ -50,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -73,6 +76,9 @@ public class ExamServiceImpl implements ExamService {
 
     @Autowired
     private UserSubmitMapper userSubmitMapper;
+
+    @Autowired
+    private ExamReviewService examReviewService;
 
     @Autowired
     private ExamQuestionMapper examQuestionMapper;
@@ -209,6 +215,7 @@ public class ExamServiceImpl implements ExamService {
         if (!hasFilter) {
             List<UserExamVO> cachedList = examCacheManager.getMyExamList(userId, pageNum, pageSize);
             populateUserExamCountFields(cachedList);
+            populateReviewable(cachedList, userId);
             return cachedList;
         }
 
@@ -273,6 +280,7 @@ public class ExamServiceImpl implements ExamService {
             voList.add(ExamConverter.toUserExamVO(exam, ue));
         }
         populateUserExamCountFields(voList);
+        populateReviewable(voList, userId);
         return voList;
     }
 
@@ -429,6 +437,18 @@ public class ExamServiceImpl implements ExamService {
         }
     }
 
+    // 标记可以看赛后复盘的竞赛
+    private void populateReviewable(List<UserExamVO> voList, Long userId) {
+        if (CollUtil.isEmpty(voList)) {
+            return;
+        }
+        Set<Long> reviewable = examReviewService.listReviewableExamIds(userId,
+                voList.stream().map(UserExamVO::getExamId).toList());
+        for (UserExamVO vo : voList) {
+            vo.setReviewable(reviewable.contains(vo.getExamId()));
+        }
+    }
+
     // 按竞赛ID批量统计参赛人数与题目数量
     private ExamCounts countByExamIds(List<Long> examIds) {
         Map<Long, Long> enterCountMap = userExamMapper.selectList(new LambdaQueryWrapper<TbUserExam>()
@@ -556,8 +576,8 @@ public class ExamServiceImpl implements ExamService {
 
             UserVO user = userCacheManager.getUserById(vo.getUserId());
             if (user != null) {
+                BeanUtil.copyProperties(user, vo, "userId", "nickName");
                 vo.setNickName(StringUtils.hasText(user.getNickName()) ? user.getNickName() : "用户_" + vo.getUserId());
-                vo.setHeadImage(user.getHeadImage());
             } else {
                 vo.setNickName("用户_" + vo.getUserId());
             }
@@ -585,10 +605,8 @@ public class ExamServiceImpl implements ExamService {
                 continue;
             }
             if (!Objects.equals(ue.getScore(), rankVO.getScore()) || !Objects.equals(ue.getExamRank(), rankVO.getExamRank())) {
-                TbUserExam update = new TbUserExam();
+                TbUserExam update = BeanUtil.copyProperties(rankVO, TbUserExam.class, "userId");
                 update.setUserExamId(ue.getUserExamId());
-                update.setScore(rankVO.getScore());
-                update.setExamRank(rankVO.getExamRank());
                 userExamMapper.updateById(update);
             }
         }

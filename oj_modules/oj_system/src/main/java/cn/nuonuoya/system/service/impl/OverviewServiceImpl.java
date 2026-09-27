@@ -35,7 +35,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-// 数据概览业务实现（口径见 D-016、D-019）
+// 数据概览业务实现（通过率分母为已出结论的提交，人数按用户去重）
 @Service
 public class OverviewServiceImpl implements OverviewService {
 

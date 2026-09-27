@@ -10,6 +10,7 @@ import cn.nuonuoya.api.friend.vo.FriendPeriodStatVO;
 import cn.nuonuoya.api.friend.vo.FriendSubmitStatBaseVO;
 import cn.nuonuoya.common.enums.ResultCode;
 import cn.nuonuoya.api.friend.enums.AppealStatusEnum;
+import cn.nuonuoya.friend.enums.QuestionCaseTypeEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
@@ -27,7 +28,7 @@ import java.util.function.Function;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
-// 统计业务实现（口径见 D-016、D-019：通过率分母为已出结论的提交，活跃用户与竞赛人数都按用户去重）
+// 统计业务实现（通过率分母为已出结论的提交，活跃用户与竞赛人数都按用户去重）
 @Service
 public class StatsServiceImpl implements StatsService {
 
@@ -84,7 +85,7 @@ public class StatsServiceImpl implements StatsService {
         return vo;
     }
 
-    // 难题分析统计：门槛与难题榜一致，三组数字都由 SQL 算好
+    // 难题分析统计：门槛与难题榜一致，三组数字都由 SQL 算好；失败集中的用例只看隐藏用例
     @Override
     public FriendHardAnalysisVO getHardAnalysis() {
         Integer judging = SubmitPassEnum.JUDGING.getCode();
@@ -92,7 +93,7 @@ public class StatsServiceImpl implements StatsService {
         Integer notPass = SubmitPassEnum.NOT_PASS.getCode();
         FriendHardAnalysisVO vo = new FriendHardAnalysisVO();
         vo.setQuestions(userSubmitMapper.selectHardQuestionStats(HARD_QUESTION_MIN_JUDGED, judging, pass, notPass,
-                AppealStatusEnum.UPHELD.getCode()));
+                QuestionCaseTypeEnum.HIDDEN.getCode(), AppealStatusEnum.UPHELD.getCode()));
         if (vo.getQuestions().isEmpty()) {
             return vo;
         }

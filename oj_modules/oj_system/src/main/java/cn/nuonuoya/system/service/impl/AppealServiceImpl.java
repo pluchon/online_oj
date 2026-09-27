@@ -41,7 +41,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// 申诉管理业务实现（规则见 D-017）
+// 申诉管理业务实现（学员经 AI 初审放行后提交，管理员裁定为存疑、通过或不通过）
 @Service
 public class AppealServiceImpl implements AppealService {
 

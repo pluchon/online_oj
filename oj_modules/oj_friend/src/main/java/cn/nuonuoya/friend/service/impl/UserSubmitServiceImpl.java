@@ -276,7 +276,7 @@ public class UserSubmitServiceImpl implements UserSubmitService {
         return vo;
     }
 
-    // 按题重判（D-015）：练习提交与未结算竞赛的提交逐条抢占为评测中再投递，已在评测中的跳过，保证重复点击不重复投递
+    // 按题重判：练习提交与未结算竞赛的提交逐条抢占为评测中再投递，已在评测中的跳过，保证重复点击不重复投递
     @Override
     public FriendRejudgeResultVO rejudge(Long questionId) {
         FriendRejudgeResultVO result = new FriendRejudgeResultVO();

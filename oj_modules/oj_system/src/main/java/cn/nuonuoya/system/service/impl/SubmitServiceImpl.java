@@ -14,7 +14,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-// 按题重判业务实现（重判范围见 D-015，由 oj-friend 执行）
+// 按题重判业务实现（练习提交与未结算竞赛的提交重新判题，由 oj-friend 执行）
 @Service
 public class SubmitServiceImpl implements SubmitService {
 

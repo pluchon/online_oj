@@ -18,10 +18,10 @@ public class FriendHardQuestionStatVO extends FriendSubmitStatBaseVO {
     // 题目ID
     private Long questionId;
 
-    // 记录了首个未通过用例的失败提交数（编译错误等没跑到用例的不计）
+    // 首个未通过用例是隐藏用例的失败提交数（编译错误、卡在公开示例上的不计）
     private Integer caseFailCount = 0;
 
-    // 失败最集中的用例ID（没有记录时为空）
+    // 失败最集中的隐藏用例ID（没有记录时为空）
     private Long topCaseId;
 
     // 首个未通过用例是该用例的失败提交数

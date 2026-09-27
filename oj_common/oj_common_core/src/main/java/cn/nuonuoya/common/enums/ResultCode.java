@@ -47,6 +47,9 @@ public enum ResultCode {
     FAILED_EXAM_RANK_NOT_PUBLISHED (3214, "竞赛结束后公布排名"),
     FAILED_EXAM_QUESTION_NOT_CONTEST (3215, "竞赛只能添加竞赛题"),
     FAILED_EXAM_QUESTION_PUBLISHED (3216, "该题已在结束的竞赛中公开，不能再用于新竞赛"),
+    FAILED_EXAM_REVIEW_NOT_READY (3217, "竞赛成绩还在结算中，请稍后再看复盘"),
+    FAILED_EXAM_REVIEW_NO_SUBMIT (3218, "这场竞赛没有你的提交记录，无法生成复盘"),
+    FAILED_EXAM_REVIEW_REGENERATE_LIMIT (3219, "这场竞赛的复盘重新生成次数已用完"),
 
     // 判题相关
     FAILED_QUESTION_NO_CASE (3301, "题目尚未配置测试用例"),

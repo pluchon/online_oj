@@ -93,7 +93,7 @@ online_oj/
 ├── deploy/                          # 本地编排与初始化脚本
 │   ├── docker-compose.yml           # MySQL、Redis、Nacos、RabbitMQ、ES、Kibana、XXL-JOB Admin、Zipkin
 │   ├── .env.example                 # compose 所需密钥模板（复制为 .env，不入库）
-│   ├── db_sql/oj_init.sql           # 业务库表结构 + 测试数据 + XXL-JOB 库（MySQL 首次启动自动执行，可重复执行）
+│   ├── db_sql/oj_init.sql           # 业务库表结构 + 演示数据 + XXL-JOB 库（MySQL 首次启动自动执行，可重复执行）
 │   ├── nacos/nacos_v3_init.sql      # Nacos 3.x 配置库表结构（在业务库脚本之后自动执行）
 │   ├── nacos/config/                # 各服务的 Nacos 配置模板（密钥引用 OJ_ 环境变量，不含真实值）
 │   ├── docs/                        # 模型价格等参考资料
@@ -216,7 +216,7 @@ docker compose up -d
 
 > [!NOTE]
 > - MySQL 数据卷首次创建时自动执行 `db_sql/oj_init.sql`（业务库 `bitoj_dev`、测试数据、调度库 `xxl_job`）和 `nacos/nacos_v3_init.sql`（Nacos 配置库 `bitoj_nacos_v3`）；已有数据卷不会重复执行，需要时手动执行，脚本可重复执行且不覆盖已有数据。
-> - 测试数据：15 道题（简单 6 / 中等 5 / 困难 4，用例的预期输出由参考解实跑得到）、5 场竞赛（时间以初始化时刻为基准：已结算、已结束待结算、进行中、未开始、未发布各一场）、8 个用户、提交记录与站内消息。管理端账号 `admin / 123456`，用户端手机号 `13800000001` ~ `13800000007`（`13800000008` 为拉黑账号），XXL-JOB 调度中心 `admin / 123456`。
+> - 演示数据：30 道题（刷题 20、竞赛题 10；简单 12 / 中等 13 / 困难 5，含标签与 15 篇题解；用例的预期输出由参考解经判题服务实跑得到）、6 场竞赛（时间以初始化时刻为基准：2 场已结算、1 场刚结束待结算、进行中、未开始、未发布各一场）、20 个学员、近一年约 780 条提交（判题字段来自对参考解与各类错误代码的实跑结果）、7 条申诉与站内消息。管理端账号 `admin / 123456`，用户端手机号 `13800000001` ~ `13800000020`（`13800000008` 为拉黑账号），XXL-JOB 调度中心 `admin / 123456`。
 > - IK 分词插件需与 ES 同版本（8.18.8），放在 `deploy/dev/elasticSearch/es-plugins/ik`；jar 包不入库，从 INFINI Labs 发布页下载后解压到该目录，保留其中的 `config/` 词典。
 > - compose 与各服务读取的环境变量都带 `OJ_` 前缀，避免与本机其他项目的 `NACOS_*` 变量冲突。
 
@@ -313,6 +313,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET  /friend/exam/mine`：我报名的竞赛
 * `GET  /friend/exam/stats?mine=`：竞赛状态统计（全部或已报名，不受列表筛选影响）
 * `GET  /friend/exam/{examId}/rank`：竞赛排名（竞赛结束后公布）
+* `GET|POST /friend/exam/{examId}/review`、`POST /friend/exam/{examId}/review/regeneration`：赛后复盘（竞赛已结束且已结算、本人有提交；第一次打开时生成，本人提交结果变化后自动重新生成；学员每场可手动重新生成 3 次；成绩与逐题统计由 SQL 得出，AI 只写点评与总结，不给代码、不透露隐藏用例）
 * `GET  /friend/message`、`GET /friend/message/unread-count`：站内消息（支持 type 类型、keyword 关键词筛选）与未读数
 * `PUT  /friend/message/{messageId}/read`、`PUT /friend/message/read/all`：标记已读
 * `GET  /friend/ai/tutor/{questionId}`：AI 辅导会话（历史消息、今日剩余次数、快捷操作所需的提交状态）
@@ -330,14 +331,17 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `PUT|DELETE /system/exam/{examId}/publish`：发布、撤销发布竞赛
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排（只能添加竞赛题，已在结束的竞赛中公开过的题不能再用）
 * `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
-* `GET  /system/appeal`、`GET /system/appeal/{appealId}`、`PUT /system/appeal/{appealId}/handle`：申诉管理（按用户 ID、题目名称、最近天数筛选，按申诉时间倒序；详情含申诉理由、AI 初审分析、代码与逐用例输入/预期/实际输出；裁定为存疑、通过（改判为通过并通知学员）或不通过（驳回并通知），规则见前端仓库 `.agents/DECISIONS.md` D-017）
-* `GET  /system/overview`、`GET /system/overview/trend?range=`、`GET /system/overview/exam?days=&pageNum=&pageSize=`：数据概览（今日与近 7 天的提交数、活跃用户与难题榜；提交趋势（range 为 WEEK / TWO_WEEKS / MONTH 按天，HALF_YEAR 按周，YEAR 按半月）；近 N 天（1 ~ 30）内进行过的竞赛的去重报名、参赛人数与分页列表；口径见前端仓库 `.agents/DECISIONS.md` D-016、D-019）
+* `GET  /system/appeal`、`GET /system/appeal/{appealId}`、`PUT /system/appeal/{appealId}/handle`：申诉管理（按用户 ID、题目名称、最近天数筛选，按申诉时间倒序；详情含申诉理由、AI 初审分析、代码与逐用例输入/预期/实际输出；裁定为存疑、通过（改判为通过并通知学员）或不通过（驳回并通知））
+* `GET  /system/overview`、`GET /system/overview/trend?range=`、`GET /system/overview/exam?days=&pageNum=&pageSize=`：数据概览（今日与近 7 天的提交数、活跃用户与难题榜；提交趋势（range 为 WEEK / TWO_WEEKS / MONTH 按天，HALF_YEAR 按周，YEAR 按半月）；近 N 天（1 ~ 30）内进行过的竞赛的去重报名、参赛人数与分页列表；通过率分母为已出结论的提交，人数按用户去重）
+* `GET|POST /system/overview/hard-analysis`：难题分析（对已出结论的提交满 5 条的题统计出题质量提醒（失败集中在单个隐藏用例、或有成立的申诉；卡在公开示例上不算）、按标签的通过率最低与最高、判题结论分布，由 AI 归纳结论并判断可疑题；少于 3 道题时不调用 AI；结果存 Redis 不过期，POST 重新分析时覆盖）
 * `GET|POST /system/submit/rejudge/{questionId}`：按题重判的影响范围预览与执行（入口在题目抽屉：修改用例保存后提示）（重判练习提交和未结算竞赛的提交，已结算竞赛与评测中的跳过）
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
 * `POST /judge/internal/run`：friend 同步运行示例、system 运行标程得到用例输出
 * `POST /ai/internal/question/draft`、`POST /ai/internal/question/case-inputs`、`POST /ai/internal/question/solution`、`POST /ai/internal/question/editorial`：system 调用 AI 生成题面草稿、用例输入、解法与题解草稿
 * `POST /ai/internal/appeal/review`：friend 发起申诉 AI 初审（只判断判题或用例是否可能有误，分析只给管理员看）
+* `POST /ai/internal/review/exam`：friend 生成赛后复盘的逐题点评与整体总结
+* `POST /ai/internal/analysis/hard-questions`：system 难题分析时归纳薄弱点、错误类型并判断可疑题
 * `POST /ai/internal/tutor/chat`：friend 以 WebClient 流式调用 AI 辅导（Feign 不支持流式，路径常量在 `AiInternalPaths`）
 * `POST /ai/internal/exam/intent`、`POST /ai/internal/exam/select`：system AI 帮建竞赛时理解需求、从候选中挑题
 * `POST /ai/internal/embedding`：friend 计算题目与查询词向量
@@ -347,6 +351,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /friend/internal/question/candidates`：system AI 帮建竞赛时混合检索候选题目（向量 + 关键词）
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
 * `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛（竞赛里还有 10 分钟内投递、尚未回写的提交时推迟到下一轮）
+* `GET  /friend/internal/stats/hard-analysis`、`GET /friend/internal/stats/failed-samples`：system 难题分析取统计数字与失败代码样本
 * `POST /friend/internal/appeal/list`、`GET /friend/internal/appeal/{appealId}`、`POST /friend/internal/appeal/{appealId}/handle`、`POST /friend/internal/appeal/upheld-stats`：system 申诉管理（申诉与提交归 friend，裁定为通过时由 friend 改判并发消息；统计用于题目列表的「申诉成立、待修题」标记）
 * `GET /friend/internal/stats/overview`、`GET /friend/internal/stats/trend`、`POST /friend/internal/stats/exam`：system 数据概览的统计汇总、每日趋势、指定竞赛的报名与参赛人数（提交与报名数据归 friend；竞赛按时间段筛选与分页在 system，system 补题目与竞赛信息）
 * `GET /friend/internal/submit/rejudge/preview`、`POST /friend/internal/submit/rejudge`：system 按题重判（逐条改回评测中再投递判题队列，重复点击不会重复投递）

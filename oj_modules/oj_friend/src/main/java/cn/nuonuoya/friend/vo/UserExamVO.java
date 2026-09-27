@@ -65,4 +65,8 @@ public class UserExamVO {
     // 题目数量（未配置时前端默认显示4道）
     @Schema(description = "题目数量")
     private Integer questionCount;
+
+    // 是否可以看赛后复盘
+    @Schema(description = "是否可以看赛后复盘（已结束且已结算、本人有提交）")
+    private Boolean reviewable = false;
 }

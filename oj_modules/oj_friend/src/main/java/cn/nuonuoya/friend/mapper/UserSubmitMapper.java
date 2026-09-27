@@ -32,11 +32,12 @@ public interface UserSubmitMapper extends BaseMapper<TbUserSubmit> {
                                                    @Param("judging") Integer judging,
                                                    @Param("pass") Integer pass);
 
-    // 难题分析：达到门槛的每道题的计数、失败最集中的用例与成立的申诉数（按通过率升序）
+    // 难题分析：达到门槛的每道题的计数、失败最集中的隐藏用例与成立的申诉数（按通过率升序；卡在公开示例上是常见错误，不计入）
     List<FriendHardQuestionStatVO> selectHardQuestionStats(@Param("minJudged") int minJudged,
                                                            @Param("judging") Integer judging,
                                                            @Param("pass") Integer pass,
                                                            @Param("notPass") Integer notPass,
+                                                           @Param("hidden") Integer hidden,
                                                            @Param("upheld") Integer upheld);
 
     // 难题分析：达到门槛的题按标签汇总（按通过率升序；已删除的标签与关联不计）

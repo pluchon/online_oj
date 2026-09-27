@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-// 难题分析实现（D-021）：数字由 oj-friend 的 SQL 统计，AI 只写结论与可疑题判断；结果缓存不过期，重新分析时覆盖
+// 难题分析实现：数字由 oj-friend 的 SQL 统计，AI 只写结论与可疑题判断；结果缓存不过期，重新分析时覆盖
 @Service
 public class HardAnalysisServiceImpl implements HardAnalysisService {
 

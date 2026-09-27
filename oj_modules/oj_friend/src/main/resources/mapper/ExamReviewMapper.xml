@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.nuonuoya.friend.mapper.ExamReviewMapper">
+
+    <!-- 本人的计数、首次通过用时与最后一次结论，和全场人数合并到一行（已删除的题不计） -->
+    <select id="selectQuestionStats" resultType="cn.nuonuoya.friend.vo.ExamReviewQuestionVO">
+        SELECT
+            eq.question_id AS questionId,
+            q.title AS title,
+            q.difficulty AS difficulty,
+            COALESCE(m.submitCount, 0) AS submitCount,
+            COALESCE(m.passed, 0) AS passed,
+            TIMESTAMPDIFF(MINUTE, e.start_time, m.firstPassTime) AS passMinutes,
+            COALESCE(m.bestScore, 0) AS score,
+            (SELECT s.judge_status
+             FROM tb_user_submit s
+             WHERE s.exam_id = eq.exam_id
+               AND s.user_id = #{userId}
+               AND s.question_id = eq.question_id
+             ORDER BY s.create_time DESC, s.submit_id DESC
+             LIMIT 1) AS lastJudgeStatus,
+            COALESCE(a.attemptUsers, 0) AS attemptUsers,
+            COALESCE(a.passUsers, 0) AS passUsers
+        FROM tb_exam_question eq
+        INNER JOIN tb_exam e ON e.exam_id = eq.exam_id
+        INNER JOIN tb_question q ON q.question_id = eq.question_id
+        LEFT JOIN (
+            SELECT
+                question_id,
+                COUNT(*) AS submitCount,
+                MAX(pass = #{pass}) AS passed,
+                MIN(CASE WHEN pass = #{pass} THEN create_time END) AS firstPassTime,
+                MAX(score) AS bestScore
+            FROM tb_user_submit
+            WHERE exam_id = #{examId}
+              AND user_id = #{userId}
+            GROUP BY question_id
+        ) m ON m.question_id = eq.question_id
+        LEFT JOIN (
+            SELECT
+                question_id,
+                COUNT(DISTINCT user_id) AS attemptUsers,
+                COUNT(DISTINCT CASE WHEN pass = #{pass} THEN user_id END) AS passUsers
+            FROM tb_user_submit
+            WHERE exam_id = #{examId}
+            GROUP BY question_id
+        ) a ON a.question_id = eq.question_id
+        WHERE eq.exam_id = #{examId}
+        ORDER BY eq.question_order, eq.question_id
+    </select>
+
+</mapper>

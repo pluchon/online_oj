@@ -28,6 +28,9 @@ public class AiProperties {
     // 难题分析的采样温度（归纳类任务，取低值；模型与出题共用 questionModel）
     private Double analysisTemperature = 0.3;
 
+    // 赛后复盘的采样温度（点评要具体又不失稳定；模型与出题共用 questionModel）
+    private Double reviewTemperature = 0.4;
+
     // 做题辅导对话使用的模型
     private String tutorModel = "qwen3.7-flash";
 

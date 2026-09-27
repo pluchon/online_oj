@@ -14,7 +14,7 @@ import cn.nuonuoya.friend.vo.SubmitHistoryVO;
 
 import java.util.List;
 
-// 提交申诉业务接口（规则见 D-017）
+// 提交申诉业务接口（AI 初审放行后才能正式申诉）
 public interface AppealService {
 
     // 当前用户今日的初审与申诉剩余次数

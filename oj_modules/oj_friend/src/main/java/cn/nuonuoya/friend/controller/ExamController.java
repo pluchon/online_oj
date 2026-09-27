@@ -6,8 +6,10 @@ import cn.nuonuoya.common.domain.PageQuery;
 import cn.nuonuoya.common.domain.TableDataResult;
 import cn.nuonuoya.friend.aspect.CheckUserStatus;
 import cn.nuonuoya.friend.dto.ExamQueryDTO;
+import cn.nuonuoya.friend.service.ExamReviewService;
 import cn.nuonuoya.friend.service.ExamService;
 import cn.nuonuoya.friend.vo.ExamRankVO;
+import cn.nuonuoya.friend.vo.ExamReviewVO;
 import cn.nuonuoya.friend.vo.ExamStatsVO;
 import cn.nuonuoya.friend.vo.ExamVO;
 import cn.nuonuoya.friend.vo.UserExamVO;
@@ -33,6 +35,9 @@ public class ExamController extends BaseController {
 
     @Autowired
     private ExamService examService;
+
+    @Autowired
+    private ExamReviewService examReviewService;
 
     /** 分页查询竞赛列表（通用入口） */
     @GetMapping
@@ -79,5 +84,28 @@ public class ExamController extends BaseController {
     @Operation(summary = "竞赛排名列表", description = "分页查询指定竞赛的选手得分与排名榜单")
     public TableDataResult<ExamRankVO> rankList(@PathVariable("examId") Long examId, PageQuery pageQuery) {
         return examService.getExamRankList(examId, pageQuery);
+    }
+
+    /** 查询本人这场的赛后复盘 */
+    @GetMapping("/{examId}/review")
+    @Operation(summary = "赛后复盘", description = "返回已生成且仍有效的复盘；还没生成或本人提交结果变化后 data 为空，需要调用生成接口")
+    public OJResult<ExamReviewVO> review(@PathVariable("examId") Long examId) {
+        return OJResult.ok(examReviewService.getReview(examId));
+    }
+
+    /** 生成本人这场的赛后复盘 */
+    @CheckUserStatus
+    @PostMapping("/{examId}/review")
+    @Operation(summary = "生成赛后复盘", description = "已结束且已结算、本人有提交的竞赛才能生成；已有且仍有效时直接返回，不重复调用 AI")
+    public OJResult<ExamReviewVO> generateReview(@PathVariable("examId") Long examId) {
+        return OJResult.ok(examReviewService.generateReview(examId));
+    }
+
+    /** 重新生成本人这场的赛后复盘 */
+    @CheckUserStatus
+    @PostMapping("/{examId}/review/regeneration")
+    @Operation(summary = "重新生成赛后复盘", description = "学员觉得复盘不合理时重新生成并覆盖，每场最多 3 次；次数用完返回 3219")
+    public OJResult<ExamReviewVO> regenerateReview(@PathVariable("examId") Long examId) {
+        return OJResult.ok(examReviewService.regenerateReview(examId));
     }
 }

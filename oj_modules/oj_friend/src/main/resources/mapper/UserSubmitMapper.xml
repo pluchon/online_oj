@@ -70,14 +70,14 @@
                 MAX(CASE WHEN c.rn = 1 THEN c.failCount END) AS topCaseFailCount
             FROM (
                 SELECT
-                    question_id,
-                    fail_case_id,
+                    s.question_id,
+                    s.fail_case_id,
                     COUNT(*) AS failCount,
-                    ROW_NUMBER() OVER (PARTITION BY question_id ORDER BY COUNT(*) DESC, fail_case_id) AS rn
-                FROM tb_user_submit
-                WHERE pass = #{notPass}
-                  AND fail_case_id IS NOT NULL
-                GROUP BY question_id, fail_case_id
+                    ROW_NUMBER() OVER (PARTITION BY s.question_id ORDER BY COUNT(*) DESC, s.fail_case_id) AS rn
+                FROM tb_user_submit s
+                INNER JOIN tb_question_case qc ON qc.case_id = s.fail_case_id AND qc.is_sample = #{hidden}
+                WHERE s.pass = #{notPass}
+                GROUP BY s.question_id, s.fail_case_id
             ) c
             GROUP BY c.question_id
         ) f ON f.question_id = h.question_id
