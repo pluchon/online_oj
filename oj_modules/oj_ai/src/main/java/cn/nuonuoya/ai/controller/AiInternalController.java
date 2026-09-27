@@ -1,5 +1,6 @@
 package cn.nuonuoya.ai.controller;
 
+import cn.nuonuoya.ai.service.AiAnalysisService;
 import cn.nuonuoya.ai.service.AiExamService;
 import cn.nuonuoya.ai.service.AiQuestionService;
 import cn.nuonuoya.api.ai.api.AiInternalApi;
@@ -7,12 +8,14 @@ import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
 import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
+import cn.nuonuoya.api.ai.dto.AiHardAnalysisDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiEditorialVO;
 import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
 import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
+import cn.nuonuoya.api.ai.vo.AiHardAnalysisVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import jakarta.validation.Valid;
@@ -29,6 +32,9 @@ public class AiInternalController implements AiInternalApi {
 
     @Autowired
     private AiExamService aiExamService;
+
+    @Autowired
+    private AiAnalysisService aiAnalysisService;
 
     /** 根据一句话描述生成题面草稿 */
     @Override
@@ -64,5 +70,11 @@ public class AiInternalController implements AiInternalApi {
     @Override
     public AiExamSelectVO selectExamQuestions(@Valid @RequestBody AiExamSelectDTO selectDTO) {
         return aiExamService.selectQuestions(selectDTO);
+    }
+
+    /** 难题分析 */
+    @Override
+    public AiHardAnalysisVO analyzeHardQuestions(@Valid @RequestBody AiHardAnalysisDTO analysisDTO) {
+        return aiAnalysisService.analyzeHardQuestions(analysisDTO);
     }
 }

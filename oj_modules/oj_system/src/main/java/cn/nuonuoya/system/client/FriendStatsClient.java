@@ -2,6 +2,8 @@ package cn.nuonuoya.system.client;
 
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
+import cn.nuonuoya.api.friend.vo.FriendFailedSampleVO;
+import cn.nuonuoya.api.friend.vo.FriendHardAnalysisVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
 import cn.nuonuoya.common.enums.ResultCode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,5 +37,19 @@ public class FriendStatsClient {
         return RemoteCallGuard.call("查询竞赛人数", ResultCode.FAILED_STATS_UNAVAILABLE,
                 () -> friendStatsFeignClient.getExamSummary(examIds),
                 summary -> summary != null && summary.getEnrollCount() != null && summary.getExams() != null);
+    }
+
+    // 难题分析统计
+    public FriendHardAnalysisVO getHardAnalysis() {
+        return RemoteCallGuard.call("查询难题分析统计", ResultCode.FAILED_STATS_UNAVAILABLE,
+                () -> friendStatsFeignClient.getHardAnalysis(),
+                stats -> stats != null && stats.getQuestions() != null && stats.getTags() != null && stats.getVerdicts() != null);
+    }
+
+    // 某题最近的未通过提交样本
+    public List<FriendFailedSampleVO> getFailedSamples(Long questionId, Long caseId, int limit) {
+        return RemoteCallGuard.call("查询失败代码样本", ResultCode.FAILED_STATS_UNAVAILABLE,
+                () -> friendStatsFeignClient.getFailedSamples(questionId, caseId, limit),
+                samples -> samples != null);
     }
 }

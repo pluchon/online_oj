@@ -3,10 +3,13 @@ package cn.nuonuoya.friend.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
+import cn.nuonuoya.api.friend.vo.FriendFailedSampleVO;
+import cn.nuonuoya.api.friend.vo.FriendHardAnalysisVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
 import cn.nuonuoya.api.friend.vo.FriendPeriodStatVO;
 import cn.nuonuoya.api.friend.vo.FriendSubmitStatBaseVO;
 import cn.nuonuoya.common.enums.ResultCode;
+import cn.nuonuoya.api.friend.enums.AppealStatusEnum;
 import cn.nuonuoya.friend.enums.SubmitPassEnum;
 import cn.nuonuoya.friend.mapper.UserExamMapper;
 import cn.nuonuoya.friend.mapper.UserSubmitMapper;
@@ -39,6 +42,9 @@ public class StatsServiceImpl implements StatsService {
 
     // 难题榜题数
     private static final int HARD_QUESTION_LIMIT = 5;
+
+    // 失败样本单次最多取的份数
+    private static final int MAX_FAILED_SAMPLES = 5;
 
     @Autowired
     private UserSubmitMapper userSubmitMapper;
@@ -76,6 +82,32 @@ public class StatsServiceImpl implements StatsService {
         FriendExamSummaryVO vo = userExamMapper.selectExamSummary(examIds);
         vo.setExams(userExamMapper.selectExamStats(examIds));
         return vo;
+    }
+
+    // 难题分析统计：门槛与难题榜一致，三组数字都由 SQL 算好
+    @Override
+    public FriendHardAnalysisVO getHardAnalysis() {
+        Integer judging = SubmitPassEnum.JUDGING.getCode();
+        Integer pass = SubmitPassEnum.PASS.getCode();
+        Integer notPass = SubmitPassEnum.NOT_PASS.getCode();
+        FriendHardAnalysisVO vo = new FriendHardAnalysisVO();
+        vo.setQuestions(userSubmitMapper.selectHardQuestionStats(HARD_QUESTION_MIN_JUDGED, judging, pass, notPass,
+                AppealStatusEnum.UPHELD.getCode()));
+        if (vo.getQuestions().isEmpty()) {
+            return vo;
+        }
+        vo.setTags(userSubmitMapper.selectHardTagStats(HARD_QUESTION_MIN_JUDGED, judging, pass));
+        vo.setVerdicts(userSubmitMapper.selectHardVerdictStats(HARD_QUESTION_MIN_JUDGED, judging, pass, notPass));
+        return vo;
+    }
+
+    // 某题最近的未通过提交样本，份数须在 1 ~ 5 之间
+    @Override
+    public List<FriendFailedSampleVO> getFailedSamples(Long questionId, Long caseId, Integer limit) {
+        if (questionId == null || limit == null || limit < 1 || limit > MAX_FAILED_SAMPLES) {
+            throw new ServiceException(ResultCode.FAILED_PARAMS_VALIDATE);
+        }
+        return userSubmitMapper.selectFailedSamples(questionId, caseId, limit, SubmitPassEnum.NOT_PASS.getCode());
     }
 
     // 近 N 天（含今日）每日统计，按日期升序补齐没有提交的日子

@@ -4,12 +4,14 @@ import cn.nuonuoya.api.ai.dto.AiCaseInputDTO;
 import cn.nuonuoya.api.ai.dto.AiEditorialDTO;
 import cn.nuonuoya.api.ai.dto.AiExamIntentDTO;
 import cn.nuonuoya.api.ai.dto.AiExamSelectDTO;
+import cn.nuonuoya.api.ai.dto.AiHardAnalysisDTO;
 import cn.nuonuoya.api.ai.dto.AiQuestionDraftDTO;
 import cn.nuonuoya.api.ai.dto.AiSolutionDTO;
 import cn.nuonuoya.api.ai.vo.AiCaseInputVO;
 import cn.nuonuoya.api.ai.vo.AiEditorialVO;
 import cn.nuonuoya.api.ai.vo.AiExamIntentVO;
 import cn.nuonuoya.api.ai.vo.AiExamSelectVO;
+import cn.nuonuoya.api.ai.vo.AiHardAnalysisVO;
 import cn.nuonuoya.api.ai.vo.AiQuestionDraftVO;
 import cn.nuonuoya.api.ai.vo.AiSolutionVO;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,4 +43,8 @@ public interface AiInternalApi {
     // 从候选题目中按各难度数量挑题（调用方：oj-system，只读）
     @PostMapping("/ai/internal/exam/select")
     AiExamSelectVO selectExamQuestions(@RequestBody AiExamSelectDTO selectDTO);
+
+    // 难题分析：根据统计数字归纳薄弱点与错误类型，并判断可疑题是否出题有误（调用方：oj-system 数据概览，只读）
+    @PostMapping("/ai/internal/analysis/hard-questions")
+    AiHardAnalysisVO analyzeHardQuestions(@RequestBody AiHardAnalysisDTO analysisDTO);
 }

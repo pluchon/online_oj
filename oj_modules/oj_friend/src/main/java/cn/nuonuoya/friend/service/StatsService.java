@@ -2,6 +2,8 @@ package cn.nuonuoya.friend.service;
 
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
+import cn.nuonuoya.api.friend.vo.FriendFailedSampleVO;
+import cn.nuonuoya.api.friend.vo.FriendHardAnalysisVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
 
 import java.util.List;
@@ -17,4 +19,10 @@ public interface StatsService {
 
     // 指定竞赛的报名与参赛人数
     FriendExamSummaryVO getExamSummary(List<Long> examIds);
+
+    // 难题分析统计：单题、按标签、按判题结论
+    FriendHardAnalysisVO getHardAnalysis();
+
+    // 某题最近的未通过提交样本
+    List<FriendFailedSampleVO> getFailedSamples(Long questionId, Long caseId, Integer limit);
 }

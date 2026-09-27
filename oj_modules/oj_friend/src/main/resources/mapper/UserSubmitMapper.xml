@@ -34,4 +34,103 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 难题分析的范围：已出结论的提交达到门槛的题（已删除的题不计） -->
+    <sql id="hardQuestionScope">
+        SELECT
+            s.question_id,
+            COUNT(*) AS submitCount,
+            SUM(s.pass != #{judging}) AS judgedCount,
+            SUM(s.pass = #{pass}) AS passCount
+        FROM tb_user_submit s
+        INNER JOIN tb_question q ON q.question_id = s.question_id
+        GROUP BY s.question_id
+        HAVING judgedCount &gt;= #{minJudged}
+    </sql>
+
+    <select id="selectHardQuestionStats" resultType="cn.nuonuoya.api.friend.vo.FriendHardQuestionStatVO">
+        SELECT
+            h.question_id AS questionId,
+            h.submitCount,
+            h.judgedCount,
+            h.passCount,
+            COALESCE(f.caseFailCount, 0) AS caseFailCount,
+            f.topCaseId,
+            COALESCE(f.topCaseFailCount, 0) AS topCaseFailCount,
+            (SELECT COUNT(*)
+             FROM tb_submit_appeal a
+             WHERE a.question_id = h.question_id
+               AND a.status = #{upheld}
+               AND a.delete_state = 0) AS upheldAppealCount
+        FROM (<include refid="hardQuestionScope"/>) h
+        LEFT JOIN (
+            SELECT
+                c.question_id,
+                SUM(c.failCount) AS caseFailCount,
+                MAX(CASE WHEN c.rn = 1 THEN c.fail_case_id END) AS topCaseId,
+                MAX(CASE WHEN c.rn = 1 THEN c.failCount END) AS topCaseFailCount
+            FROM (
+                SELECT
+                    question_id,
+                    fail_case_id,
+                    COUNT(*) AS failCount,
+                    ROW_NUMBER() OVER (PARTITION BY question_id ORDER BY COUNT(*) DESC, fail_case_id) AS rn
+                FROM tb_user_submit
+                WHERE pass = #{notPass}
+                  AND fail_case_id IS NOT NULL
+                GROUP BY question_id, fail_case_id
+            ) c
+            GROUP BY c.question_id
+        ) f ON f.question_id = h.question_id
+        ORDER BY h.passCount / h.judgedCount, h.judgedCount DESC, h.question_id
+    </select>
+
+    <select id="selectHardTagStats" resultType="cn.nuonuoya.api.friend.vo.FriendTagStatVO">
+        SELECT
+            t.tag_name AS tagName,
+            COUNT(*) AS questionCount,
+            SUM(h.submitCount) AS submitCount,
+            SUM(h.judgedCount) AS judgedCount,
+            SUM(h.passCount) AS passCount
+        FROM (<include refid="hardQuestionScope"/>) h
+        INNER JOIN tb_question_tag qt ON qt.question_id = h.question_id AND qt.delete_state = 0
+        INNER JOIN tb_tag t ON t.tag_id = qt.tag_id AND t.delete_state = 0
+        GROUP BY t.tag_id, t.tag_name
+        ORDER BY SUM(h.passCount) / SUM(h.judgedCount), judgedCount DESC, t.tag_id
+    </select>
+
+    <select id="selectHardVerdictStats" resultType="cn.nuonuoya.api.friend.vo.FriendVerdictStatVO">
+        SELECT
+            s.judge_status AS judgeStatus,
+            COUNT(*) AS failCount
+        FROM tb_user_submit s
+        INNER JOIN (<include refid="hardQuestionScope"/>) h ON h.question_id = s.question_id
+        WHERE s.pass = #{notPass}
+          AND s.judge_status IS NOT NULL
+        GROUP BY s.judge_status
+        ORDER BY failCount DESC, s.judge_status
+    </select>
+
+    <select id="selectFailedSamples" resultType="cn.nuonuoya.api.friend.vo.FriendFailedSampleVO">
+        SELECT
+            r.user_code AS userCode,
+            r.fail_output AS failOutput
+        FROM (
+            SELECT
+                user_code,
+                fail_output,
+                create_time,
+                submit_id,
+                ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY create_time DESC, submit_id DESC) AS rn
+            FROM tb_user_submit
+            WHERE question_id = #{questionId}
+              AND pass = #{notPass}
+            <if test="caseId != null">
+              AND fail_case_id = #{caseId}
+            </if>
+        ) r
+        WHERE r.rn = 1
+        ORDER BY r.create_time DESC, r.submit_id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

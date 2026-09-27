@@ -3,6 +3,8 @@ package cn.nuonuoya.friend.controller;
 import cn.nuonuoya.api.friend.api.FriendStatsInternalApi;
 import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
 import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
+import cn.nuonuoya.api.friend.vo.FriendFailedSampleVO;
+import cn.nuonuoya.api.friend.vo.FriendHardAnalysisVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
 import cn.nuonuoya.friend.service.StatsService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,5 +37,19 @@ public class StatsInternalController implements FriendStatsInternalApi {
     @Override
     public FriendExamSummaryVO getExamSummary(@RequestBody List<Long> examIds) {
         return statsService.getExamSummary(examIds);
+    }
+
+    /** 难题分析统计 */
+    @Override
+    public FriendHardAnalysisVO getHardAnalysis() {
+        return statsService.getHardAnalysis();
+    }
+
+    /** 某题最近的未通过提交样本 */
+    @Override
+    public List<FriendFailedSampleVO> getFailedSamples(@RequestParam("questionId") Long questionId,
+                                                       @RequestParam(value = "caseId", required = false) Long caseId,
+                                                       @RequestParam("limit") Integer limit) {
+        return statsService.getFailedSamples(questionId, caseId, limit);
     }
 }
