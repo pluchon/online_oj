@@ -20,6 +20,10 @@ public class OverviewQuestionVO extends SubmitStatBaseVO {
     @Schema(description = "题目标题")
     private String title;
 
+    // 题目难度
+    @Schema(description = "题目难度（1: 简单 2: 中等 3: 困难）")
+    private Integer difficulty;
+
     // 题目难度描述
     @Schema(description = "题目难度描述")
     private String difficultyDesc;

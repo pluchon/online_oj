@@ -9,7 +9,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-// 最近一场竞赛的参与情况视图对象
+// 单场竞赛的参与情况视图对象
 @Getter
 @Setter
 public class OverviewExamVO {

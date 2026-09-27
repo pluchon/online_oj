@@ -331,7 +331,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `GET|POST /system/exam/{examId}/questions`、`DELETE /system/exam/{examId}/questions/{questionId}`：竞赛题目编排（只能添加竞赛题，已在结束的竞赛中公开过的题不能再用）
 * `GET  /system/user`、`PUT /system/user/{userId}`、`PUT /system/user/{userId}/status`：C端用户列表、资料编辑（手机号唯一）与拉黑解禁
 * `GET  /system/appeal`、`GET /system/appeal/{appealId}`、`PUT /system/appeal/{appealId}/handle`：申诉管理（按用户 ID、题目名称、最近天数筛选，按申诉时间倒序；详情含申诉理由、AI 初审分析、代码与逐用例输入/预期/实际输出；裁定为存疑、通过（改判为通过并通知学员）或不通过（驳回并通知），规则见前端仓库 `.agents/DECISIONS.md` D-017）
-* `GET  /system/overview`：数据概览（今日与近 7 天的提交数、通过率、活跃用户，近 7 天趋势，难题榜，最近一场竞赛的报名与参赛人数；口径见前端仓库 `.agents/DECISIONS.md` D-016）
+* `GET  /system/overview`、`GET /system/overview/trend?days=`、`GET /system/overview/exam?days=&pageNum=&pageSize=`：数据概览（今日与近 7 天的提交数、活跃用户与难题榜；近 N 天每日趋势；近 N 天内进行过的竞赛的去重报名、参赛人数与分页列表；N 为 1 ~ 30，口径见前端仓库 `.agents/DECISIONS.md` D-016、D-019）
 * `GET|POST /system/submit/rejudge/{questionId}`：按题重判的影响范围预览与执行（入口在题目抽屉：修改用例保存后提示）（重判练习提交和未结算竞赛的提交，已结算竞赛与评测中的跳过）
 
 ### 3. 服务间内部接口 (`/{domain}/internal/**`，网关屏蔽)
@@ -348,7 +348,7 @@ judge 需要本机 Docker 可用，启动时会预热判题容器池。
 * `POST /friend/internal/exam/cache/refresh`：system 竞赛变更后、job 定时刷新竞赛缓存
 * `POST /friend/internal/exam/rank/settle`：job 定时结算已结束竞赛（竞赛里还有 10 分钟内投递、尚未回写的提交时推迟到下一轮）
 * `POST /friend/internal/appeal/list`、`GET /friend/internal/appeal/{appealId}`、`POST /friend/internal/appeal/{appealId}/handle`、`POST /friend/internal/appeal/upheld-stats`：system 申诉管理（申诉与提交归 friend，裁定为通过时由 friend 改判并发消息；统计用于题目列表的「申诉成立、待修题」标记）
-* `GET /friend/internal/stats/overview`：system 数据概览的统计汇总（提交与报名数据归 friend，system 补题目与竞赛名称）
+* `GET /friend/internal/stats/overview`、`GET /friend/internal/stats/trend`、`POST /friend/internal/stats/exam`：system 数据概览的统计汇总、每日趋势、指定竞赛的报名与参赛人数（提交与报名数据归 friend；竞赛按时间段筛选与分页在 system，system 补题目与竞赛信息）
 * `GET /friend/internal/submit/rejudge/preview`、`POST /friend/internal/submit/rejudge`：system 按题重判（逐条改回评测中再投递判题队列，重复点击不会重复投递）
 * `POST /system/internal/question/publish`：job 定时公开已结束竞赛的题目（所在竞赛全部结束的竞赛题改为刷题，进入 C 端题库）
 

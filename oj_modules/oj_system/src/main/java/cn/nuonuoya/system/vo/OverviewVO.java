@@ -19,15 +19,7 @@ public class OverviewVO {
     @Schema(description = "近 7 天统计（含今日）")
     private OverviewPeriodVO week;
 
-    // 近 7 天每日趋势
-    @Schema(description = "近 7 天每日趋势（按日期升序，没有提交的日子为 0）")
-    private List<OverviewTrendVO> trend;
-
     // 难题榜
     @Schema(description = "难题榜：已出结论提交满 5 条的题中通过率最低的 5 道")
     private List<OverviewQuestionVO> hardQuestions;
-
-    // 最近一场竞赛
-    @Schema(description = "最近一场已开赛的竞赛（没有时为空）")
-    private OverviewExamVO latestExam;
 }

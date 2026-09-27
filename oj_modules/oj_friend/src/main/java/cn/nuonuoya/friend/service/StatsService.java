@@ -1,10 +1,20 @@
 package cn.nuonuoya.friend.service;
 
+import cn.nuonuoya.api.friend.vo.FriendDailyStatVO;
+import cn.nuonuoya.api.friend.vo.FriendExamSummaryVO;
 import cn.nuonuoya.api.friend.vo.FriendOverviewVO;
+
+import java.util.List;
 
 // 统计业务接口（供管理端数据概览使用）
 public interface StatsService {
 
-    // 汇总今日与近 7 天的提交统计、每日趋势、难题榜与最近一场竞赛的参与情况
+    // 汇总今日与近 7 天的提交统计与难题榜
     FriendOverviewVO getOverview();
+
+    // 近 N 天每日提交趋势（天数 1 ~ 30）
+    List<FriendDailyStatVO> getTrend(Integer days);
+
+    // 指定竞赛的报名与参赛人数
+    FriendExamSummaryVO getExamSummary(List<Long> examIds);
 }
